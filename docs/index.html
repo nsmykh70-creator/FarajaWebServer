@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Faraja WebServer — локальная среда веб-разработки для Windows</title>
+<meta name="description" content="Faraja WebServer: Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, SSL — всё в одном portable EXE для Windows.">
+<link rel="icon" href="favicon.ico">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--elev:#1c2128;--border:#30363d;--accent:#2f81f7;
+--hover:#4b9bff;--ok:#3fb950;--text:#e6edf3;--dim:#8b949e;--mut:#6e7681}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+nav{position:sticky;top:0;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);z-index:10}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;padding:12px 22px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:18px}
+.brand img{height:40px}
+nav a{color:var(--dim);text-decoration:none;margin-left:22px;font-size:14px}
+nav a:hover{color:var(--accent)}
+.hero{text-align:center;padding:72px 0 56px}
+.hero img{width:300px;max-width:80%}
+.hero h1{font-size:40px;margin:18px 0 10px}
+.hero h1 span{color:var(--accent)}
+.hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto 30px}
+.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:14px 34px;border-radius:10px;font-weight:700;font-size:16px;text-decoration:none}
+.btn-dl{background:var(--accent);color:#fff}
+.btn-dl:hover{background:var(--hover)}
+.btn-gh{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-gh:hover{border-color:var(--accent);color:var(--accent)}
+.ver{color:var(--mut);font-size:13px;margin-top:14px}
+section{padding:52px 0;border-top:1px solid var(--border)}
+h2{font-size:28px;margin-bottom:8px}
+.sub{color:var(--dim);margin-bottom:28px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.feat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px}
+.feat .ico{font-size:28px}
+.feat h3{margin:10px 0 6px;font-size:17px}
+.feat p{color:var(--dim);font-size:14px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:15px}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)}
+th{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+tr:last-child td{border-bottom:none}
+td.port{font-family:Consolas,monospace;color:var(--accent)}
+.badge{display:inline-block;background:var(--ok);color:#06280f;font-weight:800;font-size:12px;border-radius:20px;padding:2px 12px}
+.steps{counter-reset:s;display:grid;gap:14px}
+.step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px 18px 64px;position:relative}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:18px;top:16px;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.step code{background:var(--elev);border:1px solid var(--border);border-radius:6px;padding:1px 8px;font-size:14px;color:var(--hover)}
+.faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-weight:700}
+.faq p{color:var(--dim);margin-top:8px;font-size:15px}
+footer{border-top:1px solid var(--border);padding:26px 0;color:var(--mut);font-size:14px;text-align:center}
+footer a{color:var(--accent);text-decoration:none}
+@media(max-width:640px){.hero h1{font-size:30px}nav a{margin-left:12px}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+<div class="brand"><img src="logo.png" alt="Faraja WebServer">Faraja WebServer</div>
+<div><a href="#features">Возможности</a><a href="#services">Сервисы</a><a href="#start">Старт</a><a href="#faq">FAQ</a></div>
+</div></nav>
+
+<div class="wrap hero">
+<img src="logo.png" alt="Faraja WebServer logo">
+<h1>Локальный веб-сервер <span>за 5 минут</span></h1>
+<p>Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker и SSL — всё в одном portable EXE. Ничего не ставится в систему.</p>
+<div class="btns">
+<a class="btn btn-dl" href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe">⬇ Скачать для Windows</a>
+<a class="btn btn-gh" href="https://github.com/nsmykh70-creator/FarajaWebServer">★ GitHub</a>
+</div>
+<div class="ver">Windows 10/11 · ~20 МБ · бесплатно · MIT</div>
+</div>
+
+<div class="wrap"><section id="features">
+<h2>Возможности</h2><p class="sub">Полноценная среда разработки из одного файла</p>
+<div class="grid">
+<div class="feat"><div class="ico">🖥️</div><h3>Всё в одном окне</h3><p>Карточки сервисов с кнопками Старт / Стоп / Рестарт, общий запуск одной кнопкой, трей.</p></div>
+<div class="feat"><div class="ico">🗄️</div><h3>Базы данных</h3><p>MariaDB + PostgreSQL, встроенный SQL-редактор и phpMyAdmin из коробки.</p></div>
+<div class="feat"><div class="ico">🔒</div><h3>Локальный HTTPS</h3><p>Выпуск доверенного SSL-сертификата для localhost в один клик (mkcert).</p></div>
+<div class="feat"><div class="ico">🌐</div><h3>Мультисайты</h3><p>Добавляйте сайты, открывайте их в браузере одной кнопкой.</p></div>
+<div class="feat"><div class="ico">📝</div><h3>Редактор кода</h3><p>Подсветка PHP, HTML, CSS, JS, TS, Python, темы, мини-карта, запоминание настроек.</p></div>
+<div class="feat"><div class="ico">🌍</div><h3>6 языков</h3><p>Русский, English, Español, Deutsch, Français, 中文 — переключение флажками.</p></div>
+</div></section>
+
+<section id="services">
+<h2>Сервисы и порты</h2><p class="sub">Порты меняются в <code>config/server.json</code></p>
+<table>
+<tr><th>Сервис</th><th>Назначение</th><th>Порт</th></tr>
+<tr><td>🪶 Apache</td><td>Веб-сервер (HTTP)</td><td class="port">8080</td></tr>
+<tr><td>🗄️ MariaDB</td><td>База данных (root без пароля)</td><td class="port">3306</td></tr>
+<tr><td>📜 PHP</td><td>Серверный язык, FastCGI</td><td class="port">9074</td></tr>
+<tr><td>🐘 PostgreSQL</td><td>Продвинутая СУБД</td><td class="port">5432</td></tr>
+<tr><td>⚡ Redis</td><td>Хранилище в памяти</td><td class="port">6379</td></tr>
+<tr><td>🔀 Nginx</td><td>Обратный прокси <span class="badge">HTTPS</span></td><td class="port">80</td></tr>
+<tr><td>🟢 Node.js</td><td>JS / TS скрипты</td><td class="port">—</td></tr>
+<tr><td>🐳 Docker</td><td>Статус и управление контейнерами</td><td class="port">—</td></tr>
+</table></section>
+
+<section id="start">
+<h2>Быстрый старт</h2><p class="sub">От скачивания до своего сайта — пять шагов</p>
+<div class="steps">
+<div class="step"><b>Скачайте и запустите</b> <code>FarajaWebServer.exe</code>. При первом запуске отметьте нужные компоненты и нажмите «Установить».</div>
+<div class="step"><b>Нажмите «ЗАПУСТИТЬ ВСЕ»</b> — все бейджи сервисов станут зелёными.</div>
+<div class="step"><b>Откройте</b> <code>http://127.0.0.1:8080/</code> в браузере — стартовая страница.</div>
+<div class="step"><b>Положите проект в папку</b> <code>www/</code>, например <code>www/mysite/index.php</code> — он доступен по адресу <code>http://127.0.0.1:8080/mysite/</code>.</div>
+<div class="step"><b>Базы данных</b> — вкладка SQL (root без пароля) или кнопка phpMyAdmin.</div>
+</div></section>
+
+<section id="faq" class="faq">
+<h2>Вопросы и ответы</h2><p class="sub">Типовые ситуации</p>
+<details><summary>Порт занят — что делать?</summary><p>Ошибка назовёт процесс и PID. Закройте чужую программу (Skype, IIS, другой сервер) либо смените порт в <code>config/server.json</code> и перезапустите сервис.</p></details>
+<details><summary>PHP-страница пустая?</summary><p>Убедитесь, что запущены и Apache, и PHP. Подробности — во вкладках «Ошибки Apache / PHP».</p></details>
+<details><summary>Нужен HTTPS?</summary><p>Нажмите «Настроить SSL», перезапустите Nginx — сайт откроется по <code>https://localhost/</code> без предупреждений браузера.</p></details>
+<details><summary>Куда класть свои файлы?</summary><p>В папку <code>www/</code> рядом с программой. Каждую подпапку можно оформить как сайт через вкладку «Сайты».</p></details>
+<details><summary>Это бесплатно?</summary><p>Да. Лицензия MIT — используйте и изменяйте свободно.</p></details>
+</section></div>
+
+<footer>Faraja WebServer · MIT License · <a href="https://github.com/nsmykh70-creator/FarajaWebServer">GitHub</a> · <a href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest">Скачать</a></footer>
+</body>
+</html>

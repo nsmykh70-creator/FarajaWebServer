@@ -1,0 +1,43 @@
+{
+  "apache": {
+    "url": "https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.68-260827-Win64-VS18.zip",
+    "archive": "apache.zip",
+    "expected": "runtime/Apache24/bin/httpd.exe"
+  },
+  "php": {
+    "url": "https://www.php.net/~windows/releases/latest/php-8.3-nts-Win32-vs16-x64-latest.zip",
+    "archive": "php.zip",
+    "expected": "runtime/php/php-cgi.exe"
+  },
+  "mariadb": {
+    "browse_url": "https://dlm.mariadb.com/browse/mariadb_server/11.8.6/winx64-packages/",
+    "filename": "mariadb-11.8.6-winx64.zip",
+    "archive": "mariadb.zip",
+    "expected": "runtime/MariaDB/bin/mariadbd.exe"
+  },
+  "postgresql": {
+    "url": "https://sbp.enterprisedb.com/getfile.jsp?fileid=1260488",
+    "archive": "postgresql.zip",
+    "expected": "runtime/PostgreSQL/bin/pg_ctl.exe"
+  },
+  "redis": {
+    "url": "https://github.com/redis-windows/redis-windows/releases/download/8.10.1/Redis-8.10.1-Windows-x64-msys2.zip",
+    "archive": "redis.zip",
+    "expected": "runtime/Redis/redis-server.exe"
+  },
+  "nginx": {
+    "url": "https://nginx.org/download/nginx-1.30.4.zip",
+    "archive": "nginx.zip",
+    "expected": "runtime/nginx/nginx.exe"
+  },
+  "nodejs": {
+    "url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip",
+    "archive": "nodejs.zip",
+    "expected": "runtime/Nodejs/node.exe"
+  },
+  "phpmyadmin": {
+    "url": "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip",
+    "archive": "phpmyadmin.zip",
+    "expected": "www/phpmyadmin/index.php"
+  }
+}

@@ -1,0 +1,20 @@
+# Runtime data (downloaded by the app itself)
+runtime/
+downloads/
+logs/
+tmp/
+ssl/
+
+# Build artefacts
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# User-local state
+config/*.json
+config/.first_run_done
+*.log
