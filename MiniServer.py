@@ -814,6 +814,11 @@ class Services:
                 except Exception:
                     pass
         install_component(name, self.log, progress)
+        if name == "nginx" and hasattr(self, "_nginx_feat"):
+            try:
+                del self._nginx_feat
+            except Exception:
+                pass
         cb = getattr(self, "ui_progress", None)
         if cb:
             try:
@@ -1299,6 +1304,23 @@ port={CONFIG["mariadb_port"]}
             detail=", ".join(f"{name or 'unknown'} (PID {pid})" for pid,name in owners)
             raise RuntimeError(f"Nginx could not be stopped on port {CONFIG['nginx_port']}. Listener: {detail or 'unknown'}")
         self.log("Nginx stopped")
+    def nginx_features(self):
+        if hasattr(self, "_nginx_feat"):
+            return self._nginx_feat
+        feat = {"http_v3": False, "brotli": False}
+        try:
+            exe = self.nd / "nginx.exe"
+            if exe.exists():
+                r = subprocess.run([str(exe), "-V"], capture_output=True, text=True, timeout=10,
+                                   cwd=str(self.nd),
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                out = (r.stdout or "") + (r.stderr or "")
+                feat["http_v3"] = "http_v3" in out
+                feat["brotli"] = "brotli" in out
+        except Exception:
+            pass
+        self._nginx_feat = feat
+        return feat
     def _write_nginx_conf(self):
         www_path = WWW.resolve().as_posix()
         a_port = CONFIG["apache_port"]
@@ -1306,11 +1328,17 @@ port={CONFIG["mariadb_port"]}
         ssl_dir = APP_ROOT / "ssl"
         ssl_cert = ssl_dir / "localhost.pem"
         ssl_key = ssl_dir / "localhost-key.pem"
+        feat = self.nginx_features()
+        quic443 = "\n        listen 443 quic reuseport;" if feat["http_v3"] else ""
+        brotli_block = ""
+        if feat["brotli"]:
+            brotli_block = ("\n    brotli on;\n    brotli_comp_level 6;\n"
+                            "    brotli_types text/plain text/css application/json application/javascript text/xml;")
         ssl_block = ""
         if ssl_cert.exists() and ssl_key.exists():
             ssl_block = f'''
     server {{
-        listen 443 ssl http2;
+        listen 443 ssl http2;{quic443}
         server_name localhost;
         ssl_certificate "{ssl_cert.resolve().as_posix()}";
         ssl_certificate_key "{ssl_key.resolve().as_posix()}";
@@ -1348,7 +1376,7 @@ port={CONFIG["mariadb_port"]}
                 cert = ssl_dir / f"{domain}.pem"
                 key = ssl_dir / f"{domain}-key.pem"
                 if cert.is_file() and key.is_file():
-                    ssl_listen = "\n        listen 443 ssl http2;"
+                    ssl_listen = "\n        listen 443 ssl http2;" + quic443
                     ssl_lines = (f'\n        ssl_certificate "{cert.resolve().as_posix()}";'
                                  f'\n        ssl_certificate_key "{key.resolve().as_posix()}";'
                                  '\n        ssl_protocols TLSv1.2 TLSv1.3;')
@@ -1400,7 +1428,7 @@ http {{
     gzip_vary on;
     gzip_comp_level 6;
     gzip_min_length 256;
-    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_types text/plain text/css application/json application/javascript text/xml;{brotli_block}
     server {{
         listen {n_port};
         server_name localhost;{node_blocks}
@@ -5243,9 +5271,11 @@ class App:
                        activeforeground=THEME["text"], font=(THEME["font_family"], 9),
                        highlightthickness=0, bd=0).pack(side="left", padx=(16, 0))
 
-        envbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+        envsel = tk.Frame(parent, bg=THEME["bg_elevated"])
+        envsel.pack(fill="x", padx=10, pady=4)
+        envbox = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                         highlightthickness=1)
-        envbox.pack(fill="x", padx=10, pady=4)
+        envbox.pack(side="left", fill="both", expand=True, padx=(0, 5))
         tk.Label(envbox, text=lang.t("set_env"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
         try:
@@ -5297,8 +5327,8 @@ class App:
                  fg=THEME["text_dim"], font=("Cascadia Code", 8)).pack(side="left", padx=4)
 
         # Components are explicitly selected here; installation is never triggered at startup.
-        select_box = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
-        select_box.pack(fill="x", padx=10, pady=(5, 3))
+        select_box = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
+        select_box.pack(side="left", fill="both", expand=True, padx=(5, 0))
         tk.Label(select_box, text=lang.t("set_select"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
         self._set_component_vars = {}
@@ -6187,6 +6217,39 @@ class App:
                     "Шаг 4. Карточка Docker в LockSer станет зелёной — Docker доступен.\n"
                     "Шаг 5. Контейнерами управляйте через терминал: docker ps (список), docker stop <имя>,\n"
                     "docker compose up -d (запуск проекта с docker-compose.yml).",
+                "node": "NODE.JS — СЕРВЕРЫ, А НЕ ТОЛЬКО СКРИПТЫ:\n\n"
+                    "Шаг 1. Вкладка «Проекты» → «Node.js». Укажите имя, каталог проекта, файл (server.js\n"
+                    "или server.ts) и порт (например 3000). Каталог можно выбрать кнопкой «Обзор».\n"
+                    "Шаг 2. Нажмите СТАРТ: приложение запустит сервер (для .ts — через tsx), дождётся порта\n"
+                    "и пропишет роут /node/3000/ в конфиг Nginx. Статус, PID и время — в таблице.\n"
+                    "Шаг 3. Откройте сайт: кнопка «Открыть сайт» ведёт на http://127.0.0.1:3000/,\n"
+                    "а через Nginx он же доступен по http://127.0.0.1:80/node/3000/.\n"
+                    "Шаг 4. СТОП/РЕСТАРТ управляют сервером; удаление стирает и определение, и процесс.\n"
+                    "Определения хранятся в config/node.json.\n"
+                    "Шаг 5. Переменная окружения PORT автоматически равна порту сервера — используйте\n"
+                    "process.env.PORT в коде. Все Node-процессы убиваются при выходе из программы.",
+                "perf": "НАГРУЗОЧНОЕ ТЕСТИРОВАНИЕ:\n\n"
+                    "Шаг 1. Вкладка «Мониторинг» → «Нагрузка». Цель по умолчанию — ваш Apache.\n"
+                    "Шаг 2. Выберите профиль: Quick (10/15с), Normal (50/60с), Stress (200/180с),\n"
+                    "Spike (300/60с — резкий наплыв), Soak (50/1800с — поиск утечек) или Custom.\n"
+                    "Шаг 3. Список запросов «МЕТОД путь [вес]», например «GET /catalog 20» — нагрузка\n"
+                    "распределится по весам. POST шлёт тестовое тело.\n"
+                    "Шаг 4. Одна кнопка СТАРТ/СТОП (перекрашивается). Во время теста: RPS, OK %, ошибки,\n"
+                    "Avg/P50/P95/P99, CPU/RAM и живой график (зелёный — RPS, оранжевый — P95).\n"
+                    "Шаг 5. Кнопка Auto сама прогоняет стадии 10→25→50→100→200 и печатает таблицу пределов\n"
+                    "плюс «Stable max». Кнопка «В эталон» фиксирует результат для сравнения A/B:\n"
+                    "поменяли конфиг — прогнали — видите ΔRPS/ΔP95. «Сохранить отчёт» пишет .txt.\n"
+                    "Защита: нелокальные адреса требуют подтверждения.",
+                "env": "ОКРУЖЕНИЕ И ВИРТУАЛЬНЫЕ ХОСТЫ:\n\n"
+                    "Версии: в Настройках секция «Окружение» — PHP 8.2/8.3/8.4 и Node.js 20/22/24.\n"
+                    "«Применить» скачивает сборку, ставит поверх runtime, запоминает выбор и рестартует PHP.\n"
+                    "Рядом всегда видны реально установленные версии и инструменты (Composer/npm/Git).\n"
+                    "Режим PHP (Development/Safe) и листинг каталогов — ряд выше: Safe гасит display_errors,\n"
+                    "листинг по умолчанию выключен (Options -Indexes).\n"
+                    "Apache слушает только 127.0.0.1 — наружу торчит лишь Nginx (:80/:443).\n"
+                    "Сайты: тип php/node/static + HTTPS. Создание сайта само пишет Nginx-блок,\n"
+                    "Apache VirtualHost, запись в hosts и выпускает сертификат на домен — получаете\n"
+                    "https://мойпроект.local без ручных правок (hosts требует запуска от администратора).",
             },
             "en": {
                 "overview": "LockSer — portable local development environment for Windows.\n\n"
@@ -6277,6 +6340,37 @@ class App:
                     "Step 4. The Docker card in LockSer turns green — Docker is available.\n"
                     "Step 5. Manage containers in a terminal: docker ps (list), docker stop <name>,\n"
                     "docker compose up -d (start a docker-compose.yml project).",
+                "node": "NODE.JS — SERVERS, NOT JUST SCRIPTS:\n\n"
+                    "Step 1. 'Projects' tab → 'Node.js'. Set name, project folder, entry file (server.js\n"
+                    "or server.ts) and port (e.g. 3000).\n"
+                    "Step 2. Press START: the app launches the server (.ts via tsx), waits for the port\n"
+                    "and adds a /node/3000/ route to the Nginx config. Status, PID and time are in the table.\n"
+                    "Step 3. Open it: 'Open Site' goes to http://127.0.0.1:3000/, also reachable via\n"
+                    "http://127.0.0.1:80/node/3000/ through Nginx.\n"
+                    "Step 4. STOP/RESTART control the server; Remove deletes the definition and the process.\n"
+                    "Definitions live in config/node.json.\n"
+                    "Step 5. The PORT env variable always equals the server port — use process.env.PORT.\n"
+                    "All Node processes are killed on application exit.",
+                "perf": "LOAD TESTING:\n\n"
+                    "Step 1. 'Monitor' tab → 'Load Test'. The default target is your Apache.\n"
+                    "Step 2. Pick a profile: Quick (10/15s), Normal (50/60s), Stress (200/180s),\n"
+                    "Spike (300/60s), Soak (50/1800s) or Custom.\n"
+                    "Step 3. Request list 'METHOD path [weight]', e.g. 'GET /catalog 20'. POST sends a body.\n"
+                    "Step 4. One START/STOP toggle button. Live: RPS, OK %, errors, Avg/P50/P95/P99,\n"
+                    "CPU/RAM and a live chart (green — RPS, orange — P95).\n"
+                    "Step 5. 'Auto' runs stages 10→25→50→100→200 and prints the limits table plus\n"
+                    "'Stable max'. 'Set baseline' pins a result for A/B comparison: change config,\n"
+                    "re-run, see ΔRPS/ΔP95. 'Save report' writes a .txt. Non-local targets need confirmation.",
+                "env": "ENVIRONMENT AND VIRTUAL HOSTS:\n\n"
+                    "Versions: Settings → 'Environment' — PHP 8.2/8.3/8.4 and Node.js 20/22/24.\n"
+                    "'Apply' downloads the build, installs over runtime/, remembers the choice and restarts PHP.\n"
+                    "Detected versions and tools (Composer/npm/Git) are always visible.\n"
+                    "PHP mode (Development/Safe) and directory listing are one row above: Safe turns\n"
+                    "display_errors off, listing defaults to off (Options -Indexes).\n"
+                    "Apache listens on 127.0.0.1 only — only Nginx (:80/:443) faces outward.\n"
+                    "Sites: php/node/static type + HTTPS. Creating a site writes the Nginx block,\n"
+                    "the Apache VirtualHost, the hosts entry and issues the domain certificate — you get\n"
+                    "https://myproject.local with no manual edits (hosts needs administrator run).",
             },
             "es": {
                 "overview": "LockSer — entorno de desarrollo local portátil para Windows.\n\n"
@@ -6473,7 +6567,7 @@ class App:
         }
 
         current_lang = lang.get()
-        lang_docs = docs.get(current_lang, docs["en"])
+        lang_docs = {**docs.get("en", {}), **docs.get(current_lang, {})}
 
         sections = [
             (lang.t("tab_system"), "overview"),
@@ -6481,6 +6575,9 @@ class App:
             (lang.t("tab_main"), "services"),
             (lang.t("tab_sites"), "sites"),
             (lang.t("tab_sql"), "sql"),
+            (lang.t("tab_node"), "node"),
+            (lang.t("tab_perf"), "perf"),
+            (lang.t("tab_settings"), "env"),
             (lang.t("setup_ssl"), "ssl"),
             (lang.t("docker"), "docker"),
         ]
