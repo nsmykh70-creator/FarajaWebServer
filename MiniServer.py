@@ -286,6 +286,15 @@ LOCALES = {
     "db_backup": {"ru": "Бэкап", "en": "Backup", "es": "Respaldo", "de": "Backup", "fr": "Sauvegarde", "zh": "备份"},
     "db_restore": {"ru": "Восстановить", "en": "Restore", "es": "Restaurar", "de": "Wiederherst.", "fr": "Restaurer", "zh": "恢复"},
     "db_flush": {"ru": "Очистить Redis", "en": "Flush Redis", "es": "Vaciar Redis", "de": "Redis leeren", "fr": "Vider Redis", "zh": "清空 Redis"},
+    "tab_perf": {"ru": "Нагрузка", "en": "Load Test", "es": "Carga", "de": "Lasttest", "fr": "Charge", "zh": "压力测试"},
+    "perf_target": {"ru": "Цель:", "en": "Target:", "es": "Objetivo:", "de": "Ziel:", "fr": "Cible :", "zh": "目标："},
+    "perf_profile": {"ru": "Профиль:", "en": "Profile:", "es": "Perfil:", "de": "Profil:", "fr": "Profil :", "zh": "配置文件："},
+    "perf_users": {"ru": "Пользователи:", "en": "Users:", "es": "Usuarios:", "de": "Benutzer:", "fr": "Utilisateurs :", "zh": "用户数："},
+    "perf_duration": {"ru": "Длительность (с):", "en": "Duration (s):", "es": "Duración (s):", "de": "Dauer (s):", "fr": "Durée (s) :", "zh": "时长（秒）："},
+    "perf_paths": {"ru": "Запросы (МЕТОД путь [вес]):", "en": "Requests (METHOD path [weight]):", "es": "Peticiones (MÉTODO ruta [peso]):", "de": "Anfragen (METHODE Pfad [Gew.]) :", "fr": "Requêtes (MÉTHODE chemin [poids]) :", "zh": "请求（方法 路径 [权重]）:"},
+    "perf_save": {"ru": "Сохранить отчёт", "en": "Save report", "es": "Guardar informe", "de": "Bericht speichern", "fr": "Enregistrer rapport", "zh": "保存报告"},
+    "db_rootpass": {"ru": "Новый пароль root:", "en": "New root password:", "es": "Nueva clave root:", "de": "Neues Root-Passwort:", "fr": "Nouveau mot de passe root :", "zh": "新 root 密码："},
+    "db_curpass": {"ru": "Текущий пароль:", "en": "Current password:", "es": "Clave actual:", "de": "Aktuelles Passwort:", "fr": "Mot de passe actuel :", "zh": "当前密码："},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -1867,6 +1876,30 @@ http {{
         if r.returncode != 0:
             raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "redis flush failed")
         self.log("Redis FLUSHALL: OK")
+    def maria_apply_port(self, port):
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Bad MariaDB port: {port}")
+        CONFIG["mariadb_port"] = port
+        try:
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            CONFIG_FILE.write_text(json.dumps(CONFIG, indent=2), encoding="utf-8")
+        except Exception as e:
+            self.log(f"server.json save warning: {e}")
+        self.write_configs()
+        self.log(f"my.ini: port = {port}")
+        if self.drun():
+            self.log("Restarting MariaDB to apply new port...")
+            self.stop_db()
+            self.start_db()
+    def maria_set_root_password(self, cur_pass, new_pass):
+        if not new_pass:
+            raise RuntimeError("New password is required")
+        pw = new_pass.replace("'", "''")
+        self._my_run("root", cur_pass, "",
+                     f"ALTER USER 'root'@'localhost' IDENTIFIED BY '{pw}'; FLUSH PRIVILEGES;")
+        self.log("MariaDB root password updated")
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -2895,6 +2928,10 @@ class App:
         nb.add(procs_frame, lang.t('tab_procs'))
         self._build_procs(procs_frame)
 
+        perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(perf_frame, lang.t('tab_perf'))
+        self._build_perf(perf_frame)
+
         settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(settings_frame, lang.t('tab_settings'))
         self._build_settings(settings_frame)
@@ -3309,6 +3346,346 @@ class App:
                 self._dbm_failed(e)
         threading.Thread(target=w, daemon=True).start()
 
+    def _build_perf(self, parent):
+        self._perf_running = False
+        self._perf_stop = threading.Event()
+        self._perf_stats = None
+        self._perf_summary = None
+        cfg = tk.Frame(parent, bg=THEME["bg_elevated"])
+        cfg.pack(fill="x", padx=10, pady=5)
+        r1 = tk.Frame(cfg, bg=THEME["bg_elevated"])
+        r1.pack(fill="x", pady=2)
+        tk.Label(r1, text=lang.t("perf_target"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._perf_target_var = tk.StringVar(value=f"http://127.0.0.1:{CONFIG['apache_port']}/")
+        tk.Entry(r1, textvariable=self._perf_target_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=36).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("perf_profile"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._perf_profile_var = tk.StringVar(value="Normal")
+        pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Custom",
+                           command=self._perf_profile_changed)
+        pm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                     activebackground=THEME["accent"], activeforeground=THEME["white"],
+                     font=(THEME["font_family"], 9), highlightthickness=0)
+        pm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        pm.pack(side="left", padx=4)
+        r2 = tk.Frame(cfg, bg=THEME["bg_elevated"])
+        r2.pack(fill="x", pady=2)
+        tk.Label(r2, text=lang.t("perf_users"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._perf_users_var = tk.StringVar(value="50")
+        tk.Entry(r2, textvariable=self._perf_users_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
+        tk.Label(r2, text=lang.t("perf_duration"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._perf_dur_var = tk.StringVar(value="60")
+        tk.Entry(r2, textvariable=self._perf_dur_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
+        self._perf_start_btn = StyledButton(r2, lang.t("start"), self._perf_start,
+                                            color=THEME["success"],
+                                            hover_color="#55e39a", active_color=THEME["success_dim"],
+                                            width=100, height=26, font_size=8)
+        self._perf_start_btn.pack(side="left", padx=(16, 2))
+        StyledButton(r2, lang.t("stop"), lambda: self._perf_stop.set(), color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(r2, lang.t("perf_save"), self._perf_save, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=130, height=26, font_size=8).pack(side="left", padx=2)
+        tk.Label(cfg, text=lang.t("perf_paths"), bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                 font=(THEME["font_family"], 8), anchor="w").pack(fill="x", pady=(4, 0))
+        self._perf_paths_txt = ScrolledText(cfg, wrap="word", bg="#0d0f16", fg="#b8bdd0",
+                                            insertbackground="white", font=("Cascadia Code", 9),
+                                            relief="flat", bd=0, padx=8, pady=4, height=3,
+                                            selectbackground=THEME["accent"],
+                                            selectforeground=THEME["white"])
+        self._perf_paths_txt.pack(fill="x", pady=(0, 2))
+        self._perf_paths_txt.insert("1.0", "GET /")
+
+        res = tk.Frame(parent, bg=THEME["bg_elevated"])
+        res.pack(fill="x", padx=10, pady=4)
+        self._perf_vars = {}
+        for i, key in enumerate(("RPS", "OK %", "ERR", "Avg ms", "P50", "P95", "P99", "CPU %", "RAM GB")):
+            cell = tk.Frame(res, bg=THEME["bg_card"], highlightbackground=THEME["border"],
+                            highlightthickness=1)
+            cell.grid(row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4)
+            tk.Label(cell, text=key, bg=THEME["bg_card"], fg=THEME["text_muted"],
+                     font=(THEME["font_family"], 8)).pack()
+            var = tk.StringVar(value="—")
+            tk.Label(cell, textvariable=var, bg=THEME["bg_card"], fg=THEME["accent"],
+                     font=("Cascadia Code", 13, "bold")).pack()
+            self._perf_vars[key] = var
+        for c in range(3):
+            res.grid_columnconfigure(c, weight=1)
+
+        self._perf_canvas = tk.Canvas(parent, bg="#0d0f16", highlightthickness=0, height=150)
+        self._perf_canvas.pack(fill="x", padx=10, pady=(0, 8))
+        self._perf_rps_hist = []
+        self._perf_p95_hist = []
+        self._perf_cpu_hist = []
+        self._perf_tick_n = 0
+
+    def _perf_profile_changed(self, v):
+        presets = {"Quick": ("10", "15"), "Normal": ("50", "60"), "Stress": ("200", "180")}
+        if v in presets:
+            u, d = presets[v]
+            self._perf_users_var.set(u)
+            self._perf_dur_var.set(d)
+
+    def _perf_start_btn_state(self, enabled):
+        try:
+            self._perf_start_btn.set_state("normal" if enabled else "disabled")
+        except Exception:
+            pass
+
+    def _perf_start(self):
+        if getattr(self, "_perf_running", False):
+            return
+        import random
+        from concurrent.futures import ThreadPoolExecutor
+        from urllib.parse import urlparse
+        base = self._perf_target_var.get().strip().rstrip("/")
+        if not base.startswith(("http://", "https://")):
+            base = "http://" + base
+        try:
+            users = max(1, min(500, int(self._perf_users_var.get())))
+            dur = max(5, min(3600, int(self._perf_dur_var.get())))
+        except ValueError:
+            messagebox.showerror(lang.t("error"), "users/duration")
+            return
+        paths = []
+        for line in self._perf_paths_txt.get("1.0", "end-1c").splitlines():
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            m, p = parts[0].upper(), parts[1]
+            try:
+                w = max(1, int(parts[2])) if len(parts) > 2 else 1
+            except ValueError:
+                w = 1
+            if m in ("GET", "POST", "PUT", "DELETE", "HEAD", "PATCH"):
+                paths.append((m, p, w))
+        if not paths:
+            paths = [("GET", "/", 1)]
+        try:
+            host = (urlparse(base).hostname or "").lower()
+        except Exception:
+            host = ""
+        allowed = {"127.0.0.1", "localhost", "::1"}
+        try:
+            allowed |= {str(s.get("domain", "")).lower() for s in (self._sites or []) if s.get("domain")}
+        except Exception:
+            pass
+        if host not in allowed:
+            if not DarkPrompt.ask_yes_no(self.root, lang.t("tab_perf"), f"{base} ?"):
+                return
+        weights = [x[2] for x in paths]
+        stats = {"n": 0, "err": 0, "lat": [], "bytes": 0,
+                 "lock": threading.Lock(), "t0": time.monotonic(),
+                 "users": users, "dur": dur, "base": base}
+        self._perf_stats = stats
+        self._perf_stop = threading.Event()
+        self._perf_running = True
+        self._perf_rps_hist = []
+        self._perf_p95_hist = []
+        self._perf_cpu_hist = []
+        self._perf_tick_n = 0
+        self._perf_last = (0, time.monotonic())
+        self._perf_summary = None
+        for v in self._perf_vars.values():
+            v.set("—")
+        local = threading.local()
+
+        def get_session():
+            s = getattr(local, "s", None)
+            if s is None:
+                s = requests.Session()
+                s.trust_env = False
+                local.s = s
+            return s
+
+        def worker():
+            deadline = stats["t0"] + dur
+            while not self._perf_stop.is_set() and time.monotonic() < deadline:
+                m, p, _w = random.choices(paths, weights=weights)[0]
+                url = base + (p if p.startswith("/") else "/" + p)
+                data = None
+                if m in ("POST", "PUT", "PATCH"):
+                    data = b"perf=1"
+                t1 = time.monotonic()
+                try:
+                    r = get_session().request(m, url, data=data, timeout=10)
+                    dt = (time.monotonic() - t1) * 1000.0
+                    ok = r.status_code < 400
+                    ln = len(r.content or b"")
+                except Exception:
+                    dt = (time.monotonic() - t1) * 1000.0
+                    ok = False
+                    ln = 0
+                with stats["lock"]:
+                    stats["n"] += 1
+                    if not ok:
+                        stats["err"] += 1
+                    stats["bytes"] += ln
+                    if len(stats["lat"]) < 500000:
+                        stats["lat"].append(dt)
+
+        def monitor():
+            while not self._perf_stop.is_set():
+                time.sleep(1.0)
+                try:
+                    self.root.after(0, self._perf_tick)
+                except Exception:
+                    pass
+            try:
+                self.root.after(0, self._perf_finish)
+            except Exception:
+                pass
+
+        def supervisor():
+            ex = ThreadPoolExecutor(max_workers=users)
+            try:
+                for _ in range(users):
+                    ex.submit(worker)
+                mt = threading.Thread(target=monitor, daemon=True)
+                mt.start()
+                endt = stats["t0"] + dur
+                while time.monotonic() < endt and not self._perf_stop.is_set():
+                    time.sleep(0.5)
+            finally:
+                self._perf_stop.set()
+                ex.shutdown(wait=True)
+
+        self._perf_start_btn_state(False)
+        threading.Thread(target=supervisor, daemon=True).start()
+        self.log(f"Load test started: {users} users, {dur}s -> {base}")
+
+    def _perf_tick(self):
+        st = getattr(self, "_perf_stats", None)
+        if st is None:
+            return
+        with st["lock"]:
+            n, err, lat = st["n"], st["err"], list(st["lat"])
+        now = time.monotonic()
+        ln0, t0 = getattr(self, "_perf_last", (0, now))
+        rps = (n - ln0) / max(now - t0, 1e-6)
+        self._perf_last = (n, now)
+        if lat:
+            s = sorted(lat)
+            avg = sum(s) / len(s)
+            p50 = s[min(len(s) - 1, int(0.50 * len(s)))]
+            p95 = s[min(len(s) - 1, int(0.95 * len(s)))]
+            p99 = s[min(len(s) - 1, int(0.99 * len(s)))]
+        else:
+            avg = p50 = p95 = p99 = 0.0
+        ok_pct = (100.0 * (n - err) / n) if n else 100.0
+        self._perf_rps_hist.append(rps)
+        self._perf_p95_hist.append(p95)
+        if len(self._perf_rps_hist) > 600:
+            self._perf_rps_hist.pop(0)
+            self._perf_p95_hist.pop(0)
+        self._perf_vars["RPS"].set(f"{rps:.0f}")
+        self._perf_vars["OK %"].set(f"{ok_pct:.2f}")
+        self._perf_vars["ERR"].set(str(err))
+        self._perf_vars["Avg ms"].set(f"{avg:.0f}")
+        self._perf_vars["P50"].set(f"{p50:.0f}")
+        self._perf_vars["P95"].set(f"{p95:.0f}")
+        self._perf_vars["P99"].set(f"{p99:.0f}")
+        self._perf_summary = {"n": n, "err": err, "ok_pct": ok_pct, "avg": avg,
+                              "p50": p50, "p95": p95, "p99": p99,
+                              "rps_peak": max(self._perf_rps_hist) if self._perf_rps_hist else 0.0,
+                              "users": st["users"], "dur": st["dur"], "base": st["base"],
+                              "mb": st["bytes"] / 1048576.0}
+        self._perf_tick_n = getattr(self, "_perf_tick_n", 0) + 1
+        if self._perf_tick_n % 3 == 0:
+            threading.Thread(target=self._perf_sysstat, daemon=True).start()
+        self._perf_draw()
+
+    def _perf_sysstat(self):
+        try:
+            ps = ("$c = Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average; "
+                  "$o = Get-CimInstance Win32_OperatingSystem; "
+                  "\"{0}|{1}|{2}\" -f $c, $o.FreePhysicalMemory, $o.TotalVisibleMemorySize")
+            r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True,
+                               text=True, timeout=15,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            cpu, free_kb, total_kb = [float(x) for x in r.stdout.strip().split("|")]
+            used_gb = (total_kb - free_kb) / 1048576.0
+            self._perf_cpu_hist.append(cpu)
+            self.root.after(0, lambda: (self._perf_vars["CPU %"].set(f"{cpu:.0f}"),
+                                        self._perf_vars["RAM GB"].set(f"{used_gb:.1f}")))
+        except Exception:
+            pass
+
+    def _perf_draw(self):
+        try:
+            cv = self._perf_canvas
+            cv.delete("all")
+            W = cv.winfo_width() or 600
+            H = 150
+            rh, ph = self._perf_rps_hist, self._perf_p95_hist
+            if not rh:
+                return
+            rmax = max(rh) or 1.0
+            pmax = max(ph) or 1.0
+            n = len(rh)
+            step = W / max(n - 1, 1)
+            for i in (1, 2, 3):
+                y = H * i // 4
+                cv.create_line(0, y, W, y, fill=THEME["border"])
+            pts_r, pts_p = [], []
+            for i, (r, p) in enumerate(zip(rh, ph)):
+                x = i * step
+                pts_r += [x, H - 4 - (r / rmax) * (H - 14)]
+                pts_p += [x, H - 4 - (p / pmax) * (H - 14)]
+            if len(pts_r) >= 4:
+                cv.create_line(*pts_r, fill=THEME["success"], width=2)
+            if len(pts_p) >= 4:
+                cv.create_line(*pts_p, fill=THEME["warning"], width=2)
+            cv.create_text(8, 8, anchor="w", text=f"max {rmax:.0f} rps",
+                           fill=THEME["text_dim"], font=("Cascadia Code", 8))
+        except Exception:
+            pass
+
+    def _perf_finish(self):
+        self._perf_running = False
+        self._perf_start_btn_state(True)
+        self._perf_tick()
+        sm = self._perf_summary or {}
+        self.log(f"Load test finished: {sm.get('n', 0)} req, "
+                 f"{sm.get('ok_pct', 100.0):.2f}% OK, p95 {sm.get('p95', 0):.0f} ms")
+
+    def _perf_save(self):
+        sm = getattr(self, "_perf_summary", None)
+        if not sm:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(defaultextension=".txt",
+                                            filetypes=[("Text", "*.txt")],
+                                            initialfile="perftest.txt")
+        if not path:
+            return
+        lines = [
+            f"Faraja WebServer — load test report ({time.strftime('%Y-%m-%d %H:%M:%S')})",
+            f"Target: {sm['base']} | users: {sm['users']} | duration: {sm['dur']}s",
+            f"Requests: {sm['n']} | OK: {sm['ok_pct']:.2f}% | errors: {sm['err']}",
+            f"Avg: {sm['avg']:.1f} ms | P50: {sm['p50']:.1f} ms | "
+            f"P95: {sm['p95']:.1f} ms | P99: {sm['p99']:.1f} ms",
+            f"Peak RPS: {sm['rps_peak']:.0f} | transferred: {sm['mb']:.2f} MB",
+        ]
+        if self._perf_cpu_hist:
+            lines.append(f"CPU max: {max(self._perf_cpu_hist):.0f}%")
+        try:
+            Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            self.log(f"Report saved: {path}")
+        except Exception as e:
+            messagebox.showerror(lang.t("error"), str(e))
+
     def _build_procs(self, parent):
         self._procs_rows = []
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
@@ -3598,6 +3975,44 @@ class App:
         threading.Thread(target=w, daemon=True).start()
 
     def _build_db(self, parent):
+        md = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                      highlightthickness=1)
+        md.pack(fill="x", padx=10, pady=(8, 4))
+        tk.Label(md, text="MariaDB", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        m1 = tk.Frame(md, bg=THEME["bg_elevated"])
+        m1.pack(fill="x", padx=10, pady=2)
+        tk.Label(m1, text=lang.t("db_host"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Label(m1, text="127.0.0.1", bg=THEME["bg_input"], fg=THEME["text_dim"],
+                 font=("Cascadia Code", 9), padx=8, pady=2).pack(side="left", padx=4)
+        tk.Label(m1, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._maria_port_var = tk.StringVar(value=str(CONFIG["mariadb_port"]))
+        tk.Entry(m1, textvariable=self._maria_port_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
+        StyledButton(m1, lang.t("db_apply"), self._maria_apply, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+        m2 = tk.Frame(md, bg=THEME["bg_elevated"])
+        m2.pack(fill="x", padx=10, pady=(2, 8))
+        tk.Label(m2, text=lang.t("db_curpass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._maria_cur_var = tk.StringVar(value="")
+        tk.Entry(m2, textvariable=self._maria_cur_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
+        tk.Label(m2, text=lang.t("db_rootpass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._maria_new_var = tk.StringVar(value="")
+        tk.Entry(m2, textvariable=self._maria_new_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
+        StyledButton(m2, lang.t("db_setpass"), self._maria_set_pass, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=120, height=26, font_size=8).pack(side="left", padx=8)
+
         pg = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
         pg.pack(fill="x", padx=10, pady=(8, 4))
@@ -3686,6 +4101,31 @@ class App:
     def _db_err(self, e):
         self.log("DB ERROR: " + str(e))
         self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+
+    def _maria_apply(self):
+        port = self._maria_port_var.get().strip()
+        def w():
+            try:
+                self.svc.maria_apply_port(port)
+                self.root.after(0, self._refresh_port_label)
+                self._db_ok(f"MariaDB port: {port}")
+            except Exception as e:
+                self._db_err(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _maria_set_pass(self):
+        cur, new = self._maria_cur_var.get(), self._maria_new_var.get()
+        if not new:
+            messagebox.showinfo(APP_NAME, lang.t("db_rootpass"))
+            return
+        def w():
+            try:
+                self.svc.maria_set_root_password(cur, new)
+                self.root.after(0, lambda: self._maria_new_var.set(""))
+                self._db_ok("MariaDB root password updated")
+            except Exception as e:
+                self._db_err(e)
+        threading.Thread(target=w, daemon=True).start()
 
     def _pg_apply(self):
         port = self._pg_port_var.get().strip()
