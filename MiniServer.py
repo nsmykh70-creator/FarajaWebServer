@@ -3108,7 +3108,7 @@ class App:
                     return
                 w = self.root.winfo_containing(e.x_root, e.y_root)
                 while w is not None and w is not canvas and w is not body:
-                    if isinstance(w, (ttk.Treeview, tk.Text, tk.Listbox)):
+                    if isinstance(w, tk.Text):
                         return
                     try:
                         w = w.master
@@ -3419,8 +3419,6 @@ class App:
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
         cg = tk.Frame(conn, bg=THEME["bg_elevated"])
         cg.pack(fill="x", padx=10, pady=(0, 8))
-        cg.grid_columnconfigure(1, weight=1)
-        cg.grid_columnconfigure(3, weight=1)
         tk.Label(cg, text=lang.t("sql_engine"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).grid(row=0, column=0, sticky="w",
                                                       padx=(0, 4), pady=4)
@@ -3430,24 +3428,24 @@ class App:
                       activebackground=THEME["accent"], activeforeground=THEME["white"],
                       font=(THEME["font_family"], 9), highlightthickness=0)
         eng["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        eng.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=4)
+        eng.grid(row=0, column=1, sticky="w", padx=(0, 12), pady=4)
         tk.Label(cg, text=lang.t("db_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).grid(row=0, column=2, sticky="w",
                                                       padx=(0, 4), pady=4)
         self._dbm_user = tk.StringVar(value="root")
-        self._std_entry(cg, self._dbm_user, width=12).grid(row=0, column=3, sticky="ew",
+        self._std_entry(cg, self._dbm_user, width=10).grid(row=0, column=3, sticky="w",
                                                            padx=(0, 12), pady=4)
         tk.Label(cg, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).grid(row=1, column=0, sticky="w",
                                                       padx=(0, 4), pady=4)
         self._dbm_pass = tk.StringVar(value="")
-        self._std_entry(cg, self._dbm_pass, width=12, show="*").grid(row=1, column=1, sticky="ew",
+        self._std_entry(cg, self._dbm_pass, width=10, show="*").grid(row=1, column=1, sticky="w",
                                                                      padx=(0, 12), pady=4)
         tk.Label(cg, text=lang.t("db_name"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).grid(row=1, column=2, sticky="w",
                                                       padx=(0, 4), pady=4)
         self._dbm_db = tk.StringVar(value="")
-        self._std_entry(cg, self._dbm_db, width=12).grid(row=1, column=3, sticky="ew",
+        self._std_entry(cg, self._dbm_db, width=14).grid(row=1, column=3, sticky="w",
                                                          padx=(0, 12), pady=4)
 
         acts = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
@@ -4504,11 +4502,13 @@ class App:
         self._db_entry(pgf, 0, 4, lang.t("db_user"), self._pg_user_var, width=14)
         self._db_entry(pgf, 0, 6, lang.t("db_pass"), self._pg_pass_var, width=14, show="*")
         self._db_entry(pgf, 1, 0, lang.t("db_name"), self._pg_db_var, width=16)
-        self._db_button(pgf, 1, 4, lang.t("db_apply"), self._pg_apply,
+        _pgbtns = tk.Frame(pgf, bg=THEME["bg_elevated"])
+        _pgbtns.grid(row=1, column=2, columnspan=7, sticky="w", padx=4, pady=4)
+        self._db_button(_pgbtns, 0, 0, lang.t("db_apply"), self._pg_apply,
                         THEME["success"], "#55e39a", THEME["success_dim"])
-        self._db_button(pgf, 1, 6, lang.t("db_createdb"), self._pg_create_db,
+        self._db_button(_pgbtns, 0, 1, lang.t("db_createdb"), self._pg_create_db,
                         THEME["info"], "#2e9bf5", "#0769b5")
-        self._db_button(pgf, 1, 8, lang.t("db_setpass"), self._pg_set_pass,
+        self._db_button(_pgbtns, 0, 2, lang.t("db_setpass"), self._pg_set_pass,
                         THEME["warning_dim"], THEME["warning"], "#ba5e17", width=120)
 
         rd = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
@@ -6214,7 +6214,7 @@ class App:
     def _show_help(self):
         win = tk.Toplevel(self.root)
         win.title(lang.t("doc_title"))
-        win.geometry("750x600")
+        win.geometry("1000x640")
         win.configure(bg=THEME["bg"])
         try:
             win.iconbitmap(str(ICON))
