@@ -1774,7 +1774,7 @@ class CodeEditor:
                                      takefocus=0)
         self._line_numbers.pack(side="left", fill="y")
 
-        self._minimap = tk.Text(body, width=30, padx=2, pady=8,
+        self._minimap = tk.Text(body, width=60, padx=2, pady=8,
                                 bg=self.scheme["bg"], fg=self.scheme["fg"],
                                 font=(self.font_family, 3),
                                 state="disabled", relief="flat", bd=0,
@@ -2874,14 +2874,14 @@ class App:
         tk.Entry(dl, textvariable=self._set_dl_var, bg=THEME["bg_input"], fg=THEME["text"],
                  insertbackground=THEME["text"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
-        StyledButton(dl, lang.t("first_run_browse"), self._set_browse_dl, color=THEME["bg_input"],
-                     hover_color=THEME["border_light"], active_color=THEME["border"],
+        StyledButton(dl, lang.t("first_run_browse"), self._set_browse_dl, color=THEME["accent"],
+                     hover_color=THEME["accent_hover"], active_color=THEME["accent_active"],
                      width=80, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(dl, lang.t("set_open_folder"), self._set_open_dl, color=THEME["bg_input"],
-                     hover_color=THEME["border_light"], active_color=THEME["border"],
+        StyledButton(dl, lang.t("set_open_folder"), self._set_open_dl, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
                      width=90, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(dl, lang.t("set_rescan"), self._set_refresh, color=THEME["bg_input"],
-                     hover_color=THEME["border_light"], active_color=THEME["border"],
+        StyledButton(dl, lang.t("set_rescan"), self._set_refresh, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
                      width=100, height=24, font_size=8).pack(side="left", padx=2)
 
         logf = tk.Frame(parent, bg=THEME["bg_elevated"])
@@ -2934,9 +2934,17 @@ class App:
                                 activeforeground=THEME["text"], font=(THEME["font_family"], 9),
                                 highlightthickness=0, bd=0)
             cb.grid(row=idx // 4, column=idx % 4, sticky="w", padx=8, pady=2)
+        inst_row = tk.Frame(select_box, bg=THEME["bg_elevated"])
+        inst_row.pack(fill="x", padx=6, pady=(0, 8))
+        StyledButton(inst_row, lang.t("set_install_sel"), self._set_install_selected, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=150, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(inst_row, lang.t("set_install_missing"), self._set_install_missing, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=170, height=26, font_size=8).pack(side="left", padx=2)
 
         cols = ("component", "state", "archive", "expected")
-        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=11,
+        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
                                        style="Big.Treeview")
         self._set_tree.heading("component", text=lang.t("col_component"))
         self._set_tree.heading("state", text=lang.t("col_state"))
@@ -2946,16 +2954,7 @@ class App:
         self._set_tree.column("state", width=100)
         self._set_tree.column("archive", width=200)
         self._set_tree.column("expected", width=260)
-        self._set_tree.pack(fill="both", expand=True, padx=10, pady=4)
-
-        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
-        btns.pack(fill="x", padx=10, pady=4)
-        StyledButton(btns, lang.t("set_install_sel"), self._set_install_selected, color=THEME["success"],
-                     hover_color="#10d8a0", active_color=THEME["success_dim"],
-                     width=140, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("set_install_missing"), self._set_install_missing, color=THEME["info"],
-                     hover_color="#2e9bf5", active_color="#0769b5",
-                     width=160, height=26, font_size=8).pack(side="left", padx=2)
+        self._set_tree.pack(fill="x", padx=10, pady=4)
 
         prog = tk.Frame(parent, bg=THEME["bg_elevated"])
         prog.pack(fill="x", padx=10, pady=(0, 8))
