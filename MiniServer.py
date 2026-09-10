@@ -819,6 +819,8 @@ port={CONFIG["mariadb_port"]}
         val = port_open(port)
         self._port_cache[port] = (now, val)
         return val
+    def _drop_port_cache(self, port):
+        self._port_cache.pop(port, None)
     def arun(self):
         if self._alive(self.apache):return True
         return self._port_cached(CONFIG["apache_port"])
@@ -835,8 +837,10 @@ port={CONFIG["mariadb_port"]}
         f=self.logfile("php-process.log")
         self.php=subprocess.Popen([str(exe),"-b",f'127.0.0.1:{CONFIG["php_cgi_port"]}',"-c",str(self.pd/"php.ini")],cwd=self.pd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["php_cgi_port"],15):raise RuntimeError("PHP CGI did not start; see PHP Error / Process logs")
+        self._drop_port_cache(CONFIG["php_cgi_port"])
         self.log("PHP CGI started")
     def stop_php(self):
+        self._drop_port_cache(CONFIG["php_cgi_port"])
         stop_proc(self.php)
         self.php=None
         stopped, foreign = stop_named_processes_on_port(
@@ -851,9 +855,12 @@ port={CONFIG["mariadb_port"]}
             raise RuntimeError("PHP CGI could not be stopped on port %s" % CONFIG["php_cgi_port"])
         self.log("PHP CGI stopped")
     def start_apache(self):
-        # Apache and Nginx are mutually exclusive in MiniServer.
-        if web_server_running("nginx") or self.nginxrun():
-            raise RuntimeError("Apache cannot be started while Nginx is running. Stop Nginx first.")
+        # Apache and Nginx may run side by side on different ports
+        # (Nginx proxies to Apache). Only identical ports conflict.
+        if CONFIG["apache_port"] == CONFIG["nginx_port"] and self.nginxrun():
+            raise RuntimeError(
+                f"Apache and Nginx use the same port {CONFIG['apache_port']}. "
+                "Change apache_port or nginx_port in config/server.json.")
         if self.arun():
             owners = port_owners(CONFIG["apache_port"])
             apache_names = {"httpd.exe", "apache.exe"}
@@ -862,7 +869,6 @@ port={CONFIG["mariadb_port"]}
                 detail = ", ".join(f"{name or 'unknown'} (PID {pid})" for pid, name in foreign)
                 raise RuntimeError(
                     f"Port {CONFIG['apache_port']} is occupied by another program: {detail}. "
-                    "MiniServer will not terminate another web server automatically. "
                     "Stop that program or change apache_port in config/server.json."
                 )
             self.log("Apache is already running: " + ", ".join(f"{name} PID {pid}" for pid, name in owners))
@@ -888,8 +894,10 @@ port={CONFIG["mariadb_port"]}
             self.log(f"Apache HTTP check: {r.status_code}")
         except Exception as e:
             self.log(f"Apache HTTP check failed: {e}")
+        self._drop_port_cache(CONFIG["apache_port"])
         self.log("Apache started")
     def stop_apache(self):
+        self._drop_port_cache(CONFIG["apache_port"])
         exe=self.ad/"bin/httpd.exe"; conf=self.ad/"conf/httpd.conf"
         if not (web_server_running("apache") or self.arun()):
             self.apache=None; self.log("Apache is already stopped"); return
@@ -959,10 +967,12 @@ port={CONFIG["mariadb_port"]}
         f=self.logfile("mariadb-process.log")
         self.db=subprocess.Popen([str(exe),f'--defaults-file={self.md/"my.ini"}'],cwd=self.md,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["mariadb_port"],20):raise RuntimeError("MariaDB did not start; see MariaDB Error and Process / Init logs")
+        self._drop_port_cache(CONFIG["mariadb_port"])
         self.log("MariaDB started")
         try: self._setup_pma_storage()
         except Exception: pass
     def stop_db(self):
+        self._drop_port_cache(CONFIG["mariadb_port"])
         stop_proc(self.db,10)
         self.db=None
         stopped, foreign = stop_named_processes_on_port(
@@ -1007,8 +1017,10 @@ port={CONFIG["mariadb_port"]}
             cwd=self.pgd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
             env=env,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["postgresql_port"],20):raise RuntimeError("PostgreSQL did not start; see Process / Init log")
+        self._drop_port_cache(CONFIG["postgresql_port"])
         self.log("PostgreSQL started")
     def stop_pg(self):
+        self._drop_port_cache(CONFIG["postgresql_port"])
         stop_proc(self.pg,10)
         self.pg=None
         exe=self.pgd/"bin/pg_ctl.exe"
@@ -1039,8 +1051,10 @@ port={CONFIG["mariadb_port"]}
         self.redis_proc=subprocess.Popen([str(exe),"--port",str(CONFIG["redis_port"]),"--bind","127.0.0.1","--loglevel","warning"],
             cwd=self.rdd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["redis_port"],10):raise RuntimeError("Redis did not start; see Process / Init log")
+        self._drop_port_cache(CONFIG["redis_port"])
         self.log("Redis started on port %s" % CONFIG["redis_port"])
     def stop_redis(self):
+        self._drop_port_cache(CONFIG["redis_port"])
         stop_proc(self.redis_proc,5)
         self.redis_proc=None
         stopped, foreign = stop_named_processes_on_port(
@@ -1055,9 +1069,11 @@ port={CONFIG["mariadb_port"]}
         if self._alive(self.nginx):return True
         return self._port_cached(CONFIG["nginx_port"])
     def start_nginx(self):
-        # Apache and Nginx are mutually exclusive in MiniServer.
-        if web_server_running("apache") or self.arun():
-            raise RuntimeError("Nginx cannot be started while Apache is running. Stop Apache first.")
+        # Nginx proxies to Apache, so both may run together on different ports.
+        if CONFIG["nginx_port"] == CONFIG["apache_port"]:
+            raise RuntimeError(
+                f"Nginx and Apache use the same port {CONFIG['nginx_port']}. "
+                "Change apache_port or nginx_port in config/server.json.")
         if self.nginxrun():self.log("Nginx is already running");return
         self._ensure_component("nginx")
         exe=self.nd/"nginx.exe"
@@ -1066,8 +1082,10 @@ port={CONFIG["mariadb_port"]}
         self.nginx=subprocess.Popen([str(exe),"-c",str((self.nd/"conf/nginx.conf").resolve())],
             cwd=self.nd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["nginx_port"],10):raise RuntimeError("Nginx did not start; see Process / Init log")
-        self.log("Nginx started on port %s" % CONFIG["nginx_port"])
+        self._drop_port_cache(CONFIG["nginx_port"])
+        self.log(f"Nginx started on port {CONFIG['nginx_port']}, proxying to Apache on port {CONFIG['apache_port']}")
     def stop_nginx(self):
+        self._drop_port_cache(CONFIG["nginx_port"])
         exe=self.nd/"nginx.exe"; conf=self.nd/"conf/nginx.conf"
         if not (web_server_running("nginx") or self.nginxrun()):
             self.nginx=None; self.log("Nginx is already stopped"); return
