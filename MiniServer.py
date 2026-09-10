@@ -248,6 +248,23 @@ LOCALES = {
     "col_server": {"ru": "Сервер", "en": "Server", "es": "Servidor", "de": "Server", "fr": "Serveur", "zh": "服务器"},
     "col_pid": {"ru": "PID", "en": "PID", "es": "PID", "de": "PID", "fr": "PID", "zh": "PID"},
     "col_started": {"ru": "Запущен", "en": "Started", "es": "Iniciado", "de": "Gestartet", "fr": "Démarré", "zh": "启动时间"},
+    "tab_db": {"ru": "Базы данных", "en": "Databases", "es": "Bases de datos", "de": "Datenbanken", "fr": "Bases de données", "zh": "数据库"},
+    "db_host": {"ru": "Хост:", "en": "Host:", "es": "Host:", "de": "Host:", "fr": "Hôte :", "zh": "主机："},
+    "db_user": {"ru": "Пользователь:", "en": "User:", "es": "Usuario:", "de": "Benutzer:", "fr": "Utilisateur :", "zh": "用户："},
+    "db_pass": {"ru": "Пароль:", "en": "Password:", "es": "Contraseña:", "de": "Passwort:", "fr": "Mot de passe :", "zh": "密码："},
+    "db_name": {"ru": "База:", "en": "Database:", "es": "Base de datos:", "de": "Datenbank:", "fr": "Base :", "zh": "数据库："},
+    "db_apply": {"ru": "Применить", "en": "Apply", "es": "Aplicar", "de": "Anwenden", "fr": "Appliquer", "zh": "应用"},
+    "db_createdb": {"ru": "Создать БД", "en": "Create DB", "es": "Crear BD", "de": "DB erstellen", "fr": "Créer BD", "zh": "创建数据库"},
+    "db_setpass": {"ru": "Сменить пароль", "en": "Set password", "es": "Cambiar clave", "de": "Passwort setzen", "fr": "Définir mot de passe", "zh": "设置密码"},
+    "db_bind": {"ru": "Адрес:", "en": "Bind:", "es": "Bind:", "de": "Bind:", "fr": "Bind :", "zh": "绑定："},
+    "dock_file": {"ru": "Compose-файл:", "en": "Compose file:", "es": "Archivo Compose:", "de": "Compose-Datei:", "fr": "Fichier Compose :", "zh": "Compose 文件："},
+    "dock_up": {"ru": "Up", "en": "Up", "es": "Up", "de": "Up", "fr": "Up", "zh": "Up"},
+    "dock_down": {"ru": "Down", "en": "Down", "es": "Down", "de": "Down", "fr": "Down", "zh": "Down"},
+    "dock_pull": {"ru": "Pull", "en": "Pull", "es": "Pull", "de": "Pull", "fr": "Pull", "zh": "Pull"},
+    "dock_logs": {"ru": "Логи", "en": "Logs", "es": "Registros", "de": "Logs", "fr": "Logs", "zh": "日志"},
+    "dock_images": {"ru": "Образы", "en": "Images", "es": "Imágenes", "de": "Images", "fr": "Images", "zh": "镜像"},
+    "col_size": {"ru": "Размер", "en": "Size", "es": "Tamaño", "de": "Größe", "fr": "Taille", "zh": "大小"},
+    "col_tag": {"ru": "Тег", "en": "Tag", "es": "Etiqueta", "de": "Tag", "fr": "Tag", "zh": "标签"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -1066,12 +1083,27 @@ port={CONFIG["mariadb_port"]}
     def redisrun(self):
         if self._alive(self.redis_proc):return True
         return self._port_cached(CONFIG["redis_port"], 15)
+    def redis_conf(self):
+        try:
+            d = json.loads((APP_ROOT/"config"/"redis.json").read_text(encoding="utf-8"))
+            if not isinstance(d, dict):
+                d = {}
+        except Exception:
+            d = {}
+        d.setdefault("bind", "127.0.0.1")
+        d.setdefault("password", "")
+        return d
     def start_redis(self):
         if self.redisrun():self.log("Redis is already running");return
         self._ensure_component("redis")
         exe=self.rdd/"redis-server.exe"
         f=self.logfile("redis-process.log")
-        self.redis_proc=subprocess.Popen([str(exe),"--port",str(CONFIG["redis_port"]),"--bind","127.0.0.1","--loglevel","warning"],
+        rc = self.redis_conf()
+        args=[str(exe),"--port",str(CONFIG["redis_port"]),"--bind",rc.get("bind") or "127.0.0.1",
+              "--loglevel","warning"]
+        if rc.get("password"):
+            args += ["--requirepass", rc["password"]]
+        self.redis_proc=subprocess.Popen(args,
             cwd=self.rdd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         if not wait_port(CONFIG["redis_port"],10):raise RuntimeError("Redis did not start; see Process / Init log")
         self._drop_port_cache(CONFIG["redis_port"])
@@ -1371,6 +1403,110 @@ http {{
         if r.returncode != 0:
             raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or f"docker {action} failed")
         self.log(f"docker {action} {name}: OK")
+    def _compose_base(self, compose_file):
+        p = Path(compose_file)
+        if not p.is_file():
+            raise RuntimeError(f"Compose file not found: {compose_file}")
+        return ["docker", "compose", "-f", str(p.resolve())], str(p.parent.resolve())
+    def docker_compose(self, action, compose_file):
+        if action not in ("up", "down", "restart", "pull"):
+            raise RuntimeError(f"Bad compose action: {action}")
+        base, cwd = self._compose_base(compose_file)
+        cmd = base + (["up", "-d"] if action == "up" else [action])
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=300,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        out = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()[-2000:]
+        if r.returncode != 0:
+            raise RuntimeError(f"docker compose {action} failed:\n{out[-500:]}")
+        self.log(f"docker compose {action}: OK")
+        return out
+    def docker_compose_logs(self, compose_file, tail=200):
+        base, cwd = self._compose_base(compose_file)
+        try:
+            tail = max(10, int(tail))
+        except (TypeError, ValueError):
+            tail = 200
+        r = subprocess.run(base + ["logs", f"--tail={tail}", "--no-color"], cwd=cwd,
+                           capture_output=True, text=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "docker compose logs failed")
+        return r.stdout
+    def docker_images(self):
+        try:
+            r = subprocess.run(["docker", "images", "--format", "{{.Repository}}|{{.Tag}}|{{.ID}}|{{.Size}}"],
+                               capture_output=True, text=True, timeout=30,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except FileNotFoundError:
+            raise RuntimeError(lang.t("dock_notfound"))
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout).strip()[:200] or "docker images failed")
+        rows = []
+        for line in r.stdout.splitlines():
+            parts = (line.split("|") + ["", "", "", ""])[:4]
+            if parts[0]:
+                rows.append(parts)
+        return rows
+    def docker_rmi(self, image_id):
+        r = subprocess.run(["docker", "rmi", image_id], capture_output=True, text=True, timeout=120,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "docker rmi failed")
+        self.log(f"docker rmi {image_id}: OK")
+    def pg_conf_path(self):
+        return self.pgd / "data" / "postgresql.conf"
+    def pg_apply_port(self, port):
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Bad PostgreSQL port: {port}")
+        conf = self.pg_conf_path()
+        if conf.is_file():
+            text = conf.read_text(encoding="utf-8", errors="replace")
+            new_text, n = re.subn(r"(?m)^#?\s*port\s*=.*$", f"port = {port}", text, count=1)
+            if n == 0:
+                new_text = text + f"\nport = {port}\n"
+            conf.write_text(new_text, encoding="utf-8")
+            self.log(f"postgresql.conf: port = {port}")
+        CONFIG["postgresql_port"] = port
+        try:
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            CONFIG_FILE.write_text(json.dumps(CONFIG, indent=2), encoding="utf-8")
+        except Exception as e:
+            self.log(f"server.json save warning: {e}")
+        if self.pgrun():
+            self.log("Restarting PostgreSQL to apply new port...")
+            self.stop_pg()
+            self.start_pg()
+    def _pg_run(self, admin_user, admin_pass, dbname, sql):
+        psql = self.pgd / "bin" / "psql.exe"
+        if not psql.exists():
+            raise RuntimeError("psql.exe not found — is PostgreSQL installed?")
+        env = os.environ.copy()
+        if admin_pass:
+            env["PGPASSWORD"] = admin_pass
+        r = subprocess.run([str(psql), "-U", admin_user, "-h", "127.0.0.1",
+                            "-p", str(CONFIG["postgresql_port"]), "-d", dbname,
+                            "-v", "ON_ERROR_STOP=1", "-c", sql],
+                           capture_output=True, text=True, timeout=30, env=env,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "psql failed")
+        return (r.stdout or "").strip()
+    def pg_set_password(self, admin_user, admin_pass, target, new_pass):
+        if not target or not new_pass:
+            raise RuntimeError("Target user and new password are required")
+        safe_target = '"' + target.replace('"', '""') + '"'
+        safe_pass = new_pass.replace("'", "''")
+        self._pg_run(admin_user, admin_pass, "postgres",
+                     f"ALTER USER {safe_target} WITH PASSWORD '{safe_pass}';")
+        self.log(f"PostgreSQL password set for user {target}")
+    def pg_create_db(self, admin_user, admin_pass, dbname):
+        if not dbname:
+            raise RuntimeError("Database name is required")
+        safe_db = '"' + dbname.replace('"', '""') + '"'
+        self._pg_run(admin_user, admin_pass, "postgres", f"CREATE DATABASE {safe_db};")
+        self.log(f"PostgreSQL database created: {dbname}")
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -2360,10 +2496,6 @@ class App:
         nb.add(tasks_frame, lang.t('tab_tasks'))
         self._build_task_scheduler(tasks_frame)
 
-        settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(settings_frame, lang.t('tab_settings'))
-        self._build_settings(settings_frame)
-
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(docker_frame, lang.t('tab_docker'))
         self._build_docker(docker_frame)
@@ -2371,6 +2503,14 @@ class App:
         node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(node_frame, lang.t('tab_node'))
         self._build_node(node_frame)
+
+        db_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(db_frame, lang.t('tab_db'))
+        self._build_db(db_frame)
+
+        settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(settings_frame, lang.t('tab_settings'))
+        self._build_settings(settings_frame)
 
     def _build_node(self, parent):
         self._node_file = APP_ROOT / "config" / "node.json"
@@ -2616,7 +2756,7 @@ class App:
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      width=100, height=28, font_size=9).pack(side="left", padx=2)
         cols = ("name", "image", "status", "ports")
-        self._dock_tree = ttk.Treeview(parent, columns=cols, show="headings", height=12,
+        self._dock_tree = ttk.Treeview(parent, columns=cols, show="headings", height=6,
                                        style="Big.Treeview")
         self._dock_tree.heading("name", text=lang.t("col_cont"))
         self._dock_tree.heading("image", text=lang.t("col_image"))
@@ -2629,8 +2769,56 @@ class App:
         self._dock_tree.pack(fill="both", expand=True, padx=10, pady=4)
         self._dock_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                      font=(THEME["font_family"], 8), anchor="w")
-        self._dock_status.pack(fill="x", padx=12, pady=(0, 6))
+        self._dock_status.pack(fill="x", padx=12, pady=(0, 2))
+
+        comp = tk.Frame(parent, bg=THEME["bg_elevated"])
+        comp.pack(fill="x", padx=10, pady=4)
+        tk.Label(comp, text=lang.t("dock_file"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9, "bold")).pack(side="left")
+        self._dock_compose_var = tk.StringVar(value=str(WWW / "docker-compose.yml"))
+        tk.Entry(comp, textvariable=self._dock_compose_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
+        StyledButton(comp, lang.t("first_run_browse"), self._dock_browse_compose, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("dock_up"), lambda: self._dock_compose("up"), color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("dock_down"), lambda: self._dock_compose("down"), color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("restart"), lambda: self._dock_compose("restart"), color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=90, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("dock_pull"), lambda: self._dock_compose("pull"), color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("dock_logs"), self._dock_compose_logs, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+
+        tk.Label(parent, text=lang.t("dock_images"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9, "bold"), anchor="w").pack(fill="x", padx=12, pady=(2, 0))
+        imgrow = tk.Frame(parent, bg=THEME["bg_elevated"])
+        imgrow.pack(fill="x", padx=10, pady=2)
+        StyledButton(imgrow, lang.t("btn_refresh"), self._dock_images_refresh, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=90, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(imgrow, lang.t("btn_remove"), self._dock_image_remove, color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=90, height=24, font_size=8).pack(side="left", padx=2)
+        self._dock_img_tree = ttk.Treeview(parent, columns=("image", "tag", "size"), show="headings",
+                                           height=4, style="Big.Treeview")
+        self._dock_img_tree.heading("image", text=lang.t("col_image"))
+        self._dock_img_tree.heading("tag", text=lang.t("col_tag"))
+        self._dock_img_tree.heading("size", text=lang.t("col_size"))
+        self._dock_img_tree.column("image", width=280)
+        self._dock_img_tree.column("tag", width=120)
+        self._dock_img_tree.column("size", width=100)
+        self._dock_img_tree.pack(fill="x", padx=10, pady=(0, 6))
         self._dock_refresh()
+        self._dock_images_refresh()
 
     def _dock_fill(self, rows):
         for item in self._dock_tree.get_children():
@@ -2666,6 +2854,243 @@ class App:
             except Exception as e:
                 self.log(f"docker {action} ERROR: {e}")
                 self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_browse_compose(self):
+        from tkinter import filedialog
+        f = filedialog.askopenfilename(
+            title="docker-compose.yml",
+            filetypes=[("Compose", "*.yml;*.yaml"), ("All files", "*.*")],
+            initialdir=str(WWW))
+        if f:
+            self._dock_compose_var.set(f)
+
+    def _dock_compose(self, action):
+        compose = self._dock_compose_var.get().strip()
+        if not compose:
+            return
+        def w():
+            try:
+                out = self.svc.docker_compose(action, compose)
+                self.log(f"compose {action} output:\n{out[-500:]}")
+                self.root.after(0, self._dock_refresh)
+            except Exception as e:
+                self.log(f"compose {action} ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_compose_logs(self):
+        compose = self._dock_compose_var.get().strip()
+        if not compose:
+            return
+        win = tk.Toplevel(self.root)
+        win.title("docker compose logs")
+        win.geometry("800x500")
+        win.configure(bg=THEME["bg_elevated"])
+        try:
+            win.iconbitmap(str(ICON))
+        except Exception:
+            pass
+        t = ScrolledText(win, wrap="word", bg="#0d0f16", fg="#b8bdd0",
+                         insertbackground="white", font=("Cascadia Code", 9),
+                         relief="flat", bd=0, padx=10, pady=6,
+                         selectbackground=THEME["accent"], selectforeground=THEME["white"])
+        t.pack(fill="both", expand=True, padx=10, pady=10)
+        t.insert("1.0", "…")
+        t.configure(state="disabled")
+        def load():
+            try:
+                out = self.svc.docker_compose_logs(compose)
+                def ui():
+                    t.configure(state="normal")
+                    t.delete("1.0", "end")
+                    t.insert("1.0", out)
+                    t.see("end")
+                    t.configure(state="disabled")
+                self.root.after(0, ui)
+            except Exception as e:
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=load, daemon=True).start()
+
+    def _dock_images_refresh(self):
+        def w():
+            try:
+                rows = self.svc.docker_images()
+                def ui():
+                    for item in self._dock_img_tree.get_children():
+                        self._dock_img_tree.delete(item)
+                    for repo, tag, iid, size in rows:
+                        self._dock_img_tree.insert("", "end", iid=iid,
+                                                   values=(repo, tag, size))
+                self.root.after(0, ui)
+            except Exception as e:
+                self.root.after(0, lambda: self._dock_status.configure(text=str(e)[:200]))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_image_remove(self):
+        sel = list(self._dock_img_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                     f"{lang.t('confirm_delete')} {sel[0]}?"):
+            return
+        def w():
+            try:
+                for iid in sel:
+                    self.svc.docker_rmi(iid)
+                self.root.after(0, self._dock_images_refresh)
+            except Exception as e:
+                self.log(f"docker rmi ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _build_db(self, parent):
+        pg = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                      highlightthickness=1)
+        pg.pack(fill="x", padx=10, pady=(8, 4))
+        tk.Label(pg, text="PostgreSQL", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        r1 = tk.Frame(pg, bg=THEME["bg_elevated"])
+        r1.pack(fill="x", padx=10, pady=2)
+        tk.Label(r1, text=lang.t("db_host"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Label(r1, text="127.0.0.1", bg=THEME["bg_input"], fg=THEME["text_dim"],
+                 font=("Cascadia Code", 9), padx=8, pady=2).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._pg_port_var = tk.StringVar(value=str(CONFIG["postgresql_port"]))
+        tk.Entry(r1, textvariable=self._pg_port_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("db_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._pg_user_var = tk.StringVar(value="postgres")
+        tk.Entry(r1, textvariable=self._pg_user_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=14).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._pg_pass_var = tk.StringVar(value="")
+        tk.Entry(r1, textvariable=self._pg_pass_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
+        r2 = tk.Frame(pg, bg=THEME["bg_elevated"])
+        r2.pack(fill="x", padx=10, pady=(2, 8))
+        tk.Label(r2, text=lang.t("db_name"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._pg_db_var = tk.StringVar(value="postgres")
+        tk.Entry(r2, textvariable=self._pg_db_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=20).pack(side="left", padx=4)
+        StyledButton(r2, lang.t("db_apply"), self._pg_apply, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+        StyledButton(r2, lang.t("db_createdb"), self._pg_create_db, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=110, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(r2, lang.t("db_setpass"), self._pg_set_pass, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=120, height=26, font_size=8).pack(side="left", padx=2)
+
+        rd = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                      highlightthickness=1)
+        rd.pack(fill="x", padx=10, pady=4)
+        tk.Label(rd, text="Redis", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        r3 = tk.Frame(rd, bg=THEME["bg_elevated"])
+        r3.pack(fill="x", padx=10, pady=(2, 8))
+        tk.Label(r3, text=lang.t("db_bind"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        try:
+            _rc = self.svc.redis_conf()
+        except Exception:
+            _rc = {"bind": "127.0.0.1", "password": ""}
+        self._redis_bind_var = tk.StringVar(value=_rc.get("bind") or "127.0.0.1")
+        tk.Entry(r3, textvariable=self._redis_bind_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=16).pack(side="left", padx=4)
+        tk.Label(r3, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._redis_pass_var = tk.StringVar(value=_rc.get("password") or "")
+        tk.Entry(r3, textvariable=self._redis_pass_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=20, show="*").pack(side="left", padx=4)
+        StyledButton(r3, lang.t("db_apply"), self._redis_apply, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+
+        self._db_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                   font=(THEME["font_family"], 8), anchor="w")
+        self._db_status.pack(fill="x", padx=12, pady=4)
+
+    def _db_ok(self, msg):
+        self.log(msg)
+        try:
+            self.root.after(0, lambda: self._db_status.configure(text=msg[:160]))
+        except Exception:
+            pass
+
+    def _db_err(self, e):
+        self.log("DB ERROR: " + str(e))
+        self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+
+    def _pg_apply(self):
+        port = self._pg_port_var.get().strip()
+        def w():
+            try:
+                self.svc.pg_apply_port(port)
+                self.root.after(0, self._refresh_port_label)
+                self._db_ok(f"PostgreSQL port: {port}")
+            except Exception as e:
+                self._db_err(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _refresh_port_label(self):
+        try:
+            self._port_label.configure(text=f"LOCAL SERVICES   •   Apache {CONFIG['apache_port']}   ·   MariaDB {CONFIG['mariadb_port']}   ·   PHP {CONFIG['php_cgi_port']}   ·   PostgreSQL {CONFIG['postgresql_port']}   ·   Redis {CONFIG['redis_port']}   ·   Nginx {CONFIG['nginx_port']}")
+        except Exception:
+            pass
+
+    def _pg_create_db(self):
+        user, pwd, db = self._pg_user_var.get().strip(), self._pg_pass_var.get(), self._pg_db_var.get().strip()
+        def w():
+            try:
+                self.svc.pg_create_db(user or "postgres", pwd, db)
+                self._db_ok(f"Database created: {db}")
+            except Exception as e:
+                self._db_err(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _pg_set_pass(self):
+        user, pwd = self._pg_user_var.get().strip() or "postgres", self._pg_pass_var.get()
+        new_pass = DarkPrompt.ask_string(self.root, lang.t("db_setpass"),
+                                         f"{user}: {lang.t('db_pass')}")
+        if not new_pass:
+            return
+        def w():
+            try:
+                self.svc.pg_set_password(user, pwd, user, new_pass)
+                self._db_ok(f"Password set: {user}")
+            except Exception as e:
+                self._db_err(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _redis_apply(self):
+        bind = self._redis_bind_var.get().strip() or "127.0.0.1"
+        pwd = self._redis_pass_var.get()
+        def w():
+            try:
+                (APP_ROOT / "config").mkdir(parents=True, exist_ok=True)
+                (APP_ROOT / "config" / "redis.json").write_text(
+                    json.dumps({"bind": bind, "password": pwd}, indent=2), encoding="utf-8")
+                if self.svc.redisrun():
+                    self.log("Restarting Redis to apply new settings...")
+                    self.svc.stop_redis()
+                    self.svc.start_redis()
+                self._db_ok(f"Redis: bind {bind}, password {'set' if pwd else 'empty'}")
+            except Exception as e:
+                self._db_err(e)
         threading.Thread(target=w, daemon=True).start()
 
     def _status_bar(self, parent):
