@@ -72,7 +72,7 @@ THEME = {
 
 LANGUAGES = {
     "ru": {"flag": "\U0001F1F7\U0001F1FA", "name": "Русский"},
-    "en": {"flag": "En", "name": "En"},
+    "en": {"flag": "En", "name": "English"},
     "es": {"flag": "\U0001F1EA\U0001F1F8", "name": "Español"},
     "de": {"flag": "\U0001F1E9\U0001F1EA", "name": "Deutsch"},
     "fr": {"flag": "\U0001F1EB\U0001F1F7", "name": "Français"},
@@ -80,7 +80,7 @@ LANGUAGES = {
 }
 
 LOCALES = {
-    "app_title": {"ru": "MiniServer", "en": "MiniServer", "es": "MiniServer", "de": "MiniServer", "fr": "MiniServer", "zh": "MiniServer"},
+    "app_title": {"ru": "FarajaWebServer", "en": "FarajaWebServer", "es": "FarajaWebServer", "de": "FarajaWebServer", "fr": "FarajaWebServer", "zh": "FarajaWebServer"},
     "app_subtitle": {"ru": "Локальная среда разработки", "en": "Local development environment", "es": "Entorno de desarrollo local", "de": "Lokale Entwicklungsumgebung", "fr": "Environnement de développement local", "zh": "本地开发环境"},
     "start_all": {"ru": "ЗАПУСТИТЬ ВСЕ", "en": "START ALL", "es": "INICIAR TODO", "de": "ALLE STARTEN", "fr": "TOUT DÉMARRER", "zh": "全部启动"},
     "stop_all": {"ru": "ОСТАНОВИТЬ ВСЕ", "en": "STOP ALL", "es": "DETENER TODO", "de": "ALLE STOPPEN", "fr": "TOUT ARRÊTER", "zh": "全部停止"},
@@ -106,10 +106,10 @@ LOCALES = {
     "tab_main": {"ru": "Основное", "en": "Main", "es": "Principal", "de": "Haupt", "fr": "Principal", "zh": "主要"},
     "tab_extra": {"ru": "Дополнительно", "en": "Advanced", "es": "Adicional", "de": "Erweitert", "fr": "Avancé", "zh": "高级"},
     "tab_system": {"ru": "Система", "en": "System", "es": "Sistema", "de": "System", "fr": "Système", "zh": "系统"},
-    "tab_apache_err": {"ru": "Ошибки Apache", "en": "Apache Error", "es": "Error Apache", "de": "Apache Fehler", "fr": "Erreur Apache", "zh": "Apache 错误"},
-    "tab_php_err": {"ru": "Ошибки PHP", "en": "PHP Error", "es": "Error PHP", "de": "PHP Fehler", "fr": "Erreur PHP", "zh": "PHP 错误"},
-    "tab_mariadb_err": {"ru": "Ошибки MariaDB", "en": "MariaDB Error", "es": "Error MariaDB", "de": "MariaDB Fehler", "fr": "Erreur MariaDB", "zh": "MariaDB 错误"},
-    "tab_process": {"ru": "Процессы / Инициализация", "en": "Process / Init", "es": "Proceso / Inicio", "de": "Prozess / Init", "fr": "Processus / Init", "zh": "进程 / 初始化"},
+    "tab_apache_err": {"ru": "Apache", "en": "Apache ", "es": " Apache", "de": "Apache ", "fr": " Apache", "zh": "Apache 错误"},
+    "tab_php_err": {"ru": " PHP", "en": "PHP ", "es": " PHP", "de": "PHP ", "fr": " PHP", "zh": "PHP 错误"},
+    "tab_mariadb_err": {"ru": " MariaDB", "en": "MariaDB ", "es": " MariaDB", "de": "MariaDB ", "fr": " MariaDB", "zh": "MariaDB 错误"},
+    "tab_process": {"ru": "Процессы", "en": "Process", "es": "Proceso ", "de": "Prozess", "fr": "Processus", "zh": "进程 / 初始化"},
     "tab_files": {"ru": "Файлы", "en": "Files", "es": "Archivos", "de": "Dateien", "fr": "Fichiers", "zh": "文件"},
     "tab_sql": {"ru": "SQL", "en": "SQL", "es": "SQL", "de": "SQL", "fr": "SQL", "zh": "SQL"},
     "tab_sites": {"ru": "Сайты", "en": "Sites", "es": "Sitios", "de": "Sites", "fr": "Sites", "zh": "站点"},
@@ -3256,6 +3256,8 @@ class App:
             pystray.MenuItem(f"Stop Redis", lambda i, x: self.stop_redis_ui()),
             pystray.MenuItem(f"Start Nginx", lambda i, x: self.start_nginx_ui()),
             pystray.MenuItem(f"Stop Nginx", lambda i, x: self.stop_nginx_ui()),
+            pystray.MenuItem(f"Start Node.js", lambda i, x: self.start_node_ui()),
+            pystray.MenuItem(f"Stop Node.js", lambda i, x: self.stop_node_ui()),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Exit", lambda i, x: self.exit())
         )
@@ -3716,7 +3718,7 @@ class App:
                              relief="flat", bd=0, padx=14, pady=10,
                              selectbackground=THEME["accent"], selectforeground=THEME["white"])
             t.pack(fill="both", expand=True, padx=0, pady=0)
-            t.insert("1.0", lang_docs.get(key, "").replace("MiniServer", APP_NAME))
+            t.insert("1.0", lang_docs.get(key, "").replace("MiniServer", APP_NAME).replace("LockSer", APP_NAME))
             t.configure(state="disabled")
 
     def _first_run_wizard(self):
