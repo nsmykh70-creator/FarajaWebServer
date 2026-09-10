@@ -75,6 +75,8 @@ THEME = {
     "text_dim": "#9aabc0",
     "text_muted": "#687b91",
     "white": "#ffffff",
+    "entry_bg": "#9aa3b2",
+    "entry_fg": "#15171d",
     "font_family": "Segoe UI",
 }
 
@@ -301,6 +303,9 @@ LOCALES = {
     "dock_networks": {"ru": "Сети", "en": "Networks", "es": "Redes", "de": "Netzwerke", "fr": "Réseaux", "zh": "网络"},
     "dock_volumes": {"ru": "Тома", "en": "Volumes", "es": "Volúmenes", "de": "Volumes", "fr": "Volumes", "zh": "卷"},
     "perf_baseline": {"ru": "В эталон", "en": "Set baseline", "es": "Referencia", "de": "Basiswert", "fr": "Référence", "zh": "设为基线"},
+    "net_btc": {"ru": "Сеть Bitcoin", "en": "Bitcoin network", "es": "Red Bitcoin", "de": "Bitcoin-Netzwerk", "fr": "Réseau Bitcoin", "zh": "比特币网络"},
+    "net_eth": {"ru": "Сеть Ethereum (ERC-20)", "en": "Ethereum network (ERC-20)", "es": "Red Ethereum (ERC-20)", "de": "Ethereum-Netzwerk (ERC-20)", "fr": "Réseau Ethereum (ERC-20)", "zh": "以太坊网络（ERC-20）"},
+    "net_trx": {"ru": "Сеть Tron (TRC-20)", "en": "Tron network (TRC-20)", "es": "Red Tron (TRC-20)", "de": "Tron-Netzwerk (TRC-20)", "fr": "Réseau Tron (TRC-20)", "zh": "波场网络（TRC-20）"},
     "set_env": {"ru": "Окружение", "en": "Environment", "es": "Entorno", "de": "Umgebung", "fr": "Environnement", "zh": "环境"},
     "env_php": {"ru": "PHP:", "en": "PHP:", "es": "PHP:", "de": "PHP:", "fr": "PHP :", "zh": "PHP："},
     "env_node": {"ru": "Node.js:", "en": "Node.js:", "es": "Node.js:", "de": "Node.js:", "fr": "Node.js :", "zh": "Node.js："},
@@ -2308,8 +2313,8 @@ class DarkPrompt:
                  font=(THEME["font_family"], 10), wraplength=380,
                  justify="left").pack(fill="x", padx=18, pady=(16, 8))
         var = tk.StringVar(value=initial)
-        entry = tk.Entry(win, textvariable=var, bg=THEME["bg_input"], fg=THEME["text"],
-                         insertbackground=THEME["text"], font=("Cascadia Code", 10),
+        entry = tk.Entry(win, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                         insertbackground=THEME["entry_fg"], font=("Cascadia Code", 10),
                          relief="flat", bd=0)
         entry.pack(fill="x", padx=18, pady=4)
         entry.focus_set()
@@ -3041,15 +3046,15 @@ class App:
                 tk.Label(fbar, text=lang.t("log_level"), bg=THEME["bg_elevated"], fg=THEME["text"],
                          font=(THEME["font_family"], 9)).pack(side="left")
                 lvl = tk.OptionMenu(fbar, self._log_level_var, "ALL", "ERROR", "WARNING")
-                lvl.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                lvl.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                               activebackground=THEME["accent"], activeforeground=THEME["white"],
                               font=(THEME["font_family"], 9), highlightthickness=0)
                 lvl["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
                 lvl.pack(side="left", padx=4)
                 tk.Label(fbar, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
                          font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
-                tk.Entry(fbar, textvariable=self._log_search_var, bg=THEME["bg_input"], fg=THEME["text"],
-                         insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                tk.Entry(fbar, textvariable=self._log_search_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                         insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                          relief="flat", bd=0, width=24).pack(side="left", padx=4)
 
             t = ScrolledText(frame, wrap="word", bg="#0d0f16", fg="#b8bdd0",
@@ -3076,6 +3081,17 @@ class App:
             try:
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 canvas.itemconfig(wid, width=canvas.winfo_width())
+                try:
+                    need = body.winfo_reqheight() > canvas.winfo_height()
+                except Exception:
+                    need = True
+                if need:
+                    if not vsb.winfo_ismapped():
+                        vsb.pack(side="right", fill="y")
+                else:
+                    if vsb.winfo_ismapped():
+                        vsb.pack_forget()
+                    canvas.yview_moveto(0.0)
             except Exception:
                 pass
         body.bind("<Configure>", _fit)
@@ -3083,6 +3099,20 @@ class App:
 
         def _wheel(e):
             try:
+                if not canvas.winfo_viewable():
+                    return
+                x, y = canvas.winfo_rootx(), canvas.winfo_rooty()
+                if not (x <= e.x_root <= x + canvas.winfo_width()
+                        and y <= e.y_root <= y + canvas.winfo_height()):
+                    return
+                w = self.root.winfo_containing(e.x_root, e.y_root)
+                while w is not None and w is not canvas and w is not body:
+                    if isinstance(w, (ttk.Treeview, tk.Text, tk.Listbox)):
+                        return
+                    try:
+                        w = w.master
+                    except Exception:
+                        break
                 if hasattr(e, "delta") and e.delta:
                     canvas.yview_scroll(-1 * (e.delta // 120), "units")
                 elif getattr(e, "num", 0) == 4:
@@ -3092,9 +3122,12 @@ class App:
             except Exception:
                 pass
             return "break"
-        canvas.bind("<MouseWheel>", _wheel)
-        canvas.bind("<Button-4>", _wheel)
-        canvas.bind("<Button-5>", _wheel)
+
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            try:
+                self.root.bind_all(seq, _wheel, add="+")
+            except Exception:
+                pass
         return body
 
     def _data_tabs(self, parent):
@@ -3115,15 +3148,15 @@ class App:
         nb = OfficeTabs(parent, active_size=11, passive_size=9)
         files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(files_frame, lang.t('tab_files'))
-        self._build_file_manager(self._scrollable(files_frame))
+        self._build_file_manager(files_frame)
 
         sites_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(sites_frame, lang.t('tab_sites'))
-        self._build_sites_manager(self._scrollable(sites_frame))
+        self._build_sites_manager(sites_frame)
 
         tasks_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(tasks_frame, lang.t('tab_tasks'))
-        self._build_task_scheduler(self._scrollable(tasks_frame))
+        self._build_task_scheduler(tasks_frame)
 
         node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(node_frame, lang.t('tab_node'))
@@ -3137,7 +3170,7 @@ class App:
 
         procs_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(procs_frame, lang.t('tab_procs'))
-        self._build_procs(self._scrollable(procs_frame))
+        self._build_procs(procs_frame)
 
         perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(perf_frame, lang.t('tab_perf'))
@@ -3159,13 +3192,13 @@ class App:
         r1.pack(fill="x", pady=2)
         tk.Label(r1, text=lang.t("col_server"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
-        tk.Entry(r1, textvariable=self._node_name_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r1, textvariable=self._node_name_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=16).pack(side="left", padx=4)
         tk.Label(r1, text=lang.t("node_project"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
-        tk.Entry(r1, textvariable=self._node_dir_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r1, textvariable=self._node_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=4)
         StyledButton(r1, lang.t("first_run_browse"), self._node_browse_dir, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
@@ -3174,13 +3207,13 @@ class App:
         r2.pack(fill="x", pady=2)
         tk.Label(r2, text=lang.t("node_entry"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
-        tk.Entry(r2, textvariable=self._node_entry_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r2, textvariable=self._node_entry_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=24).pack(side="left", padx=4)
         tk.Label(r2, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
-        tk.Entry(r2, textvariable=self._node_port_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r2, textvariable=self._node_port_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=8).pack(side="left", padx=4)
         self._node_ver = tk.Label(r2, text="Node.js: …", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                   font=("Cascadia Code", 9))
@@ -3375,7 +3408,7 @@ class App:
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._dbm_engine = tk.StringVar(value="MariaDB")
         eng = tk.OptionMenu(top, self._dbm_engine, "MariaDB", "PostgreSQL")
-        eng.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        eng.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                       activebackground=THEME["accent"], activeforeground=THEME["white"],
                       font=(THEME["font_family"], 9), highlightthickness=0)
         eng["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -3383,20 +3416,20 @@ class App:
         tk.Label(top, text=lang.t("db_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
         self._dbm_user = tk.StringVar(value="root")
-        tk.Entry(top, textvariable=self._dbm_user, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=12,
+        tk.Entry(top, textvariable=self._dbm_user, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=12,
                  relief="flat", bd=0).pack(side="left", padx=2)
         tk.Label(top, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
         self._dbm_pass = tk.StringVar(value="")
-        tk.Entry(top, textvariable=self._dbm_pass, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=12,
+        tk.Entry(top, textvariable=self._dbm_pass, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=12,
                  relief="flat", bd=0, show="*").pack(side="left", padx=2)
         tk.Label(top, text=lang.t("db_name"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
         self._dbm_db = tk.StringVar(value="")
-        tk.Entry(top, textvariable=self._dbm_db, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=16,
+        tk.Entry(top, textvariable=self._dbm_db, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=16,
                  relief="flat", bd=0).pack(side="left", padx=2)
 
         btns = tk.Frame(parent, bg=THEME["bg_elevated"])
@@ -3430,8 +3463,8 @@ class App:
         tk.Label(rrow, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._dbm_rpass = tk.StringVar(value="")
-        tk.Entry(rrow, textvariable=self._dbm_rpass, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=16,
+        tk.Entry(rrow, textvariable=self._dbm_rpass, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=16,
                  relief="flat", bd=0, show="*").pack(side="left", padx=2)
         StyledButton(rrow, lang.t("db_flush"), self._dbm_flush, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
@@ -3565,15 +3598,15 @@ class App:
         tk.Label(r1, text=lang.t("perf_target"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._perf_target_var = tk.StringVar(value=f"http://127.0.0.1:{CONFIG['apache_port']}/")
-        tk.Entry(r1, textvariable=self._perf_target_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r1, textvariable=self._perf_target_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=36).pack(side="left", padx=4)
         tk.Label(r1, text=lang.t("perf_profile"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._perf_profile_var = tk.StringVar(value="Normal")
         pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Spike", "Soak", "Custom",
                            command=self._perf_profile_changed)
-        pm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        pm.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                      activebackground=THEME["accent"], activeforeground=THEME["white"],
                      font=(THEME["font_family"], 9), highlightthickness=0)
         pm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -3583,14 +3616,14 @@ class App:
         tk.Label(r2, text=lang.t("perf_users"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._perf_users_var = tk.StringVar(value="50")
-        tk.Entry(r2, textvariable=self._perf_users_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r2, textvariable=self._perf_users_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=8).pack(side="left", padx=4)
         tk.Label(r2, text=lang.t("perf_duration"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._perf_dur_var = tk.StringVar(value="60")
-        tk.Entry(r2, textvariable=self._perf_dur_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(r2, textvariable=self._perf_dur_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=8).pack(side="left", padx=4)
         self._perf_toggle_btn = StyledButton(r2, lang.t("start"), self._perf_toggle,
                                             color=THEME["success"],
@@ -4021,8 +4054,8 @@ class App:
         tk.Label(top, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._procs_search_var = tk.StringVar(value="")
-        se = tk.Entry(top, textvariable=self._procs_search_var, bg=THEME["bg_input"], fg=THEME["text"],
-                      insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        se = tk.Entry(top, textvariable=self._procs_search_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                      insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                       relief="flat", bd=0, width=24)
         se.pack(side="left", padx=4)
         se.bind("<KeyRelease>", lambda e: self._procs_filter())
@@ -4127,8 +4160,8 @@ class App:
         tk.Label(comp, text=lang.t("dock_file"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9, "bold")).pack(side="left")
         self._dock_compose_var = tk.StringVar(value=str(WWW / "docker-compose.yml"))
-        tk.Entry(comp, textvariable=self._dock_compose_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(comp, textvariable=self._dock_compose_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
         StyledButton(comp, lang.t("first_run_browse"), self._dock_browse_compose, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
@@ -4383,118 +4416,102 @@ class App:
                 self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
         threading.Thread(target=w, daemon=True).start()
 
+    def _db_entry(self, parent, row, col, text, var, width=14, show=None):
+        tk.Label(parent, text=text, bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).grid(row=row, column=col, sticky="w",
+                                                      padx=(0, 4), pady=4)
+        e = tk.Entry(parent, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                     insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                     relief="flat", bd=0, width=width, highlightthickness=1,
+                     highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
+        if show:
+            e.configure(show=show)
+        e.grid(row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=4)
+        return e
+
+    def _db_static(self, parent, row, col, text, value):
+        tk.Label(parent, text=text, bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).grid(row=row, column=col, sticky="w",
+                                                      padx=(0, 4), pady=4)
+        tk.Label(parent, text=value, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 font=("Cascadia Code", 9), padx=8, pady=3, anchor="w",
+                 highlightthickness=1, highlightbackground=THEME["border"]).grid(
+                     row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=4)
+
+    def _db_button(self, parent, row, col, text, cmd, color, hover, active, width=110):
+        b = StyledButton(parent, text, cmd, color=color, hover_color=hover,
+                         active_color=active, width=width, height=26, font_size=8)
+        b.grid(row=row, column=col, sticky="w", padx=4, pady=4)
+        return b
+
     def _build_db(self, parent):
         md = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
         md.pack(fill="x", padx=10, pady=(8, 4))
         tk.Label(md, text="MariaDB", bg=THEME["bg_elevated"], fg=THEME["accent"],
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        m1 = tk.Frame(md, bg=THEME["bg_elevated"])
-        m1.pack(fill="x", padx=10, pady=2)
-        tk.Label(m1, text=lang.t("db_host"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
-        tk.Label(m1, text="127.0.0.1", bg=THEME["bg_input"], fg=THEME["text_dim"],
-                 font=("Cascadia Code", 9), padx=8, pady=2).pack(side="left", padx=4)
-        tk.Label(m1, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        mg = tk.Frame(md, bg=THEME["bg_elevated"])
+        mg.pack(fill="x", padx=10, pady=(0, 8))
+        mg.grid_columnconfigure(1, weight=1)
+        mg.grid_columnconfigure(3, weight=1)
         self._maria_port_var = tk.StringVar(value=str(CONFIG["mariadb_port"]))
-        tk.Entry(m1, textvariable=self._maria_port_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
-        StyledButton(m1, lang.t("db_apply"), self._maria_apply, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=8)
-        m2 = tk.Frame(md, bg=THEME["bg_elevated"])
-        m2.pack(fill="x", padx=10, pady=(2, 8))
-        tk.Label(m2, text=lang.t("db_curpass"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._db_static(mg, 0, 0, lang.t("db_host"), "127.0.0.1")
+        self._db_entry(mg, 0, 2, lang.t("node_port"), self._maria_port_var, width=8)
+        self._db_button(mg, 0, 4, lang.t("db_apply"), self._maria_apply,
+                        THEME["success"], "#55e39a", THEME["success_dim"])
         self._maria_cur_var = tk.StringVar(value="")
-        tk.Entry(m2, textvariable=self._maria_cur_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
-        tk.Label(m2, text=lang.t("db_rootpass"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._maria_new_var = tk.StringVar(value="")
-        tk.Entry(m2, textvariable=self._maria_new_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
-        StyledButton(m2, lang.t("db_setpass"), self._maria_set_pass, color=THEME["warning_dim"],
-                     hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=120, height=26, font_size=8).pack(side="left", padx=8)
+        self._db_entry(mg, 1, 0, lang.t("db_curpass"), self._maria_cur_var, width=14, show="*")
+        self._db_entry(mg, 1, 2, lang.t("db_rootpass"), self._maria_new_var, width=14, show="*")
+        self._db_button(mg, 1, 4, lang.t("db_setpass"), self._maria_set_pass,
+                        THEME["warning_dim"], THEME["warning"], "#ba5e17", width=120)
 
         pg = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
         pg.pack(fill="x", padx=10, pady=(8, 4))
         tk.Label(pg, text="PostgreSQL", bg=THEME["bg_elevated"], fg=THEME["accent"],
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        r1 = tk.Frame(pg, bg=THEME["bg_elevated"])
-        r1.pack(fill="x", padx=10, pady=2)
-        tk.Label(r1, text=lang.t("db_host"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
-        tk.Label(r1, text="127.0.0.1", bg=THEME["bg_input"], fg=THEME["text_dim"],
-                 font=("Cascadia Code", 9), padx=8, pady=2).pack(side="left", padx=4)
-        tk.Label(r1, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        pgf = tk.Frame(pg, bg=THEME["bg_elevated"])
+        pgf.pack(fill="x", padx=10, pady=(0, 8))
+        pgf.grid_columnconfigure(1, weight=1)
+        pgf.grid_columnconfigure(3, weight=1)
+        pgf.grid_columnconfigure(5, weight=1)
+        pgf.grid_columnconfigure(7, weight=1)
         self._pg_port_var = tk.StringVar(value=str(CONFIG["postgresql_port"]))
-        tk.Entry(r1, textvariable=self._pg_port_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
-        tk.Label(r1, text=lang.t("db_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._pg_user_var = tk.StringVar(value="postgres")
-        tk.Entry(r1, textvariable=self._pg_user_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=14).pack(side="left", padx=4)
-        tk.Label(r1, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._pg_pass_var = tk.StringVar(value="")
-        tk.Entry(r1, textvariable=self._pg_pass_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=14, show="*").pack(side="left", padx=4)
-        r2 = tk.Frame(pg, bg=THEME["bg_elevated"])
-        r2.pack(fill="x", padx=10, pady=(2, 8))
-        tk.Label(r2, text=lang.t("db_name"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
         self._pg_db_var = tk.StringVar(value="postgres")
-        tk.Entry(r2, textvariable=self._pg_db_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=20).pack(side="left", padx=4)
-        StyledButton(r2, lang.t("db_apply"), self._pg_apply, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=8)
-        StyledButton(r2, lang.t("db_createdb"), self._pg_create_db, color=THEME["info"],
-                     hover_color="#2e9bf5", active_color="#0769b5",
-                     width=110, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(r2, lang.t("db_setpass"), self._pg_set_pass, color=THEME["warning_dim"],
-                     hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=120, height=26, font_size=8).pack(side="left", padx=2)
+        self._db_static(pgf, 0, 0, lang.t("db_host"), "127.0.0.1")
+        self._db_entry(pgf, 0, 2, lang.t("node_port"), self._pg_port_var, width=8)
+        self._db_entry(pgf, 0, 4, lang.t("db_user"), self._pg_user_var, width=14)
+        self._db_entry(pgf, 0, 6, lang.t("db_pass"), self._pg_pass_var, width=14, show="*")
+        self._db_entry(pgf, 1, 0, lang.t("db_name"), self._pg_db_var, width=16)
+        self._db_button(pgf, 1, 4, lang.t("db_apply"), self._pg_apply,
+                        THEME["success"], "#55e39a", THEME["success_dim"])
+        self._db_button(pgf, 1, 6, lang.t("db_createdb"), self._pg_create_db,
+                        THEME["info"], "#2e9bf5", "#0769b5")
+        self._db_button(pgf, 1, 8, lang.t("db_setpass"), self._pg_set_pass,
+                        THEME["warning_dim"], THEME["warning"], "#ba5e17", width=120)
 
         rd = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
         rd.pack(fill="x", padx=10, pady=4)
         tk.Label(rd, text="Redis", bg=THEME["bg_elevated"], fg=THEME["accent"],
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        r3 = tk.Frame(rd, bg=THEME["bg_elevated"])
-        r3.pack(fill="x", padx=10, pady=(2, 8))
-        tk.Label(r3, text=lang.t("db_bind"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
+        rg = tk.Frame(rd, bg=THEME["bg_elevated"])
+        rg.pack(fill="x", padx=10, pady=(0, 8))
+        rg.grid_columnconfigure(1, weight=1)
+        rg.grid_columnconfigure(3, weight=1)
         try:
             _rc = self.svc.redis_conf()
         except Exception:
             _rc = {"bind": "127.0.0.1", "password": ""}
         self._redis_bind_var = tk.StringVar(value=_rc.get("bind") or "127.0.0.1")
-        tk.Entry(r3, textvariable=self._redis_bind_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=16).pack(side="left", padx=4)
-        tk.Label(r3, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._redis_pass_var = tk.StringVar(value=_rc.get("password") or "")
-        tk.Entry(r3, textvariable=self._redis_pass_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0, width=20, show="*").pack(side="left", padx=4)
-        StyledButton(r3, lang.t("db_apply"), self._redis_apply, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+        self._db_entry(rg, 0, 0, lang.t("db_bind"), self._redis_bind_var, width=16)
+        self._db_entry(rg, 0, 2, lang.t("db_pass"), self._redis_pass_var, width=20, show="*")
+        self._db_button(rg, 0, 4, lang.t("db_apply"), self._redis_apply,
+                        THEME["success"], "#55e39a", THEME["success_dim"])
 
         self._db_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                    font=(THEME["font_family"], 8), anchor="w")
@@ -4685,8 +4702,8 @@ class App:
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      width=100, height=28, font_size=9).pack(side="left", padx=2)
         self._fm_path = tk.StringVar(value=str(WWW))
-        path_entry = tk.Entry(top, textvariable=self._fm_path, bg=THEME["bg_input"],
-                              fg=THEME["text"], insertbackground=THEME["text"],
+        path_entry = tk.Entry(top, textvariable=self._fm_path, bg=THEME["entry_bg"],
+                              fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"],
                               font=("Cascadia Code", 9), relief="flat", bd=0)
         path_entry.pack(side="left", fill="x", expand=True, padx=5)
         path_entry.bind("<Return>", lambda e: self._fm_navigate())
@@ -4834,7 +4851,7 @@ class App:
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._sql_engine = tk.StringVar(value="MariaDB")
         engine_menu = tk.OptionMenu(top, self._sql_engine, "MariaDB", "PostgreSQL")
-        engine_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        engine_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                              activebackground=THEME["accent"], activeforeground=THEME["white"],
                              font=(THEME["font_family"], 9))
         engine_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -4843,13 +4860,13 @@ class App:
         self._sql_pass = tk.StringVar(value="")
         tk.Label(top, text=lang.t("sql_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
-        tk.Entry(top, textvariable=self._sql_user, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=10,
+        tk.Entry(top, textvariable=self._sql_user, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=10,
                  relief="flat", bd=0).pack(side="left", padx=2)
         tk.Label(top, text=lang.t("sql_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
-        tk.Entry(top, textvariable=self._sql_pass, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=10,
+        tk.Entry(top, textvariable=self._sql_pass, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), width=10,
                  relief="flat", bd=0, show="*").pack(side="left", padx=2)
 
         paned = tk.PanedWindow(parent, orient="horizontal", bg=THEME["bg"],
@@ -5244,8 +5261,8 @@ class App:
         tk.Label(dl, text=lang.t("set_dl_folder"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._set_dl_var = tk.StringVar(value=str(DOWNLOADS))
-        tk.Entry(dl, textvariable=self._set_dl_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+        tk.Entry(dl, textvariable=self._set_dl_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
         StyledButton(dl, lang.t("first_run_browse"), self._set_browse_dl, color=THEME["accent"],
                      hover_color=THEME["accent_hover"], active_color=THEME["accent_active"],
@@ -5269,7 +5286,7 @@ class App:
         self._log_font_var = tk.StringVar(value=self._settings.get("log_font", "Cascadia Code"))
         log_font_menu = tk.OptionMenu(logf, self._log_font_var, *log_fonts,
                                       command=lambda e: self._on_log_font_change())
-        log_font_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        log_font_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                                 activebackground=THEME["accent"], activeforeground=THEME["white"],
                                 font=(THEME["font_family"], 9), highlightthickness=0)
         log_font_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -5280,7 +5297,7 @@ class App:
         log_size_menu = tk.OptionMenu(logf, self._log_size_var,
                                       "8", "9", "10", "11", "12", "13", "14", "16",
                                       command=lambda e: self._on_log_font_change())
-        log_size_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        log_size_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                                 activebackground=THEME["accent"], activeforeground=THEME["white"],
                                 font=(THEME["font_family"], 9), highlightthickness=0)
         log_size_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -5296,7 +5313,7 @@ class App:
             value=lang.t("php_safe") if _cur_mode == "safe" else lang.t("php_dev"))
         php_menu = tk.OptionMenu(phprow, self._php_mode_var, *self._php_mode_map.keys(),
                                  command=lambda e: self._on_php_settings_change())
-        php_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        php_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                            activebackground=THEME["accent"], activeforeground=THEME["white"],
                            font=(THEME["font_family"], 9), highlightthickness=0)
         php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -5328,7 +5345,7 @@ class App:
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._env_php_var = tk.StringVar(value=_cur_php if _cur_php in _php_vers else _php_vers[-1])
         _php_menu = tk.OptionMenu(erow, self._env_php_var, *_php_vers)
-        _php_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        _php_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                             activebackground=THEME["accent"], activeforeground=THEME["white"],
                             font=(THEME["font_family"], 9), highlightthickness=0)
         _php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -5338,14 +5355,14 @@ class App:
         self._env_php_cur.pack(side="left", padx=4)
         StyledButton(erow, lang.t("db_apply"), self._env_apply_php, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
         erow2 = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow2.pack(fill="x", padx=6, pady=2)
         tk.Label(erow2, text=lang.t("env_node"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._env_node_var = tk.StringVar(value=_cur_node if _cur_node in _node_vers else _node_vers[-1])
         _node_menu = tk.OptionMenu(erow2, self._env_node_var, *_node_vers)
-        _node_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+        _node_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                              activebackground=THEME["accent"], activeforeground=THEME["white"],
                              font=(THEME["font_family"], 9), highlightthickness=0)
         _node_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
@@ -5355,7 +5372,7 @@ class App:
         self._env_node_cur.pack(side="left", padx=4)
         StyledButton(erow2, lang.t("db_apply"), self._env_apply_node, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
         erow3 = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow3.pack(fill="x", padx=6, pady=(2, 8))
         tk.Label(erow3, text=lang.t("env_tools"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -6094,7 +6111,7 @@ class App:
     def _show_donate(self):
         win = tk.Toplevel(self.root)
         win.title(lang.t("donate_title"))
-        win.geometry("600x670")
+        win.geometry("520x640")
         win.configure(bg=THEME["bg_card"], highlightbackground=THEME["accent"],
                       highlightthickness=1)
         win.transient(self.root)
@@ -6105,42 +6122,75 @@ class App:
         tk.Label(win, text="❤  " + lang.t("donate_title"), bg=THEME["bg_card"],
                  fg=THEME["accent"], font=(THEME["font_family"], 14, "bold")).pack(pady=(14, 2))
         tk.Label(win, text=lang.t("donate_text"), bg=THEME["bg_card"], fg=THEME["text_dim"],
-                 font=(THEME["font_family"], 9), wraplength=500, justify="center").pack(pady=(0, 8))
+                 font=(THEME["font_family"], 9), wraplength=460, justify="center").pack(pady=(0, 8))
         hint = tk.Label(win, text="", bg=THEME["bg_card"], fg=THEME["success"],
                         font=(THEME["font_family"], 8))
         hint.pack()
-        self._donate_imgs = []
-        for coin in ("BTC", "ETH", "TRX"):
-            path, addr = DONATE[coin]
-            row = tk.Frame(win, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                           highlightthickness=1)
-            row.pack(fill="x", padx=16, pady=6)
+        self._donate_imgs = {}
+        self._donate_tab_btns = {}
+        coins = (("BTC", "₿", "net_btc"), ("ETH", "Ξ", "net_eth"), ("TRX", "◈", "net_trx"))
+        for coin, _sym, _net in coins:
+            path, _addr = DONATE[coin]
             try:
-                img = Image.open(str(path)).resize((112, 112), Image.LANCZOS)
-                photo = ImageTk.PhotoImage(img)
-                self._donate_imgs.append(photo)
-                tk.Label(row, image=photo, bg="white", bd=0).pack(side="left", padx=12, pady=10)
+                img = Image.open(str(path)).resize((220, 220), Image.LANCZOS)
+                self._donate_imgs[coin] = ImageTk.PhotoImage(img)
             except Exception:
-                tk.Label(row, text=coin, bg=THEME["bg_elevated"], fg=THEME["accent"],
-                         font=(THEME["font_family"], 16, "bold")).pack(side="left", padx=12, pady=10)
-            mid = tk.Frame(row, bg=THEME["bg_elevated"])
-            mid.pack(side="left", fill="both", expand=True, padx=(2, 12), pady=10)
-            tk.Label(mid, text=coin, bg=THEME["bg_elevated"], fg=THEME["text"],
-                     font=(THEME["font_family"], 11, "bold"), anchor="w").pack(fill="x")
-            tk.Label(mid, text=addr, bg=THEME["bg_input"], fg=THEME["text"],
-                     font=("Cascadia Code", 9), wraplength=350, justify="left",
-                     anchor="w", padx=10, pady=8).pack(fill="x", pady=(6, 8))
-            StyledButton(mid, lang.t("donate_copy"),
-                         lambda a=addr: self._copy_donate(a, hint),
-                         color=THEME["accent"], hover_color=THEME["accent_hover"],
-                         active_color=THEME["accent_active"],
-                         width=150, height=28, font_size=9).pack(anchor="w")
+                pass
+        tabbar = tk.Frame(win, bg=THEME["bg_card"])
+        tabbar.pack(pady=4)
+        for coin, sym, net in coins:
+            b = StyledButton(tabbar, f"{sym} {coin}", lambda c=coin: self._donate_show(c),
+                             color=THEME["bg_input"], hover_color=THEME["border_light"],
+                             active_color=THEME["border"],
+                             width=130, height=32, font_size=10)
+            b.pack(side="left", padx=4)
+            ToolTip(b, lang.t(net))
+            self._donate_tab_btns[coin] = b
+        self._donate_net = tk.Label(win, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
+                                    font=(THEME["font_family"], 9))
+        self._donate_net.pack(pady=(2, 4))
+        self._donate_qr = tk.Label(win, bg="white", bd=0, relief="flat")
+        self._donate_qr.pack(pady=4)
+        self._donate_addr = tk.Label(win, text="", bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                                     font=("Cascadia Code", 10), wraplength=420, justify="center",
+                                     padx=12, pady=10)
+        self._donate_addr.pack(fill="x", padx=24, pady=(4, 8))
+        StyledButton(win, lang.t("donate_copy"), self._donate_copy_current,
+                     color=THEME["accent"], hover_color=THEME["accent_hover"],
+                     active_color=THEME["accent_active"],
+                     width=170, height=30, font_size=9).pack(pady=(0, 14))
+        self._donate_hint = hint
+        self._donate_current = "BTC"
+        self._donate_show("BTC")
 
-    def _copy_donate(self, addr, hint):
+    def _donate_show(self, coin):
+        self._donate_current = coin
+        nets = {"BTC": "net_btc", "ETH": "net_eth", "TRX": "net_trx"}
+        _path, addr = DONATE[coin]
+        for c, b in self._donate_tab_btns.items():
+            on = (c == coin)
+            b._color = THEME["accent"] if on else THEME["bg_input"]
+            b._hover_color = THEME["accent_hover"] if on else THEME["border_light"]
+            b._active_color = THEME["accent_active"] if on else THEME["border"]
+            b._draw(b._color)
+        self._donate_net.configure(text=lang.t(nets[coin]))
+        photo = self._donate_imgs.get(coin)
+        if photo is not None:
+            self._donate_qr.configure(image=photo, text="")
+        else:
+            self._donate_qr.configure(image="", text=coin,
+                                      bg=THEME["bg_elevated"], fg=THEME["accent"],
+                                      font=(THEME["font_family"], 32, "bold"),
+                                      width=18, height=8)
+        self._donate_addr.configure(text=addr)
+        self._donate_hint.configure(text="")
+
+    def _donate_copy_current(self):
         try:
+            _path, addr = DONATE.get(self._donate_current, (None, ""))
             self.root.clipboard_clear()
             self.root.clipboard_append(addr)
-            hint.configure(text=lang.t("donate_copied"))
+            self._donate_hint.configure(text=lang.t("donate_copied"))
         except Exception:
             pass
 
@@ -6158,9 +6208,6 @@ class App:
         header.pack(fill="x", padx=20, pady=10)
         tk.Label(header, text=lang.t("doc_title"), bg=THEME["bg"], fg=THEME["accent"],
                  font=(THEME["font_family"], 16, "bold")).pack(side="left")
-        StyledButton(header, "X", win.destroy, color=THEME["danger"],
-                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=30, height=28, font_size=9).pack(side="right")
 
         nb = OfficeTabs(win, active_size=11, passive_size=9)
 
@@ -6683,8 +6730,8 @@ class App:
         dir_inner = tk.Frame(dir_frame, bg=THEME["bg"])
         dir_inner.pack(fill="x", pady=(4, 0))
         download_dir_var = tk.StringVar(value=str(DOWNLOADS))
-        tk.Entry(dir_inner, textvariable=download_dir_var, bg=THEME["bg_input"], fg=THEME["text"],
-                 insertbackground=THEME["text"], font=("Cascadia Code", 9), relief="flat", bd=0).pack(
+        tk.Entry(dir_inner, textvariable=download_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), relief="flat", bd=0).pack(
                      side="left", fill="x", expand=True)
         def browse_dir():
             from tkinter import filedialog
