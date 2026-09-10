@@ -16,6 +16,16 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 ---
 
+## Скриншоты
+
+| Главная — сервисы | Логи | Настройки и модули |
+|---|---|---|
+| ![Главная](docs/screenshots/01-main.png) | ![Логи](docs/screenshots/02-logs.png) | ![Настройки](docs/screenshots/03-settings.png) |
+
+| Помощь | Трей |
+|---|---|
+| ![Помощь](docs/screenshots/04-help.png) | ![Трей](docs/screenshots/05-tray.png) |
+
 ## Содержание
 
 - [Возможности](#возможности)

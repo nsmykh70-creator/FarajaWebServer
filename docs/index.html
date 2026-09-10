@@ -51,6 +51,10 @@ td.port{font-family:Consolas,monospace;color:var(--accent)}
 .faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:10px}
 .faq summary{cursor:pointer;font-weight:700}
 .faq p{color:var(--dim);margin-top:8px;font-size:15px}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.shots figure{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.shots img{width:100%;display:block;border-bottom:1px solid var(--border)}
+.shots figcaption{padding:10px 14px;color:var(--dim);font-size:14px}
 footer{border-top:1px solid var(--border);padding:26px 0;color:var(--mut);font-size:14px;text-align:center}
 footer a{color:var(--accent);text-decoration:none}
 @media(max-width:640px){.hero h1{font-size:30px}nav a{margin-left:12px}}
@@ -59,7 +63,7 @@ footer a{color:var(--accent);text-decoration:none}
 <body>
 <nav><div class="wrap">
 <div class="brand"><img src="logo.png" alt="Faraja WebServer">Faraja WebServer</div>
-<div><a href="#features">Возможности</a><a href="#services">Сервисы</a><a href="#start">Старт</a><a href="#faq">FAQ</a></div>
+<div><a href="#shots">Скриншоты</a><a href="#features">Возможности</a><a href="#services">Сервисы</a><a href="#start">Старт</a><a href="#faq">FAQ</a></div>
 </div></nav>
 
 <div class="wrap hero">
@@ -73,7 +77,17 @@ footer a{color:var(--accent);text-decoration:none}
 <div class="ver">Windows 10/11 · ~20 МБ · бесплатно · MIT</div>
 </div>
 
-<div class="wrap"><section id="features">
+<div class="wrap"><section id="shots">
+<h2>Скриншоты</h2><p class="sub">Так выглядит Faraja WebServer</p>
+<div class="shots">
+<figure><img src="screenshots/01-main.png" alt="Главная — карточки сервисов" loading="lazy"><figcaption>Главная — карточки сервисов</figcaption></figure>
+<figure><img src="screenshots/02-logs.png" alt="Логи установки и работы" loading="lazy"><figcaption>Логи установки и работы</figcaption></figure>
+<figure><img src="screenshots/03-settings.png" alt="Модули и настройки" loading="lazy"><figcaption>Модули, шрифт логов, установка</figcaption></figure>
+<figure><img src="screenshots/04-help.png" alt="Встроенная документация" loading="lazy"><figcaption>Встроенная пошаговая помощь</figcaption></figure>
+<figure><img src="screenshots/05-tray.png" alt="Меню системного трея" loading="lazy"><figcaption>Меню системного трея</figcaption></figure>
+</div></section>
+
+<section id="features">
 <h2>Возможности</h2><p class="sub">Полноценная среда разработки из одного файла</p>
 <div class="grid">
 <div class="feat"><div class="ico">🖥️</div><h3>Всё в одном окне</h3><p>Карточки сервисов с кнопками Старт / Стоп / Рестарт, общий запуск одной кнопкой, трей.</p></div>
