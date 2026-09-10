@@ -350,6 +350,8 @@ for _entry in LOCALES.values():
 del _entry, _code, _text
 
 def comps(): return json.loads(MANIFEST_FILE.read_text(encoding="utf-8"))
+def is_component(item):
+    return isinstance(item, dict) and "expected" in item and "archive" in item
 def port_open(port):
     s=socket.socket(); s.settimeout(.25)
     try:return s.connect_ex(("127.0.0.1",int(port)))==0
@@ -5449,6 +5451,8 @@ class App:
         except Exception:
             return
         for name, item in manifest.items():
+            if not is_component(item):
+                continue
             installed = (APP_ROOT / item["expected"]).exists()
             state = lang.t("state_installed") if installed else lang.t("state_missing")
             try:
@@ -5506,7 +5510,7 @@ class App:
         except Exception as e:
             messagebox.showerror(lang.t("error"), str(e))
             return
-        missing = [n for n, i in manifest.items() if not (APP_ROOT / i["expected"]).exists()]
+        missing = [n for n, i in manifest.items() if is_component(i) and not (APP_ROOT / i["expected"]).exists()]
         if not missing:
             self.log(lang.t("all_installed"))
             return
@@ -5916,7 +5920,7 @@ class App:
     def pma(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/phpmyadmin/')
 
     def check(self):
-        missing = [n for n, i in comps().items() if not (APP_ROOT / i["expected"]).exists()]
+        missing = [n for n, i in comps().items() if is_component(i) and not (APP_ROOT / i["expected"]).exists()]
         if not missing:
             self.log(lang.t("all_installed"))
             return
