@@ -295,6 +295,9 @@ LOCALES = {
     "perf_save": {"ru": "Сохранить отчёт", "en": "Save report", "es": "Guardar informe", "de": "Bericht speichern", "fr": "Enregistrer rapport", "zh": "保存报告"},
     "db_rootpass": {"ru": "Новый пароль root:", "en": "New root password:", "es": "Nueva clave root:", "de": "Neues Root-Passwort:", "fr": "Nouveau mot de passe root :", "zh": "新 root 密码："},
     "db_curpass": {"ru": "Текущий пароль:", "en": "Current password:", "es": "Clave actual:", "de": "Aktuelles Passwort:", "fr": "Mot de passe actuel :", "zh": "当前密码："},
+    "tab_logs": {"ru": "Логи", "en": "Logs", "es": "Registros", "de": "Logs", "fr": "Logs", "zh": "日志"},
+    "tab_projects": {"ru": "Проекты", "en": "Projects", "es": "Proyectos", "de": "Projekte", "fr": "Projets", "zh": "项目"},
+    "tab_monitor": {"ru": "Мониторинг", "en": "Monitor", "es": "Monitor", "de": "Monitor", "fr": "Moniteur", "zh": "监控"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -2892,29 +2895,11 @@ class App:
             self.views[vid] = (t, path)
             self._view_cache[vid] = None
 
-        files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(files_frame, lang.t('tab_files'))
-        self._build_file_manager(files_frame)
-
+    def _data_tabs(self, parent):
+        nb = OfficeTabs(parent, active_size=11, passive_size=9)
         sql_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(sql_frame, lang.t('tab_sql'))
         self._build_sql_editor(sql_frame)
-
-        sites_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(sites_frame, lang.t('tab_sites'))
-        self._build_sites_manager(sites_frame)
-
-        tasks_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(tasks_frame, lang.t('tab_tasks'))
-        self._build_task_scheduler(tasks_frame)
-
-        docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(docker_frame, lang.t('tab_docker'))
-        self._build_docker(docker_frame)
-
-        node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(node_frame, lang.t('tab_node'))
-        self._build_node(node_frame)
 
         db_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(db_frame, lang.t('tab_db'))
@@ -2924,6 +2909,30 @@ class App:
         nb.add(dbm_frame, lang.t('tab_dbmanager'))
         self._build_dbmanager(dbm_frame)
 
+    def _projects_tabs(self, parent):
+        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(files_frame, lang.t('tab_files'))
+        self._build_file_manager(files_frame)
+
+        sites_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(sites_frame, lang.t('tab_sites'))
+        self._build_sites_manager(sites_frame)
+
+        tasks_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(tasks_frame, lang.t('tab_tasks'))
+        self._build_task_scheduler(tasks_frame)
+
+        node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(node_frame, lang.t('tab_node'))
+        self._build_node(node_frame)
+
+    def _monitor_tabs(self, parent):
+        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(docker_frame, lang.t('tab_docker'))
+        self._build_docker(docker_frame)
+
         procs_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(procs_frame, lang.t('tab_procs'))
         self._build_procs(procs_frame)
@@ -2931,10 +2940,6 @@ class App:
         perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(perf_frame, lang.t('tab_perf'))
         self._build_perf(perf_frame)
-
-        settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
-        nb.add(settings_frame, lang.t('tab_settings'))
-        self._build_settings(settings_frame)
 
     def _build_node(self, parent):
         self._node_file = APP_ROOT / "config" / "node.json"
@@ -4231,8 +4236,16 @@ class App:
         self._service_card(services_frame, "nodejs", "🟢", "node", self.start_node_ui, self.stop_node_ui)
         self._action_bar(tab1)
 
-        tab2 = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab2, lang.t('tab_extra'))
-        self._log_tabs(tab2)
+        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_logs, lang.t('tab_logs'))
+        self._log_tabs(tab_logs)
+        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_data, lang.t('tab_db'))
+        self._data_tabs(tab_data)
+        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_projects, lang.t('tab_projects'))
+        self._projects_tabs(tab_projects)
+        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor'))
+        self._monitor_tabs(tab_monitor)
+        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg_elevated"]); main_nb.add(tab_settings, lang.t('tab_settings'))
+        self._build_settings(tab_settings)
         self._status_bar(self.root)
         self.svc.ui_progress = self._install_progress
 
