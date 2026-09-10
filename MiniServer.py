@@ -310,6 +310,7 @@ LOCALES = {
     "env_php": {"ru": "PHP:", "en": "PHP:", "es": "PHP:", "de": "PHP:", "fr": "PHP :", "zh": "PHP："},
     "env_node": {"ru": "Node.js:", "en": "Node.js:", "es": "Node.js:", "de": "Node.js:", "fr": "Node.js :", "zh": "Node.js："},
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
+    "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -1642,7 +1643,7 @@ http {{
             raise RuntimeError(f"Compose file not found: {compose_file}")
         return ["docker", "compose", "-f", str(p.resolve())], str(p.parent.resolve())
     def docker_compose(self, action, compose_file):
-        if action not in ("up", "down", "restart", "pull"):
+        if action not in ("up", "down", "restart", "pull", "build"):
             raise RuntimeError(f"Bad compose action: {action}")
         base, cwd = self._compose_base(compose_file)
         cmd = base + (["up", "-d"] if action == "up" else [action])
@@ -3030,6 +3031,9 @@ class App:
             ("apache_err", lang.t("tab_apache_err"), LOGS / "apache-error.log"),
             ("php_err", lang.t("tab_php_err"), LOGS / "php-error.log"),
             ("mariadb_err", lang.t("tab_mariadb_err"), LOGS / "mariadb-error.log"),
+            ("nginx_log", "Nginx", LOGS / "nginx-process.log"),
+            ("pg_log", "PostgreSQL", LOGS / "postgresql-process.log"),
+            ("redis_log", "Redis", LOGS / "redis-process.log"),
             ("node_log", lang.t("tab_node"), LOGS / "node-process.log"),
             ("proc", lang.t("tab_process"), None),
         ]
@@ -3045,7 +3049,7 @@ class App:
                 fbar.pack(fill="x", padx=10, pady=(5, 0))
                 tk.Label(fbar, text=lang.t("log_level"), bg=THEME["bg_elevated"], fg=THEME["text"],
                          font=(THEME["font_family"], 9)).pack(side="left")
-                lvl = tk.OptionMenu(fbar, self._log_level_var, "ALL", "ERROR", "WARNING")
+                lvl = tk.OptionMenu(fbar, self._log_level_var, "ALL", "ERROR", "WARNING", "INFO")
                 lvl.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                               activebackground=THEME["accent"], activeforeground=THEME["white"],
                               font=(THEME["font_family"], 9), highlightthickness=0)
@@ -3626,7 +3630,7 @@ class App:
         tk.Label(r1, text=lang.t("perf_profile"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._perf_profile_var = tk.StringVar(value="Normal")
-        pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Spike", "Soak", "Custom",
+        pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Spike", "Soak", "Endurance", "Custom",
                            command=self._perf_profile_changed)
         pm.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
                      activebackground=THEME["accent"], activeforeground=THEME["white"],
@@ -3674,17 +3678,18 @@ class App:
         res = tk.Frame(parent, bg=THEME["bg_elevated"])
         res.pack(fill="x", padx=10, pady=4)
         self._perf_vars = {}
-        for i, key in enumerate(("RPS", "OK %", "ERR", "Avg ms", "P50", "P95", "P99", "CPU %", "RAM GB")):
+        for i, key in enumerate(("RPS", "OK %", "ERR", "Avg ms", "P50", "P95", "P99", "CPU %",
+                                 "RAM GB", "Users", "MB/s", "Peak")):
             cell = tk.Frame(res, bg=THEME["bg_card"], highlightbackground=THEME["border"],
                             highlightthickness=1)
-            cell.grid(row=i // 3, column=i % 3, sticky="nsew", padx=4, pady=4)
+            cell.grid(row=i // 4, column=i % 4, sticky="nsew", padx=4, pady=4)
             tk.Label(cell, text=key, bg=THEME["bg_card"], fg=THEME["text_muted"],
                      font=(THEME["font_family"], 8)).pack()
             var = tk.StringVar(value="—")
             tk.Label(cell, textvariable=var, bg=THEME["bg_card"], fg=THEME["accent"],
                      font=("Cascadia Code", 13, "bold")).pack()
             self._perf_vars[key] = var
-        for c in range(3):
+        for c in range(4):
             res.grid_columnconfigure(c, weight=1)
 
         self._perf_canvas = tk.Canvas(parent, bg="#0d0f16", highlightthickness=0, height=150)
@@ -3702,7 +3707,7 @@ class App:
 
     def _perf_profile_changed(self, v):
         presets = {"Quick": ("10", "15"), "Normal": ("50", "60"), "Stress": ("200", "180"),
-                   "Spike": ("300", "60"), "Soak": ("50", "1800")}
+                   "Spike": ("300", "60"), "Soak": ("50", "1800"), "Endurance": ("100", "7200")}
         if v in presets:
             u, d = presets[v]
             self._perf_users_var.set(u)
@@ -3744,7 +3749,7 @@ class App:
             base = "http://" + base
         try:
             users = max(1, min(500, int(self._perf_users_var.get())))
-            dur = max(5, min(3600, int(self._perf_dur_var.get())))
+            dur = max(5, min(86400, int(self._perf_dur_var.get())))
         except ValueError:
             messagebox.showerror(lang.t("error"), "users/duration")
             return
@@ -3775,7 +3780,7 @@ class App:
             if not DarkPrompt.ask_yes_no(self.root, lang.t("tab_perf"), f"{base} ?"):
                 return
         weights = [x[2] for x in paths]
-        stats = {"n": 0, "err": 0, "lat": [], "bytes": 0,
+        stats = {"n": 0, "err": 0, "lat": [], "bytes": 0, "active": 0, "max_active": 0,
                  "lock": threading.Lock(), "t0": time.monotonic(),
                  "users": users, "dur": dur, "base": base}
         self._perf_stats = stats
@@ -3801,29 +3806,36 @@ class App:
 
         def worker():
             deadline = stats["t0"] + dur
-            while not self._perf_stop.is_set() and time.monotonic() < deadline:
-                m, p, _w = random.choices(paths, weights=weights)[0]
-                url = base + (p if p.startswith("/") else "/" + p)
-                data = None
-                if m in ("POST", "PUT", "PATCH"):
-                    data = b"perf=1"
-                t1 = time.monotonic()
-                try:
-                    r = get_session().request(m, url, data=data, timeout=10)
-                    dt = (time.monotonic() - t1) * 1000.0
-                    ok = r.status_code < 400
-                    ln = len(r.content or b"")
-                except Exception:
-                    dt = (time.monotonic() - t1) * 1000.0
-                    ok = False
-                    ln = 0
+            with stats["lock"]:
+                stats["active"] += 1
+                stats["max_active"] = max(stats["max_active"], stats["active"])
+            try:
+                while not self._perf_stop.is_set() and time.monotonic() < deadline:
+                    m, p, _w = random.choices(paths, weights=weights)[0]
+                    url = base + (p if p.startswith("/") else "/" + p)
+                    data = None
+                    if m in ("POST", "PUT", "PATCH"):
+                        data = b"perf=1"
+                    t1 = time.monotonic()
+                    try:
+                        r = get_session().request(m, url, data=data, timeout=10)
+                        dt = (time.monotonic() - t1) * 1000.0
+                        ok = r.status_code < 400
+                        ln = len(r.content or b"")
+                    except Exception:
+                        dt = (time.monotonic() - t1) * 1000.0
+                        ok = False
+                        ln = 0
+                    with stats["lock"]:
+                        stats["n"] += 1
+                        if not ok:
+                            stats["err"] += 1
+                        stats["bytes"] += ln
+                        if len(stats["lat"]) < 500000:
+                            stats["lat"].append(dt)
+            finally:
                 with stats["lock"]:
-                    stats["n"] += 1
-                    if not ok:
-                        stats["err"] += 1
-                    stats["bytes"] += ln
-                    if len(stats["lat"]) < 500000:
-                        stats["lat"].append(dt)
+                    stats["active"] -= 1
 
         def monitor():
             while not self._perf_stop.is_set():
@@ -3886,11 +3898,19 @@ class App:
         self._perf_vars["P50"].set(f"{p50:.0f}")
         self._perf_vars["P95"].set(f"{p95:.0f}")
         self._perf_vars["P99"].set(f"{p99:.0f}")
+        with st["lock"]:
+            active, max_active, total_bytes = st["active"], st["max_active"], st["bytes"]
+        elapsed = max(now - st["t0"], 1e-6)
+        mb_s = total_bytes / 1048576.0 / elapsed
+        self._perf_vars["Users"].set(str(active))
+        self._perf_vars["MB/s"].set(f"{mb_s:.2f}")
+        self._perf_vars["Peak"].set(f"{max(self._perf_rps_hist) if self._perf_rps_hist else 0.0:.0f}")
         self._perf_summary = {"n": n, "err": err, "ok_pct": ok_pct, "avg": avg,
                               "p50": p50, "p95": p95, "p99": p99, "rps": rps,
                               "rps_peak": max(self._perf_rps_hist) if self._perf_rps_hist else 0.0,
                               "users": st["users"], "dur": st["dur"], "base": st["base"],
-                              "mb": st["bytes"] / 1048576.0}
+                              "mb": total_bytes / 1048576.0, "mb_s": mb_s,
+                              "max_active": max_active}
         base_sm = getattr(self, "_perf_base", None)
         if base_sm:
             try:
@@ -4199,7 +4219,10 @@ class App:
                      width=90, height=24, font_size=8).pack(side="left", padx=2)
         StyledButton(comp, lang.t("dock_pull"), lambda: self._dock_compose("pull"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+                     width=60, height=24, font_size=8).pack(side="left", padx=2)
+        StyledButton(comp, lang.t("dock_build"), lambda: self._dock_compose("build"), color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=60, height=24, font_size=8).pack(side="left", padx=2)
         StyledButton(comp, lang.t("dock_logs"), self._dock_compose_logs, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
                      width=70, height=24, font_size=8).pack(side="left", padx=2)
