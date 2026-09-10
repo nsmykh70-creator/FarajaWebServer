@@ -301,6 +301,10 @@ LOCALES = {
     "dock_networks": {"ru": "Сети", "en": "Networks", "es": "Redes", "de": "Netzwerke", "fr": "Réseaux", "zh": "网络"},
     "dock_volumes": {"ru": "Тома", "en": "Volumes", "es": "Volúmenes", "de": "Volumes", "fr": "Volumes", "zh": "卷"},
     "perf_baseline": {"ru": "В эталон", "en": "Set baseline", "es": "Referencia", "de": "Basiswert", "fr": "Référence", "zh": "设为基线"},
+    "set_env": {"ru": "Окружение", "en": "Environment", "es": "Entorno", "de": "Umgebung", "fr": "Environnement", "zh": "环境"},
+    "env_php": {"ru": "PHP:", "en": "PHP:", "es": "PHP:", "de": "PHP:", "fr": "PHP :", "zh": "PHP："},
+    "env_node": {"ru": "Node.js:", "en": "Node.js:", "es": "Node.js:", "de": "Node.js:", "fr": "Node.js :", "zh": "Node.js："},
+    "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -674,12 +678,16 @@ def find_local_archive(name):
     return valid[0] if valid else None
 
 
-def install_component(name,log,progress):
-    item = comps()[name]
+def install_component(name,log,progress,item=None,prearchive=None):
+    item = item or comps()[name]
     tmp = DOWNLOADS/(name+"_extract")
     shutil.rmtree(tmp,ignore_errors=True)
     tmp.mkdir(parents=True)
-    arc = find_local_archive(name)
+    arc = prearchive
+    if arc is not None and not (arc.is_file() and zipfile.is_zipfile(arc)):
+        arc = None
+    if arc is None:
+        arc = find_local_archive(name)
     if arc is not None:
         log(f"{name}: installing from local archive: {arc.name}")
         progress(arc.stat().st_size, arc.stat().st_size, 0)
@@ -1942,6 +1950,96 @@ http {{
         if r.returncode != 0:
             raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "docker volume rm failed")
         self.log(f"docker volume rm {name}: OK")
+    def env_active(self):
+        try:
+            d = json.loads((APP_ROOT/"config"/"env.json").read_text(encoding="utf-8"))
+            if isinstance(d, dict):
+                return d.get("php", ""), d.get("node", "")
+        except Exception:
+            pass
+        return "", ""
+
+    def resolve_node_url(self, major):
+        self.log(f"Resolving Node.js {major} download link...")
+        r = requests.get("https://nodejs.org/dist/index.json", timeout=30,
+                         headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        for e in r.json():
+            v = e.get("version", "")
+            if v.startswith(f"v{major}."):
+                return (f"https://nodejs.org/dist/{v}/node-{v}-win-x64.zip",
+                        f"node-{v}-win-x64.zip")
+        raise RuntimeError(f"No Node.js {major} release found")
+
+    def install_runtime_version(self, kind, ver, progress):
+        name = "php" if kind == "php" else "nodejs"
+        if kind == "php":
+            info = comps().get("php_versions", {}).get(ver)
+            if not info:
+                raise RuntimeError(f"Unknown PHP version: {ver}")
+            arc = DOWNLOADS / info["archive"]
+            if not (arc.is_file() and zipfile.is_zipfile(arc)):
+                self.log(f"Downloading PHP {ver}...")
+                download(info["url"], arc, progress, self.log)
+            install_component(name, self.log, progress, prearchive=arc)
+        else:
+            url, archive = self.resolve_node_url(ver)
+            arc = DOWNLOADS / archive
+            if not (arc.is_file() and zipfile.is_zipfile(arc)):
+                self.log(f"Downloading Node.js {ver}...")
+                download(url, arc, progress, self.log)
+            install_component(name, self.log, progress, prearchive=arc)
+        php, node = self.env_active()
+        (APP_ROOT/"config").mkdir(parents=True, exist_ok=True)
+        (APP_ROOT/"config"/"env.json").write_text(
+            json.dumps({"php": ver if kind == "php" else php,
+                        "node": ver if kind == "node" else node}, indent=2), encoding="utf-8")
+        self.log(f"{kind} {ver} installed and activated")
+
+    def php_version_detect(self):
+        for exe in (self.pd/"php.exe", self.pd/"php-cgi.exe"):
+            if exe.exists():
+                try:
+                    r = subprocess.run([str(exe), "-v"], capture_output=True, text=True,
+                                       timeout=10,
+                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                    m = re.search(r"PHP\s+(\d+\.\d+\.\d+)", r.stdout or "")
+                    if m:
+                        return m.group(1)
+                except Exception:
+                    pass
+        return "?"
+
+    def node_version_detect(self):
+        try:
+            exe = self.get_node_exe()
+        except Exception:
+            return "?"
+        try:
+            r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            return (r.stdout or "").strip() or "?"
+        except Exception:
+            return "?"
+
+    def tools_versions(self):
+        import shutil as _sh
+        out = {}
+        for tool, args in (("Composer", ["--version"]), ("npm", ["--version"]), ("Git", ["--version"])):
+            try:
+                exe = _sh.which(tool.lower())
+                if not exe:
+                    out[tool] = "—"
+                    continue
+                shell = exe.lower().endswith((".cmd", ".bat"))
+                r = subprocess.run([exe] + args, capture_output=True, text=True, timeout=10,
+                                   shell=shell,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                out[tool] = (r.stdout or "").strip().splitlines()[0][:60] if r.returncode == 0 else "—"
+            except Exception:
+                out[tool] = "—"
+        return out
+
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -3409,7 +3507,7 @@ class App:
         tk.Label(r1, text=lang.t("perf_profile"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._perf_profile_var = tk.StringVar(value="Normal")
-        pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Custom",
+        pm = tk.OptionMenu(r1, self._perf_profile_var, "Quick", "Normal", "Stress", "Spike", "Soak", "Custom",
                            command=self._perf_profile_changed)
         pm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
                      activebackground=THEME["accent"], activeforeground=THEME["white"],
@@ -3430,19 +3528,16 @@ class App:
         tk.Entry(r2, textvariable=self._perf_dur_var, bg=THEME["bg_input"], fg=THEME["text"],
                  insertbackground=THEME["text"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=8).pack(side="left", padx=4)
-        self._perf_start_btn = StyledButton(r2, lang.t("start"), self._perf_start,
+        self._perf_toggle_btn = StyledButton(r2, lang.t("start"), self._perf_toggle,
                                             color=THEME["success"],
                                             hover_color="#55e39a", active_color=THEME["success_dim"],
                                             width=100, height=26, font_size=8)
-        self._perf_start_btn.pack(side="left", padx=(16, 2))
+        self._perf_toggle_btn.pack(side="left", padx=(16, 2))
         StyledButton(r2, "Auto", self._perf_auto, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
                      width=80, height=26, font_size=8).pack(side="left", padx=2)
         StyledButton(r2, lang.t("perf_baseline"), self._perf_set_base, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(r2, lang.t("stop"), lambda: self._perf_stop.set(), color=THEME["danger"],
-                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      width=100, height=26, font_size=8).pack(side="left", padx=2)
         StyledButton(r2, lang.t("perf_save"), self._perf_save, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
@@ -3487,17 +3582,37 @@ class App:
         self._perf_tick_n = 0
 
     def _perf_profile_changed(self, v):
-        presets = {"Quick": ("10", "15"), "Normal": ("50", "60"), "Stress": ("200", "180")}
+        presets = {"Quick": ("10", "15"), "Normal": ("50", "60"), "Stress": ("200", "180"),
+                   "Spike": ("300", "60"), "Soak": ("50", "1800")}
         if v in presets:
             u, d = presets[v]
             self._perf_users_var.set(u)
             self._perf_dur_var.set(d)
 
-    def _perf_start_btn_state(self, enabled):
+    def _perf_toggle_visual(self, running):
         try:
-            self._perf_start_btn.set_state("normal" if enabled else "disabled")
+            btn = self._perf_toggle_btn
+            if running:
+                btn._text = lang.t("stop")
+                btn._color = THEME["danger"]
+                btn._hover_color = "#ff6b5a"
+                btn._active_color = THEME["danger_dim"]
+            else:
+                btn._text = lang.t("start")
+                btn._color = THEME["success"]
+                btn._hover_color = "#55e39a"
+                btn._active_color = THEME["success_dim"]
+            btn._draw(btn._color)
         except Exception:
             pass
+
+    def _perf_toggle(self):
+        if getattr(self, "_perf_running", False):
+            self._perf_on_done = None
+            self._perf_auto_rows = []
+            self._perf_stop.set()
+        else:
+            self._perf_start()
 
     def _perf_start(self):
         if getattr(self, "_perf_running", False):
@@ -3617,7 +3732,7 @@ class App:
                 self._perf_stop.set()
                 ex.shutdown(wait=True)
 
-        self._perf_start_btn_state(False)
+        self._perf_toggle_visual(True)
         threading.Thread(target=supervisor, daemon=True).start()
         self.log(f"Load test started: {users} users, {dur}s -> {base}")
 
@@ -3720,7 +3835,6 @@ class App:
 
     def _perf_finish(self):
         self._perf_running = False
-        self._perf_start_btn_state(True)
         self._perf_tick()
         sm = self._perf_summary or {}
         self.log(f"Load test finished: {sm.get('n', 0)} req, "
@@ -3732,6 +3846,8 @@ class App:
                 cb(dict(sm))
             except Exception as e:
                 self.log(f"Auto benchmark ERROR: {e}")
+        else:
+            self._perf_toggle_visual(False)
 
     def _perf_set_base(self):
         sm = getattr(self, "_perf_summary", None)
@@ -3796,6 +3912,7 @@ class App:
             self.log(f"Stable max: {best[2].get('rps_peak', 0):.0f} rps @ {best[0]} users")
         self._perf_summary = dict(rows[-1][2])
         self._perf_tick()
+        self._perf_toggle_visual(False)
 
     def _perf_save(self):
         sm = getattr(self, "_perf_summary", None)
@@ -5124,6 +5241,59 @@ class App:
                        activeforeground=THEME["text"], font=(THEME["font_family"], 9),
                        highlightthickness=0, bd=0).pack(side="left", padx=(16, 0))
 
+        envbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
+        envbox.pack(fill="x", padx=10, pady=4)
+        tk.Label(envbox, text=lang.t("set_env"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
+        try:
+            _php_vers = list(comps().get("php_versions", {}).keys()) or ["8.2", "8.3", "8.4"]
+            _node_vers = list(comps().get("node_versions", {}).keys()) or ["20", "22", "24"]
+            _cur_php, _cur_node = self.svc.env_active()
+        except Exception:
+            _php_vers, _node_vers, _cur_php, _cur_node = ["8.2", "8.3", "8.4"], ["20", "22", "24"], "", ""
+        erow = tk.Frame(envbox, bg=THEME["bg_elevated"])
+        erow.pack(fill="x", padx=6, pady=2)
+        tk.Label(erow, text=lang.t("env_php"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._env_php_var = tk.StringVar(value=_cur_php if _cur_php in _php_vers else _php_vers[-1])
+        _php_menu = tk.OptionMenu(erow, self._env_php_var, *_php_vers)
+        _php_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                            activebackground=THEME["accent"], activeforeground=THEME["white"],
+                            font=(THEME["font_family"], 9), highlightthickness=0)
+        _php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        _php_menu.pack(side="left", padx=4)
+        self._env_php_cur = tk.Label(erow, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                     font=("Cascadia Code", 9))
+        self._env_php_cur.pack(side="left", padx=4)
+        StyledButton(erow, lang.t("db_apply"), self._env_apply_php, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+        erow2 = tk.Frame(envbox, bg=THEME["bg_elevated"])
+        erow2.pack(fill="x", padx=6, pady=2)
+        tk.Label(erow2, text=lang.t("env_node"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._env_node_var = tk.StringVar(value=_cur_node if _cur_node in _node_vers else _node_vers[-1])
+        _node_menu = tk.OptionMenu(erow2, self._env_node_var, *_node_vers)
+        _node_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                             activebackground=THEME["accent"], activeforeground=THEME["white"],
+                             font=(THEME["font_family"], 9), highlightthickness=0)
+        _node_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        _node_menu.pack(side="left", padx=4)
+        self._env_node_cur = tk.Label(erow2, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                      font=("Cascadia Code", 9))
+        self._env_node_cur.pack(side="left", padx=4)
+        StyledButton(erow2, lang.t("db_apply"), self._env_apply_node, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=8)
+        erow3 = tk.Frame(envbox, bg=THEME["bg_elevated"])
+        erow3.pack(fill="x", padx=6, pady=(2, 8))
+        tk.Label(erow3, text=lang.t("env_tools"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._env_tools_var = tk.StringVar(value="…")
+        tk.Label(erow3, textvariable=self._env_tools_var, bg=THEME["bg_elevated"],
+                 fg=THEME["text_dim"], font=("Cascadia Code", 8)).pack(side="left", padx=4)
+
         # Components are explicitly selected here; installation is never triggered at startup.
         select_box = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
         select_box.pack(fill="x", padx=10, pady=(5, 3))
@@ -5177,6 +5347,60 @@ class App:
         self._set_progress_label.pack(side="left", padx=6)
         self._set_refresh()
         self._apply_log_font()
+        self._env_refresh_versions()
+
+    def _env_refresh_versions(self):
+        def w():
+            try:
+                php = self.svc.php_version_detect()
+                node = self.svc.node_version_detect()
+                tools = self.svc.tools_versions()
+                ttxt = "  ·  ".join(f"{k}: {v}" for k, v in tools.items())
+                def ui():
+                    try:
+                        self._env_php_cur.configure(text=php)
+                        self._env_node_cur.configure(text=node)
+                        self._env_tools_var.set(ttxt)
+                    except Exception:
+                        pass
+                self.root.after(0, ui)
+            except Exception:
+                pass
+        threading.Thread(target=w, daemon=True).start()
+
+    def _env_apply_php(self):
+        ver = self._env_php_var.get()
+        def w():
+            try:
+                self.svc.install_runtime_version(
+                    "php", ver,
+                    lambda g, t, s: self._install_progress(f"php {ver}", g, t, s))
+                self._install_progress("", 0, 0)
+                if self.svc.prun():
+                    self.log("Restarting PHP to switch version...")
+                    self.svc.stop_php()
+                    self.svc.start_php()
+                self.root.after(0, self._env_refresh_versions)
+            except Exception as e:
+                self.log("PHP version ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _env_apply_node(self):
+        ver = self._env_node_var.get()
+        def w():
+            try:
+                self.svc.install_runtime_version(
+                    "node", ver,
+                    lambda g, t, s: self._install_progress(f"node {ver}", g, t, s))
+                self._install_progress("", 0, 0)
+                if self.svc.node_servers:
+                    self.log("Restart your Node.js servers to use the new version (Node.js tab)")
+                self.root.after(0, self._env_refresh_versions)
+            except Exception as e:
+                self.log("Node.js version ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
 
     def _on_log_font_change(self):
         self._settings["log_font"] = self._log_font_var.get()

@@ -39,5 +39,24 @@
     "url": "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip",
     "archive": "phpmyadmin.zip",
     "expected": "www/phpmyadmin/index.php"
+  },
+  "php_versions": {
+    "8.2": {
+      "url": "https://windows.php.net/downloads/releases/latest/php-8.2-nts-Win32-vs16-x64-latest.zip",
+      "archive": "php82.zip"
+    },
+    "8.3": {
+      "url": "https://windows.php.net/downloads/releases/latest/php-8.3-nts-Win32-vs16-x64-latest.zip",
+      "archive": "php83.zip"
+    },
+    "8.4": {
+      "url": "https://windows.php.net/downloads/releases/latest/php-8.4-nts-Win32-vs17-x64-latest.zip",
+      "archive": "php84.zip"
+    }
+  },
+  "node_versions": {
+    "20": {"major": "20"},
+    "22": {"major": "22"},
+    "24": {"major": "24"}
   }
 }
