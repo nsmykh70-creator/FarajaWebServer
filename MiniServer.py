@@ -265,6 +265,11 @@ LOCALES = {
     "dock_images": {"ru": "Образы", "en": "Images", "es": "Imágenes", "de": "Images", "fr": "Images", "zh": "镜像"},
     "col_size": {"ru": "Размер", "en": "Size", "es": "Tamaño", "de": "Größe", "fr": "Taille", "zh": "大小"},
     "col_tag": {"ru": "Тег", "en": "Tag", "es": "Etiqueta", "de": "Tag", "fr": "Tag", "zh": "标签"},
+    "col_type": {"ru": "Тип", "en": "Type", "es": "Tipo", "de": "Typ", "fr": "Type", "zh": "类型"},
+    "col_https": {"ru": "HTTPS", "en": "HTTPS", "es": "HTTPS", "de": "HTTPS", "fr": "HTTPS", "zh": "HTTPS"},
+    "site_type": {"ru": "Тип (php/node/static):", "en": "Type (php/node/static):", "es": "Tipo (php/node/static):", "de": "Typ (php/node/static):", "fr": "Type (php/node/static) :", "zh": "类型 (php/node/static)："},
+    "site_https_q": {"ru": "Включить HTTPS (нужен mkcert)?", "en": "Enable HTTPS (needs mkcert)?", "es": "¿Activar HTTPS (requiere mkcert)?", "de": "HTTPS aktivieren (braucht mkcert)?", "fr": "Activer HTTPS (nécessite mkcert) ?", "zh": "启用 HTTPS（需要 mkcert）？"},
+    "site_hosts_admin": {"ru": "Нет прав на запись hosts — запустите от имени администратора", "en": "No permission to write hosts — run as administrator", "es": "Sin permiso para escribir hosts — ejecute como administrador", "de": "Keine hosts-Schreibrechte — als Administrator starten", "fr": "Permission hosts refusée — lancer en administrateur", "zh": "无权写入 hosts——请以管理员身份运行"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -449,6 +454,44 @@ def wait_port_closed(port, timeout=12):
         time.sleep(.2)
     return not port_open(port)
 
+
+def hosts_path():
+    return Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
+
+def hosts_add(domain):
+    p = hosts_path()
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except FileNotFoundError:
+        text = ""
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        parts = s.split()
+        if len(parts) >= 2 and parts[0] in ("127.0.0.1", "::1") and domain in parts[1:]:
+            return False
+    bak = p.with_name(p.name + ".faraja.bak")
+    try:
+        if not bak.exists() and p.exists():
+            shutil.copy2(str(p), str(bak))
+    except OSError:
+        pass
+    with open(str(p), "a", encoding="utf-8") as f:
+        f.write(f"\n127.0.0.1 {domain}  # faraja\n")
+    return True
+
+def hosts_remove(domain):
+    p = hosts_path()
+    try:
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+    except FileNotFoundError:
+        return False
+    kept = [l for l in lines if not (l.strip().endswith("# faraja") and domain in l.split())]
+    if len(kept) == len(lines):
+        return False
+    p.write_text("".join(kept), encoding="utf-8")
+    return True
 
 def stop_proc(p,timeout=3):
     if p and p.poll() is None:
@@ -690,7 +733,7 @@ def install_component(name,log,progress):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={}
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[]
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -766,6 +809,62 @@ class Services:
         return self.app_settings().get("php_mode", "dev")
     def dir_listing(self):
         return bool(self.app_settings().get("dir_listing", False))
+    def set_sites(self, sites):
+        try:
+            self.sites_cache = [dict(s) for s in (sites or [])]
+        except Exception:
+            self.sites_cache = []
+    @staticmethod
+    def check_domain(domain):
+        if not re.fullmatch(r"[A-Za-z0-9]([A-Za-z0-9.-]{0,61}[A-Za-z0-9])?", domain or ""):
+            raise RuntimeError(f"Bad domain name: {domain}")
+        return domain
+    def write_apache_vhosts(self):
+        vdir = self.ad / "conf" / "vhosts"
+        vdir.mkdir(parents=True, exist_ok=True)
+        for old in vdir.glob("*.conf"):
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        a_port = CONFIG["apache_port"]
+        listing = "+Indexes" if self.dir_listing() else "-Indexes"
+        for s in getattr(self, "sites_cache", []):
+            if s.get("type", "php") == "node":
+                continue
+            try:
+                domain = self.check_domain(s.get("domain", ""))
+            except RuntimeError:
+                continue
+            root = Path(s.get("root", "")).resolve().as_posix()
+            (vdir / f"{domain}.conf").write_text(
+                f'<VirtualHost 127.0.0.1:{a_port}>\n'
+                f'    ServerName {domain}\n'
+                f'    DocumentRoot "{root}"\n'
+                f'    <Directory "{root}">\n'
+                f'        Require all granted\n'
+                f'        AllowOverride All\n'
+                f'        Options {listing} +FollowSymLinks\n'
+                f'        DirectoryIndex index.html index.php index.htm\n'
+                f'    </Directory>\n'
+                f'</VirtualHost>\n', encoding="utf-8")
+    def mkcert_domain(self, domain):
+        self.check_domain(domain)
+        mkcert = RUNTIME / "mkcert" / "mkcert.exe"
+        if not mkcert.exists():
+            raise RuntimeError("mkcert is not installed — press Setup SSL first")
+        ssl_dir = APP_ROOT / "ssl"
+        ssl_dir.mkdir(parents=True, exist_ok=True)
+        r = subprocess.run([str(mkcert), domain], capture_output=True, text=True, timeout=30,
+                           cwd=str(ssl_dir),
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError("mkcert failed: " + ((r.stderr or "")[:200]))
+        cert = ssl_dir / f"{domain}.pem"
+        if not cert.is_file():
+            raise RuntimeError(f"Certificate was not created for {domain}")
+        self.log(f"SSL certificate issued: {domain}")
+        return cert, ssl_dir / f"{domain}-key.pem"
     def write_configs(self):
         a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix(); p=PMA.resolve().as_posix()
         ph=self.pd.resolve().as_posix(); m=self.md.resolve().as_posix(); l=LOGS.resolve().as_posix()
@@ -802,12 +901,15 @@ Action php-handler /php-cgi-bin/php-cgi.exe virtual
     SetHandler php-handler
 </FilesMatch>
 
+Include conf/vhosts/*.conf
+
 ErrorLog "{l}/apache-error.log"
 CustomLog "{l}/apache-access.log" combined
 LogLevel warn
 '''
         (self.ad/"conf").mkdir(parents=True,exist_ok=True)
         (self.ad/"conf/httpd.conf").write_text(apache,encoding="utf-8")
+        self.write_apache_vhosts()
         if self.php_mode() == "safe":
             php_err = "display_errors=Off\ndisplay_startup_errors=Off\nerror_reporting=E_ALL\n"
         else:
@@ -1167,7 +1269,7 @@ port={CONFIG["mariadb_port"]}
         if ssl_cert.exists() and ssl_key.exists():
             ssl_block = f'''
     server {{
-        listen 443 ssl;
+        listen 443 ssl http2;
         server_name localhost;
         ssl_certificate "{ssl_cert.resolve().as_posix()}";
         ssl_certificate_key "{ssl_key.resolve().as_posix()}";
@@ -1192,14 +1294,71 @@ port={CONFIG["mariadb_port"]}
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
         }}'''
+        site_blocks = ""
+        for s in getattr(self, "sites_cache", []):
+            try:
+                domain = self.check_domain(s.get("domain", ""))
+            except RuntimeError:
+                continue
+            typ = s.get("type", "php")
+            ssl_listen = ""
+            ssl_lines = ""
+            if s.get("https"):
+                cert = ssl_dir / f"{domain}.pem"
+                key = ssl_dir / f"{domain}-key.pem"
+                if cert.is_file() and key.is_file():
+                    ssl_listen = "\n        listen 443 ssl http2;"
+                    ssl_lines = (f'\n        ssl_certificate "{cert.resolve().as_posix()}";'
+                                 f'\n        ssl_certificate_key "{key.resolve().as_posix()}";'
+                                 '\n        ssl_protocols TLSv1.2 TLSv1.3;')
+            if typ == "node":
+                try:
+                    sport = int(s.get("port") or 3000)
+                except (TypeError, ValueError):
+                    sport = 3000
+                loc = f'''location / {{
+                proxy_pass http://127.0.0.1:{sport};
+                proxy_set_header Host $host;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+            }}'''
+            elif typ == "static":
+                rpath = Path(s.get("root", "")).resolve().as_posix()
+                loc = f'''location / {{
+                root {rpath};
+                try_files $uri $uri/ =404;
+            }}'''
+            else:
+                loc = f'''location / {{
+                proxy_pass http://127.0.0.1:{a_port};
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }}'''
+            site_blocks += f'''
+    server {{
+        listen 80;{ssl_listen}
+        server_name {domain};{ssl_lines}
+        {loc}
+    }}'''
         conf = f'''worker_processes 1;
 events {{ worker_connections 1024; }}
 http {{
     include mime.types;
     default_type application/octet-stream;
     sendfile on;
+    etag on;
     keepalive_timeout 65;
+    client_max_body_size 64m;
+    proxy_connect_timeout 60s;
+    proxy_read_timeout 120s;
+    proxy_send_timeout 120s;
     gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 256;
     gzip_types text/plain text/css application/json application/javascript text/xml;
     server {{
         listen {n_port};
@@ -1216,7 +1375,7 @@ http {{
             expires 1d;
             add_header Cache-Control "public, immutable";
         }}
-    }}{ssl_block}
+    }}{site_blocks}{ssl_block}
 }}'''
         conf_dir = self.nd / "conf"
         conf_dir.mkdir(parents=True, exist_ok=True)
@@ -3456,17 +3615,21 @@ class App:
         StyledButton(top, lang.t("btn_open_folder"), self._site_open, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      width=120, height=28, font_size=9).pack(side="left", padx=2)
-        cols = ("name", "domain", "root", "port")
+        cols = ("name", "domain", "root", "port", "type", "https")
         self._site_tree = ttk.Treeview(parent, columns=cols, show="headings", height=10,
                                        style="Big.Treeview")
         self._site_tree.heading("name", text=lang.t("col_site"))
         self._site_tree.heading("domain", text=lang.t("col_domain"))
         self._site_tree.heading("root", text=lang.t("col_root"))
         self._site_tree.heading("port", text=lang.t("col_port"))
-        self._site_tree.column("name", width=140)
-        self._site_tree.column("domain", width=180)
-        self._site_tree.column("root", width=220)
-        self._site_tree.column("port", width=70)
+        self._site_tree.heading("type", text=lang.t("col_type"))
+        self._site_tree.heading("https", text=lang.t("col_https"))
+        self._site_tree.column("name", width=110)
+        self._site_tree.column("domain", width=160)
+        self._site_tree.column("root", width=180)
+        self._site_tree.column("port", width=60)
+        self._site_tree.column("type", width=70)
+        self._site_tree.column("https", width=60)
         self._site_tree.pack(fill="both", expand=True, padx=10, pady=5)
         self._sites_file = APP_ROOT / "config" / "sites.json"
         self._load_sites()
@@ -3483,7 +3646,23 @@ class App:
             self._site_tree.delete(item)
         for s in self._sites:
             self._site_tree.insert("", "end", values=(s.get("name",""), s.get("domain",""),
-                                                       s.get("root",""), s.get("port","")))
+                                                       s.get("root",""), s.get("port",""),
+                                                       s.get("type","php"),
+                                                       "✓" if s.get("https") else "—"))
+        self.svc.set_sites(self._sites)
+
+    def _refresh_web_servers(self):
+        def w():
+            try:
+                if self.svc.arun():
+                    self.svc.stop_apache()
+                    self.svc.start_apache()
+                if self.svc.nginxrun():
+                    self.svc.stop_nginx()
+                    self.svc.start_nginx()
+            except Exception as e:
+                self.log("Web servers refresh ERROR: " + str(e))
+        threading.Thread(target=w, daemon=True).start()
 
     def _site_add(self):
         name = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_name"))
@@ -3493,6 +3672,19 @@ class App:
                                        initial=f"{name}.localhost")
         if domain is None:
             return
+        try:
+            self.svc.check_domain(domain)
+        except RuntimeError as e:
+            messagebox.showerror(lang.t("error"), str(e))
+            return
+        typ = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_type"),
+                                    initial="php")
+        if typ is None:
+            return
+        typ = (typ.strip().lower() or "php")
+        if typ not in ("php", "node", "static"):
+            typ = "php"
+        https = DarkPrompt.ask_yes_no(self.root, lang.t("btn_add_site"), lang.t("site_https_q"))
         port = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_port"))
         if port is None:
             return
@@ -3501,10 +3693,35 @@ class App:
         index = site_root / "index.html"
         if not index.exists():
             index.write_text(f"<html><body><h1>{name}</h1></body></html>", encoding="utf-8")
-        self._sites.append({"name": name, "domain": domain, "root": str(site_root), "port": port})
+        self._sites.append({"name": name, "domain": domain, "root": str(site_root),
+                            "port": port, "type": typ, "https": https})
         self._sites_file.write_text(json.dumps(self._sites, indent=2), encoding="utf-8")
+        self.svc.set_sites(self._sites)
         self._load_sites()
-        self.log(f"Site added: {name} -> {domain}")
+        self.log(f"Site added: {name} -> {domain} [{typ}{' +HTTPS' if https else ''}]")
+        def w():
+            try:
+                if https:
+                    try:
+                        self.svc.mkcert_domain(domain)
+                    except Exception as e:
+                        self.log(f"SSL {domain} ERROR: {e}")
+                self.svc.write_configs()
+                self.svc._write_nginx_conf()
+                try:
+                    if hosts_add(domain):
+                        self.log(f"hosts: 127.0.0.1 {domain}")
+                except PermissionError:
+                    self.log("hosts ERROR: " + lang.t("site_hosts_admin"))
+                    self.root.after(0, lambda: messagebox.showerror(lang.t("error"), lang.t("site_hosts_admin")))
+                except Exception as e:
+                    self.log(f"hosts ERROR: {e}")
+            except Exception as e:
+                self.log("Site provision ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+                return
+            self.root.after(0, self._refresh_web_servers)
+        threading.Thread(target=w, daemon=True).start()
 
     def _site_remove(self):
         sel = self._site_tree.selection()
@@ -3512,10 +3729,26 @@ class App:
             return
         vals = self._site_tree.item(sel[0], "values")
         name = vals[0]
+        domain = vals[1] if len(vals) > 1 else ""
         if DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"), lang.t("confirm_delete_site", name=name)):
             self._sites = [s for s in self._sites if s.get("name") != name]
             self._sites_file.write_text(json.dumps(self._sites, indent=2), encoding="utf-8")
+            self.svc.set_sites(self._sites)
             self._load_sites()
+            def w():
+                try:
+                    self.svc.write_configs()
+                    self.svc._write_nginx_conf()
+                    try:
+                        if domain and hosts_remove(domain):
+                            self.log(f"hosts: removed {domain}")
+                    except Exception as e:
+                        self.log(f"hosts ERROR: {e}")
+                except Exception as e:
+                    self.log("Site remove ERROR: " + str(e))
+                    return
+                self.root.after(0, self._refresh_web_servers)
+            threading.Thread(target=w, daemon=True).start()
 
     def _site_open(self):
         sel = self._site_tree.selection()
@@ -3531,7 +3764,10 @@ class App:
             return
         vals = self._site_tree.item(sel[0], "values")
         name, domain, port = vals[0], vals[1], vals[3]
-        if port:
+        https = len(vals) > 5 and vals[5] not in ("", "—")
+        if https and domain and "." in domain:
+            url = f"https://{domain}/"
+        elif port:
             url = f"http://127.0.0.1:{port}/"
         else:
             url = f"http://127.0.0.1:{CONFIG['apache_port']}/{name}/"
