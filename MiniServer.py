@@ -211,6 +211,14 @@ LOCALES = {
     "tip_ssl": {"ru": "Выпустить локальный SSL-сертификат", "en": "Issue a local SSL certificate", "es": "Emitir un certificado SSL local", "de": "Lokales SSL-Zertifikat ausstellen", "fr": "Émettre un certificat SSL local", "zh": "颁发本地 SSL 证书"},
     "tip_script": {"ru": "Запустить JS/TS скрипт через Node", "en": "Run a JS/TS script with Node", "es": "Ejecutar un script JS/TS con Node", "de": "JS/TS-Skript mit Node ausführen", "fr": "Exécuter un script JS/TS avec Node", "zh": "使用 Node 运行 JS/TS 脚本"},
     "tip_clear": {"ru": "Очистить все логи", "en": "Clear all logs", "es": "Borrar todos los registros", "de": "Alle Logs löschen", "fr": "Effacer tous les logs", "zh": "清除所有日志"},
+    "set_select": {"ru": "Выберите для установки", "en": "Select to install", "es": "Seleccionar para instalar", "de": "Zur Installation auswählen", "fr": "Sélectionner à installer", "zh": "选择要安装的"},
+    "install_extract": {"ru": "Распаковка…", "en": "Extracting…", "es": "Extrayendo…", "de": "Entpacken…", "fr": "Extraction…", "zh": "解压中…"},
+    "tab_docker": {"ru": "Docker", "en": "Docker", "es": "Docker", "de": "Docker", "fr": "Docker", "zh": "Docker"},
+    "col_cont": {"ru": "Контейнер", "en": "Container", "es": "Contenedor", "de": "Container", "fr": "Conteneur", "zh": "容器"},
+    "col_image": {"ru": "Образ", "en": "Image", "es": "Imagen", "de": "Image", "fr": "Image", "zh": "镜像"},
+    "col_dockstatus": {"ru": "Состояние", "en": "Status", "es": "Estado", "de": "Status", "fr": "État", "zh": "状态"},
+    "col_ports": {"ru": "Порты", "en": "Ports", "es": "Puertos", "de": "Ports", "fr": "Ports", "zh": "端口"},
+    "dock_notfound": {"ru": "Docker не найден. Установите Docker Desktop, затем нажмите Обновить.", "en": "Docker not found. Install Docker Desktop, then press Refresh.", "es": "Docker no encontrado. Instale Docker Desktop y pulse Actualizar.", "de": "Docker nicht gefunden. Docker Desktop installieren, dann Aktualisieren.", "fr": "Docker introuvable. Installez Docker Desktop, puis Actualiser.", "zh": "未找到 Docker。请安装 Docker Desktop，然后点击刷新。"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -564,6 +572,7 @@ def install_component(name,log,progress):
     if not zipfile.is_zipfile(arc):
         raise RuntimeError(f"{name}: invalid ZIP archive: {arc.name}")
     log(f"Extracting {name} from {arc.name}...")
+    progress(-1, 0, 0)
     with zipfile.ZipFile(arc) as z:
         z.extractall(tmp)
     if name=="apache":
@@ -1184,6 +1193,27 @@ http {{
         self.log("Docker containers can be stopped with: docker stop <container>")
     def dockerun(self):
         return self.docker_check()
+    def docker_ps(self):
+        try:
+            r = subprocess.run(["docker", "ps", "-a", "--format", "{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}"],
+                               capture_output=True, text=True, timeout=15,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except FileNotFoundError:
+            raise RuntimeError(lang.t("dock_notfound"))
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout).strip()[:200] or "docker ps failed")
+        rows = []
+        for line in r.stdout.splitlines():
+            parts = (line.split("|") + ["", "", "", ""])[:4]
+            if parts[0]:
+                rows.append(parts)
+        return rows
+    def docker_ctl(self, action, name):
+        r = subprocess.run(["docker", action, name], capture_output=True, text=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or f"docker {action} failed")
+        self.log(f"docker {action} {name}: OK")
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -1488,6 +1518,34 @@ COLOR_SCHEMES = {
         "tag": "#e45649", "attr": "#986801", "value": "#50a14f",
         "builtin": "#c18401", "decorator": "#4078f2",
     },
+    "Nord": {
+        "bg": "#2e3440", "fg": "#d8dee9", "sel_bg": "#434c5e", "sel_fg": "#eceff4",
+        "keyword": "#81a1c1", "string": "#a3be8c", "comment": "#616e88",
+        "number": "#b48ead", "function": "#88c0d0", "operator": "#81a1c1",
+        "tag": "#81a1c1", "attr": "#8fbcbb", "value": "#a3be8c",
+        "builtin": "#8fbcbb", "decorator": "#88c0d0",
+    },
+    "One Dark": {
+        "bg": "#282c34", "fg": "#abb2bf", "sel_bg": "#3e4451", "sel_fg": "#ffffff",
+        "keyword": "#c678dd", "string": "#98c379", "comment": "#5c6370",
+        "number": "#d19a66", "function": "#61afef", "operator": "#56b6c2",
+        "tag": "#e06c75", "attr": "#d19a66", "value": "#98c379",
+        "builtin": "#56b6c2", "decorator": "#61afef",
+    },
+    "Solarized Dark": {
+        "bg": "#002b36", "fg": "#839496", "sel_bg": "#073642", "sel_fg": "#fdf6e3",
+        "keyword": "#859900", "string": "#2aa198", "comment": "#586e75",
+        "number": "#d33682", "function": "#268bd2", "operator": "#859900",
+        "tag": "#268bd2", "attr": "#b58900", "value": "#2aa198",
+        "builtin": "#2aa198", "decorator": "#268bd2",
+    },
+    "Night Owl": {
+        "bg": "#011627", "fg": "#d6deeb", "sel_bg": "#1d3b53", "sel_fg": "#ffffff",
+        "keyword": "#c792ea", "string": "#addb67", "comment": "#637777",
+        "number": "#f78c6c", "function": "#82aaff", "operator": "#89ddff",
+        "tag": "#7fdbca", "attr": "#addb67", "value": "#ecc48d",
+        "builtin": "#7fdbca", "decorator": "#82aaff",
+    },
 }
 
 HIGHLIGHT_RULES = {
@@ -1673,6 +1731,16 @@ class CodeEditor:
                                      takefocus=0)
         self._line_numbers.pack(side="left", fill="y")
 
+        self._minimap = tk.Text(body, width=16, padx=2, pady=8,
+                                bg=self.scheme["bg"], fg=self.scheme["fg"],
+                                font=(self.font_family, 2),
+                                state="disabled", relief="flat", bd=0,
+                                cursor="arrow", takefocus=0, wrap="none")
+        self._minimap.pack(side="right", fill="y")
+        self._minimap.bind("<Button-1>", self._minimap_jump)
+        self._minimap.bind("<B1-Motion>", self._minimap_jump)
+        self._mm_after = None
+
         self._text = tk.Text(body, wrap="word", padx=10, pady=8,
                              bg=self.scheme["bg"], fg=self.scheme["fg"],
                              insertbackground="white",
@@ -1699,6 +1767,47 @@ class CodeEditor:
 
         self._update_line_numbers()
         self._highlight()
+        self._refresh_minimap()
+
+    def _refresh_minimap(self):
+        self._mm_after = None
+        try:
+            content = self._text.get("1.0", "end-1c")
+            self._minimap.configure(state="normal")
+            self._minimap.delete("1.0", "end")
+            self._minimap.insert("1.0", content)
+            self._minimap.configure(state="disabled")
+        except Exception:
+            pass
+        self._minimap_sync()
+
+    def _minimap_schedule(self):
+        if self._mm_after is not None:
+            try:
+                self.win.after_cancel(self._mm_after)
+            except Exception:
+                pass
+            self._mm_after = None
+        try:
+            self._mm_after = self.win.after(400, self._refresh_minimap)
+        except Exception:
+            pass
+
+    def _minimap_sync(self):
+        try:
+            self._minimap.yview_moveto(self._text.yview()[0])
+        except Exception:
+            pass
+
+    def _minimap_jump(self, e=None):
+        try:
+            line = int(self._minimap.index(f"@0,{e.y}").split(".")[0])
+            total = max(int(self._text.index("end-1c").split(".")[0]), 1)
+            self._text.yview_moveto(max(0.0, min(1.0, (line - 2) / total)))
+            self._minimap_sync()
+        except Exception:
+            pass
+        return "break"
 
     def _setup_tags(self):
         for name, color in self.scheme.items():
@@ -1745,6 +1854,7 @@ class CodeEditor:
     def _on_change(self, e=None):
         self._update_line_numbers()
         self._highlight()
+        self._minimap_schedule()
 
     def _on_scroll(self, e=None):
         if e:
@@ -1755,6 +1865,7 @@ class CodeEditor:
             elif e.num == 5:
                 self._line_numbers.yview_scroll(1, "units")
         self._line_numbers.yview_moveto(self._text.yview()[0])
+        self._minimap_sync()
 
     def _handle_tab(self, e):
         self._text.insert("insert", "    ")
@@ -1775,6 +1886,10 @@ class CodeEditor:
         font = (self.font_family, self.font_size)
         self._text.configure(font=font)
         self._line_numbers.configure(font=font)
+        try:
+            self._minimap.configure(font=(self.font_family, 2))
+        except Exception:
+            pass
         self._update_line_numbers()
         self._save_editor_conf()
 
@@ -1788,6 +1903,10 @@ class CodeEditor:
                                  selectbackground=self.scheme["sel_bg"],
                                  selectforeground=self.scheme["sel_fg"])
             self._line_numbers.configure(bg="#1e1e1e")
+            try:
+                self._minimap.configure(bg=self.scheme["bg"], fg=self.scheme["fg"])
+            except Exception:
+                pass
             self._setup_tags()
             self._highlight()
             self._save_editor_conf()
@@ -1807,8 +1926,8 @@ class App:
     def __init__(self):
         self.root=tk.Tk()
         self.root.title(f"{APP_NAME} V14")
-        self.root.geometry("1100x750")
-        self.root.minsize(900,650)
+        self.root.geometry("1280x860")
+        self.root.minsize(1120,750)
         self.root.configure(bg=THEME["bg"])
         try:self.root.iconbitmap(str(ICON))
         except Exception:pass
@@ -2064,6 +2183,81 @@ class App:
         settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(settings_frame, lang.t('tab_settings'))
         self._build_settings(settings_frame)
+
+        docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(docker_frame, lang.t('tab_docker'))
+        self._build_docker(docker_frame)
+
+    def _build_docker(self, parent):
+        top = tk.Frame(parent, bg=THEME["bg_elevated"])
+        top.pack(fill="x", padx=10, pady=5)
+        StyledButton(top, lang.t("btn_refresh"), self._dock_refresh, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+        StyledButton(top, lang.t("start"), lambda: self._dock_ctl("start"), color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=90, height=28, font_size=9).pack(side="left", padx=2)
+        StyledButton(top, lang.t("stop"), lambda: self._dock_ctl("stop"), color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=90, height=28, font_size=9).pack(side="left", padx=2)
+        StyledButton(top, lang.t("restart"), lambda: self._dock_ctl("restart"), color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+        StyledButton(top, lang.t("btn_remove"), lambda: self._dock_ctl("rm"), color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+        cols = ("name", "image", "status", "ports")
+        self._dock_tree = ttk.Treeview(parent, columns=cols, show="headings", height=12,
+                                       style="Big.Treeview")
+        self._dock_tree.heading("name", text=lang.t("col_cont"))
+        self._dock_tree.heading("image", text=lang.t("col_image"))
+        self._dock_tree.heading("status", text=lang.t("col_dockstatus"))
+        self._dock_tree.heading("ports", text=lang.t("col_ports"))
+        self._dock_tree.column("name", width=160)
+        self._dock_tree.column("image", width=200)
+        self._dock_tree.column("status", width=180)
+        self._dock_tree.column("ports", width=200)
+        self._dock_tree.pack(fill="both", expand=True, padx=10, pady=4)
+        self._dock_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                     font=(THEME["font_family"], 8), anchor="w")
+        self._dock_status.pack(fill="x", padx=12, pady=(0, 6))
+        self._dock_refresh()
+
+    def _dock_fill(self, rows):
+        for item in self._dock_tree.get_children():
+            self._dock_tree.delete(item)
+        for name, image, status, ports in rows:
+            self._dock_tree.insert("", "end", iid=name, values=(name, image, status, ports))
+        self._dock_status.configure(text="")
+
+    def _dock_refresh(self):
+        self._dock_status.configure(text="…")
+        def w():
+            try:
+                rows = self.svc.docker_ps()
+                self.root.after(0, lambda: self._dock_fill(rows))
+            except Exception as e:
+                self.root.after(0, lambda: self._dock_status.configure(text=str(e)[:200]))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_ctl(self, action):
+        sel = list(self._dock_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        if action == "rm":
+            if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                         f"{lang.t('confirm_delete')} {sel[0]}?"):
+                return
+        def w():
+            try:
+                for name in sel:
+                    self.svc.docker_ctl(action, name)
+                self.root.after(0, self._dock_refresh)
+            except Exception as e:
+                self.log(f"docker {action} ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
 
     def _status_bar(self, parent):
         bar = tk.Frame(parent, bg=THEME["bg_card"], height=30, highlightbackground=THEME["border"], highlightthickness=1)
@@ -2671,7 +2865,7 @@ class App:
         # Components are explicitly selected here; installation is never triggered at startup.
         select_box = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
         select_box.pack(fill="x", padx=10, pady=(5, 3))
-        tk.Label(select_box, text=lang.t("set_modules"), bg=THEME["bg_elevated"], fg=THEME["text"],
+        tk.Label(select_box, text=lang.t("set_select"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
         self._set_component_vars = {}
         cb_grid = tk.Frame(select_box, bg=THEME["bg_elevated"])
@@ -2784,22 +2978,12 @@ class App:
 
     def _set_install(self, names):
         def progress_cb(got, total, speed, name=""):
-            def ui():
-                pct = (got * 100 // total) if total else 0
-                txt = f"{name}: {got/1048576:.1f}/{total/1048576:.1f} MB" if total else f"{name}: {got/1048576:.1f} MB"
-                if hasattr(self, "_set_progress"):
-                    self._set_progress.configure(value=pct)
-                    self._set_progress_label.configure(text=txt)
-                if hasattr(self, "_progress_bar"):
-                    self._progress_bar.configure(value=pct)
-                if hasattr(self, "_progress_label"):
-                    self._progress_label.configure(text=txt)
-                self.status.set(txt)
-            self.root.after(0, ui)
+            self._install_progress(name, got, total)
         def w():
             try:
                 for n in names:
                     install_component(n, self.log, lambda g, t, s, n=n: progress_cb(g, t, s, n))
+                self._install_progress("", 0, 0)
                 self.log(lang.t("set_inst_done"))
                 self.root.after(0, self._set_refresh)
             except Exception as e:
@@ -3061,25 +3245,58 @@ class App:
 
     def start_node_ui(self): self.worker(self.svc.start_node, "Starting Node.js")
     def stop_node_ui(self): self.worker(self.svc.stop_node, "Stopping Node.js")
-    def _install_progress(self, name, got, total):
+    def _install_progress(self, name, got, total, speed=0):
         def ui():
-            if total:
-                pct = got * 100 // total
-                txt = f"{name}: {got/1048576:.1f}/{total/1048576:.1f} MB"
-            else:
-                pct = 0
-                txt = ""
+            bars = []
             if hasattr(self, "_progress_bar"):
-                self._progress_bar.configure(value=pct)
-            if hasattr(self, "_progress_label"):
-                self._progress_label.configure(text=txt)
+                bars.append((self._progress_bar, getattr(self, "_progress_label", None)))
             if hasattr(self, "_set_progress"):
                 try:
-                    self._set_progress.configure(value=pct)
-                    self._set_progress_label.configure(text=txt)
+                    bars.append((self._set_progress, self._set_progress_label))
                 except Exception:
                     pass
-            self.status.set(txt if txt else lang.t("status_ready"))
+            if got == 0 and total == 0:
+                for bar, lbl in bars:
+                    try:
+                        bar.stop()
+                        bar.configure(mode="determinate", value=0)
+                        if lbl is not None:
+                            lbl.configure(text="")
+                    except Exception:
+                        pass
+                self._prog_indet = False
+                self.status.set(lang.t("status_ready"))
+                return
+            if got < 0 or total <= 0:
+                txt = f"{name}: {lang.t('install_extract')}" if name else lang.t("install_extract")
+                for bar, lbl in bars:
+                    try:
+                        bar.configure(mode="indeterminate")
+                        if not getattr(self, "_prog_indet", False):
+                            bar.start(60)
+                        if lbl is not None:
+                            lbl.configure(text=txt)
+                    except Exception:
+                        pass
+                self._prog_indet = True
+                self.status.set(txt)
+                return
+            self._prog_indet = False
+            pct = got * 100 // total
+            txt = f"{got/1048576:.1f}/{total/1048576:.1f} MB"
+            if name:
+                txt = f"{name}: " + txt
+            if speed > 0:
+                txt += f" | {speed/1048576:.2f} MB/s"
+            for bar, lbl in bars:
+                try:
+                    bar.stop()
+                    bar.configure(mode="determinate", value=pct)
+                    if lbl is not None:
+                        lbl.configure(text=txt)
+                except Exception:
+                    pass
+            self.status.set(txt)
         try:
             self.root.after(0, ui)
         except Exception:
@@ -3215,19 +3432,9 @@ class App:
                         install_component(
                             n,
                             self.log,
-                            lambda g, t, s, n=n, label=label: self.root.after(
-                                0,
-                                lambda g=g, t=t, s=s, n=n, label=label: (
-                                    self.status.set(
-                                        f"{label} {n}: {g / 1048576:.1f} MB" +
-                                        (f" / {t / 1048576:.1f} MB" if t else "") +
-                                        (f" | {s / 1048576:.2f} MB/s" if label == "Downloading" else "")
-                                    ),
-                                    self._progress_bar.configure(value=g * 100 // t if t else 0) if hasattr(self, '_progress_bar') else None,
-                                    self._progress_label.configure(text=f"{g / 1048576:.1f}/{t / 1048576:.1f} MB" if t else "") if hasattr(self, '_progress_label') else None,
-                                )
-                            )
+                            lambda g, t, s, n=n: self._install_progress(n, g, t, s)
                         )
+                    self._install_progress("", 0, 0)
                     self.log("Installation completed")
                 except Exception as e:
                     self.log("INSTALLATION ERROR: " + str(e))
@@ -3815,14 +4022,9 @@ class App:
                 for n in components:
                     install_component(
                         n, self.log,
-                        lambda g, t, s, n=n: self.root.after(
-                            0, lambda g=g, t=t, s=s, n=n: (
-                                self.status.set(f"Installing {n}: {g/1048576:.1f} MB"),
-                                self._progress_bar.configure(value=g*100//t if t else 0) if hasattr(self, '_progress_bar') else None,
-                                self._progress_label.configure(text=f"{g/1048576:.1f}/{t/1048576:.1f} MB" if t else "") if hasattr(self, '_progress_label') else None,
-                            )
-                        )
+                        lambda g, t, s, n=n: self._install_progress(n, g, t, s)
                     )
+                self._install_progress("", 0, 0)
                 self.log(lang.t("install_complete"))
             except Exception as e:
                 self.log("INSTALL ERROR: " + str(e))
