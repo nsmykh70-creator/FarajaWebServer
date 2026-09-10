@@ -237,6 +237,17 @@ LOCALES = {
     "donate_copied": {"ru": "Адрес скопирован", "en": "Address copied", "es": "Dirección copiada", "de": "Adresse kopiert", "fr": "Adresse copiée", "zh": "地址已复制"},
     "kill_title": {"ru": "Порт занят", "en": "Port busy", "es": "Puerto ocupado", "de": "Port belegt", "fr": "Port occupé", "zh": "端口被占用"},
     "kill_text": {"ru": "Порт {port} занят: {detail}. Завершить мешающий процесс и продолжить запуск?", "en": "Port {port} is busy: {detail}. Kill the blocking process and continue?", "es": "El puerto {port} está ocupado: {detail}. ¿Terminar el proceso y continuar?", "de": "Port {port} ist belegt: {detail}. Blockierenden Prozess beenden und fortfahren?", "fr": "Le port {port} est occupé : {detail}. Terminer le processus et continuer ?", "zh": "端口 {port} 被占用：{detail}。结束该进程并继续吗？"},
+    "set_phpmode": {"ru": "Режим PHP:", "en": "PHP mode:", "es": "Modo PHP:", "de": "PHP-Modus:", "fr": "Mode PHP :", "zh": "PHP 模式："},
+    "php_dev": {"ru": "Разработка", "en": "Development", "es": "Desarrollo", "de": "Entwicklung", "fr": "Développement", "zh": "开发"},
+    "php_safe": {"ru": "Безопасный", "en": "Safe", "es": "Seguro", "de": "Sicher", "fr": "Sûr", "zh": "安全"},
+    "set_dirlist": {"ru": "Листинг каталогов", "en": "Directory listing", "es": "Listado de directorios", "de": "Verzeichnisauflistung", "fr": "Liste des répertoires", "zh": "目录列表"},
+    "tab_node": {"ru": "Node.js", "en": "Node.js", "es": "Node.js", "de": "Node.js", "fr": "Node.js", "zh": "Node.js"},
+    "node_project": {"ru": "Проект:", "en": "Project:", "es": "Proyecto:", "de": "Projekt:", "fr": "Projet :", "zh": "项目："},
+    "node_entry": {"ru": "Файл:", "en": "Entry:", "es": "Archivo:", "de": "Datei:", "fr": "Fichier :", "zh": "入口："},
+    "node_port": {"ru": "Порт:", "en": "Port:", "es": "Puerto:", "de": "Port:", "fr": "Port :", "zh": "端口："},
+    "col_server": {"ru": "Сервер", "en": "Server", "es": "Servidor", "de": "Server", "fr": "Serveur", "zh": "服务器"},
+    "col_pid": {"ru": "PID", "en": "PID", "es": "PID", "de": "PID", "fr": "PID", "zh": "PID"},
+    "col_started": {"ru": "Запущен", "en": "Started", "es": "Iniciado", "de": "Gestartet", "fr": "Démarré", "zh": "启动时间"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -662,7 +673,7 @@ def install_component(name,log,progress):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={}
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={}
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -729,12 +740,22 @@ class Services:
             if (mods_dir / so_file).exists():
                 lines.append(f"LoadModule {mod_name} modules/{so_file}")
         return "\n".join(lines)
+    def app_settings(self):
+        try:
+            return json.loads((APP_ROOT/"config"/"settings.json").read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    def php_mode(self):
+        return self.app_settings().get("php_mode", "dev")
+    def dir_listing(self):
+        return bool(self.app_settings().get("dir_listing", False))
     def write_configs(self):
         a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix(); p=PMA.resolve().as_posix()
         ph=self.pd.resolve().as_posix(); m=self.md.resolve().as_posix(); l=LOGS.resolve().as_posix()
         apache_modules = self._apache_modules()
+        idx_opt = "+Indexes" if self.dir_listing() else "-Indexes"
         apache=f'''ServerRoot "{a}"
-Listen {CONFIG["apache_port"]}
+Listen 127.0.0.1:{CONFIG["apache_port"]}
 ServerName 127.0.0.1:{CONFIG["apache_port"]}
 
 {apache_modules}
@@ -745,7 +766,7 @@ DocumentRoot "{w}"
 <Directory "{w}">
     Require all granted
     AllowOverride All
-    Options Indexes FollowSymLinks
+    Options {idx_opt} +FollowSymLinks
     DirectoryIndex index.html index.php index.htm
 </Directory>
 
@@ -770,15 +791,17 @@ LogLevel warn
 '''
         (self.ad/"conf").mkdir(parents=True,exist_ok=True)
         (self.ad/"conf/httpd.conf").write_text(apache,encoding="utf-8")
+        if self.php_mode() == "safe":
+            php_err = "display_errors=Off\ndisplay_startup_errors=Off\nerror_reporting=E_ALL\n"
+        else:
+            php_err = "display_errors=On\ndisplay_startup_errors=On\nerror_reporting=E_ALL\n"
         php=f'''[PHP]
 extension_dir="{ph}/ext"
 extension=mysqli
 extension=pdo_mysql
 extension=mbstring
 extension=curl
-display_errors=On
-display_startup_errors=On
-log_errors=On
+{php_err}log_errors=On
 error_log="{l}/php-error.log"
 session.save_path="{(APP_ROOT/"tmp").resolve().as_posix()}"
 date.timezone=UTC
@@ -1126,6 +1149,17 @@ port={CONFIG["mariadb_port"]}
             proxy_set_header X-Forwarded-Proto $scheme;
         }}
     }}'''
+        node_blocks = ""
+        for nport in sorted(self.node_routes):
+            node_blocks += f'''
+        location /node/{nport}/ {{
+            proxy_pass http://127.0.0.1:{nport}/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }}'''
         conf = f'''worker_processes 1;
 events {{ worker_connections 1024; }}
 http {{
@@ -1137,7 +1171,7 @@ http {{
     gzip_types text/plain text/css application/json application/javascript text/xml;
     server {{
         listen {n_port};
-        server_name localhost;
+        server_name localhost;{node_blocks}
         location / {{
             proxy_pass http://127.0.0.1:{a_port};
             proxy_set_header Host $host;
@@ -1233,7 +1267,69 @@ http {{
         proc=subprocess.Popen(cmd,cwd=str(p.parent),stdout=f,stderr=f,
             creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         self.log(f"Script started: {p.name} (PID {proc.pid})")
+        self.node_processes[proc.pid] = {"script": p.name, "path": str(p.resolve()),
+                                         "started": time.strftime("%Y-%m-%d %H:%M:%S"), "proc": proc}
         return proc
+    def node_server_running(self, name):
+        info = self.node_servers.get(name)
+        try:
+            return info is not None and info["proc"].poll() is None
+        except Exception:
+            return False
+    def node_server_start(self, name, directory, entry, port):
+        self._ensure_component("nodejs")
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Bad Node.js port: {port}")
+        self.node_server_stop(name, quiet=True)
+        entry_path = Path(directory) / entry
+        if not entry_path.exists():
+            raise RuntimeError(f"Entry not found: {entry_path}")
+        if entry_path.suffix.lower() == ".ts":
+            cmd = [self.get_npx_exe(), "--yes", "tsx", str(entry_path.resolve())]
+        elif entry_path.suffix.lower() == ".js":
+            cmd = [self.get_node_exe(), str(entry_path.resolve())]
+        else:
+            raise RuntimeError(f"Unsupported entry type: {entry_path.suffix} (use .js or .ts)")
+        env = os.environ.copy()
+        env["PORT"] = str(port)
+        f = self.logfile("node-process.log")
+        proc = subprocess.Popen(cmd, cwd=str(Path(directory).resolve()), stdout=f, stderr=f,
+                                env=env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.node_servers[name] = {"proc": proc, "dir": str(directory), "entry": entry,
+                                   "port": port, "started": time.strftime("%Y-%m-%d %H:%M:%S")}
+        self.node_processes[proc.pid] = {"script": f"{name}: {entry}", "path": str(entry_path.resolve()),
+                                         "started": self.node_servers[name]["started"], "proc": proc}
+        self.node_routes[port] = name
+        self._write_nginx_conf()
+        if not wait_port(port, 15):
+            raise RuntimeError(f"Node.js server '{name}' did not open port {port}; see Process / Init log")
+        self.log(f"Node.js server '{name}' started on port {port} (PID {proc.pid}); route: /node/{port}/")
+        return proc
+    def node_server_stop(self, name, quiet=False):
+        info = self.node_servers.pop(name, None)
+        if info is None:
+            if not quiet:
+                self.log(f"Node.js server '{name}' is not running")
+            return
+        try:
+            kill_pid_tree(info["proc"].pid)
+        except Exception:
+            pass
+        self.node_processes.pop(info["proc"].pid, None)
+        self.node_routes.pop(info["port"], None)
+        self._write_nginx_conf()
+        wait_port_closed(info["port"], 8)
+        if not quiet:
+            self.log(f"Node.js server '{name}' stopped")
+    def node_servers_stop_all(self):
+        for name in list(self.node_servers.keys()):
+            try:
+                self.node_server_stop(name, quiet=True)
+            except Exception:
+                pass
+        self.log("All Node.js servers stopped")
     def docker_check(self):
         try:
             result = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=10,
@@ -1310,6 +1406,21 @@ http {{
         for t in workers:
             remaining = max(0.05, deadline - time.monotonic())
             t.join(remaining)
+        # Kill every tracked Node.js process tree (servers + one-off scripts),
+        # so nothing survives the application exit.
+        for name in list(self.node_servers.keys()):
+            try:
+                self.node_server_stop(name, quiet=True)
+            except Exception:
+                pass
+        for pid, info in list(self.node_processes.items()):
+            try:
+                proc = info.get("proc")
+                if proc is not None and proc.poll() is None:
+                    kill_pid_tree(pid)
+            except Exception:
+                pass
+        self.node_processes.clear()
         for f in self.handles:
             try:f.close()
             except Exception:pass
@@ -1986,7 +2097,7 @@ class CodeEditor:
 class App:
     def __init__(self):
         self.root=tk.Tk()
-        self.root.title(f"{APP_NAME} V14")
+        self.root.title(f"{APP_NAME} V15 PRO")
         self.root.geometry("1280x860")
         self.root.minsize(1120,750)
         self.root.configure(bg=THEME["bg"])
@@ -2256,6 +2367,235 @@ class App:
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(docker_frame, lang.t('tab_docker'))
         self._build_docker(docker_frame)
+
+        node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(node_frame, lang.t('tab_node'))
+        self._build_node(node_frame)
+
+    def _build_node(self, parent):
+        self._node_file = APP_ROOT / "config" / "node.json"
+        try:
+            self._node_defs = json.loads(self._node_file.read_text(encoding="utf-8")).get("servers", [])
+        except Exception:
+            self._node_defs = []
+        form = tk.Frame(parent, bg=THEME["bg_elevated"])
+        form.pack(fill="x", padx=10, pady=5)
+        self._node_name_var = tk.StringVar(value="myapp")
+        self._node_dir_var = tk.StringVar(value=str(WWW / "myapp"))
+        self._node_entry_var = tk.StringVar(value="server.js")
+        self._node_port_var = tk.StringVar(value="3000")
+        r1 = tk.Frame(form, bg=THEME["bg_elevated"])
+        r1.pack(fill="x", pady=2)
+        tk.Label(r1, text=lang.t("col_server"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Entry(r1, textvariable=self._node_name_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=16).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("node_project"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        tk.Entry(r1, textvariable=self._node_dir_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=4)
+        StyledButton(r1, lang.t("first_run_browse"), self._node_browse_dir, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+        r2 = tk.Frame(form, bg=THEME["bg_elevated"])
+        r2.pack(fill="x", pady=2)
+        tk.Label(r2, text=lang.t("node_entry"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Entry(r2, textvariable=self._node_entry_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=24).pack(side="left", padx=4)
+        tk.Label(r2, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        tk.Entry(r2, textvariable=self._node_port_var, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=8).pack(side="left", padx=4)
+        self._node_ver = tk.Label(r2, text="Node.js: …", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                  font=("Cascadia Code", 9))
+        self._node_ver.pack(side="left", padx=12)
+        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
+        btns.pack(fill="x", padx=10, pady=4)
+        StyledButton(btns, lang.t("start"), self._node_start_sel, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("stop"), self._node_stop_sel, color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("restart"), self._node_restart_sel, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("btn_open_site"), self._node_open_sel, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=110, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("btn_remove"), self._node_remove_sel, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        cols = ("server", "port", "pid", "started", "status")
+        self._node_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
+                                       style="Big.Treeview")
+        self._node_tree.heading("server", text=lang.t("col_server"))
+        self._node_tree.heading("port", text=lang.t("col_port"))
+        self._node_tree.heading("pid", text=lang.t("col_pid"))
+        self._node_tree.heading("started", text=lang.t("col_started"))
+        self._node_tree.heading("status", text=lang.t("col_status"))
+        self._node_tree.column("server", width=140)
+        self._node_tree.column("port", width=70)
+        self._node_tree.column("pid", width=80)
+        self._node_tree.column("started", width=130)
+        self._node_tree.column("status", width=110)
+        self._node_tree.pack(fill="both", expand=True, padx=10, pady=4)
+        self._node_refresh_tree()
+        threading.Thread(target=self._node_version, daemon=True).start()
+
+    def _node_save_defs(self):
+        try:
+            (APP_ROOT / "config").mkdir(parents=True, exist_ok=True)
+            self._node_file.write_text(json.dumps({"servers": self._node_defs}, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _node_current_def(self):
+        return {"name": self._node_name_var.get().strip() or "myapp",
+                "dir": self._node_dir_var.get().strip(),
+                "entry": self._node_entry_var.get().strip() or "server.js",
+                "port": self._node_port_var.get().strip() or "3000"}
+
+    def _node_upsert_def(self, d):
+        self._node_defs = [s for s in self._node_defs if s.get("name") != d["name"]]
+        self._node_defs.append(d)
+        self._node_save_defs()
+
+    def _node_refresh_tree(self):
+        if not hasattr(self, "_node_tree"):
+            return
+        for item in self._node_tree.get_children():
+            self._node_tree.delete(item)
+        live = {}
+        for name, info in self.svc.node_servers.items():
+            try:
+                alive = info["proc"].poll() is None
+            except Exception:
+                alive = False
+            live[name] = (info, alive)
+        for d in self._node_defs:
+            name = d.get("name", "")
+            if name in live:
+                info, alive = live[name]
+                pid = info["proc"].pid if alive else "—"
+                self._node_tree.insert("", "end", iid=name,
+                                       values=(name, info["port"], pid, info["started"],
+                                               lang.t("running") if alive else lang.t("stopped")))
+        for name, (info, alive) in live.items():
+            if name not in [d.get("name") for d in self._node_defs]:
+                self._node_tree.insert("", "end", iid=name,
+                                       values=(name, info["port"], info["proc"].pid, info["started"],
+                                               lang.t("running")))
+
+    def _node_version(self):
+        try:
+            exe = self.svc.get_node_exe()
+            r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            ver = r.stdout.strip() or "?"
+            self.root.after(0, lambda: self._node_ver.configure(text=f"Node.js: {ver}"))
+        except Exception as e:
+            self.root.after(0, lambda: self._node_ver.configure(text=f"Node.js: {e}"[:80]))
+
+    def _node_browse_dir(self):
+        from tkinter import filedialog
+        d = filedialog.askdirectory(initialdir=self._node_dir_var.get() or str(WWW))
+        if d:
+            self._node_dir_var.set(d)
+
+    def _node_start_sel(self):
+        sel = list(self._node_tree.selection())
+        if sel:
+            d = next((s for s in self._node_defs if s.get("name") == sel[0]), None)
+            if d:
+                self._node_name_var.set(d["name"])
+                self._node_dir_var.set(d.get("dir", ""))
+                self._node_entry_var.set(d.get("entry", "server.js"))
+                self._node_port_var.set(str(d.get("port", "3000")))
+        d = self._node_current_def()
+        if not Path(d["dir"]).is_dir():
+            messagebox.showerror(lang.t("error"), d["dir"])
+            return
+        def w():
+            try:
+                self.svc.node_server_start(d["name"], d["dir"], d["entry"], d["port"])
+                self._node_upsert_def(d)
+                self.root.after(0, self._node_refresh_tree)
+            except Exception as e:
+                self.log(f"Node.js ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _node_stop_sel(self):
+        sel = list(self._node_tree.selection())
+        names = sel or ([self._node_name_var.get().strip()] if self._node_name_var.get().strip() else [])
+        def w():
+            for name in names:
+                try:
+                    self.svc.node_server_stop(name)
+                except Exception as e:
+                    self.log(f"Node.js ERROR: {e}")
+            self.root.after(0, self._node_refresh_tree)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _node_restart_sel(self):
+        sel = list(self._node_tree.selection())
+        if sel:
+            d = next((s for s in self._node_defs if s.get("name") == sel[0]), None)
+            if d:
+                self._node_name_var.set(d["name"])
+                self._node_dir_var.set(d.get("dir", ""))
+                self._node_entry_var.set(d.get("entry", "server.js"))
+                self._node_port_var.set(str(d.get("port", "3000")))
+        d = self._node_current_def()
+        def w():
+            try:
+                self.svc.node_server_stop(d["name"], quiet=True)
+                self.svc.node_server_start(d["name"], d["dir"], d["entry"], d["port"])
+                self._node_upsert_def(d)
+                self.root.after(0, self._node_refresh_tree)
+            except Exception as e:
+                self.log(f"Node.js ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _node_remove_sel(self):
+        sel = list(self._node_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                     f"{lang.t('confirm_delete')} {sel[0]}?"):
+            return
+        def w():
+            try:
+                self.svc.node_server_stop(sel[0], quiet=True)
+            except Exception:
+                pass
+            self._node_defs = [s for s in self._node_defs if s.get("name") != sel[0]]
+            self._node_save_defs()
+            self.root.after(0, self._node_refresh_tree)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _node_open_sel(self):
+        sel = list(self._node_tree.selection())
+        port = None
+        if sel:
+            d = next((s for s in self._node_defs if s.get("name") == sel[0]), None)
+            if d:
+                port = d.get("port")
+            info = self.svc.node_servers.get(sel[0])
+            if info:
+                port = info["port"]
+        port = port or self._node_port_var.get().strip() or "3000"
+        url = f"http://127.0.0.1:{port}/"
+        self.log(f"Opening Node.js app: {url}")
+        webbrowser.open(url)
 
     def _build_docker(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
@@ -2931,6 +3271,29 @@ class App:
         log_size_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
         log_size_menu.pack(side="left", padx=4)
 
+        phprow = tk.Frame(parent, bg=THEME["bg_elevated"])
+        phprow.pack(fill="x", padx=10, pady=4)
+        tk.Label(phprow, text=lang.t("set_phpmode"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 10, "bold")).pack(side="left")
+        self._php_mode_map = {lang.t("php_dev"): "dev", lang.t("php_safe"): "safe"}
+        _cur_mode = self._settings.get("php_mode", "dev")
+        self._php_mode_var = tk.StringVar(
+            value=lang.t("php_safe") if _cur_mode == "safe" else lang.t("php_dev"))
+        php_menu = tk.OptionMenu(phprow, self._php_mode_var, *self._php_mode_map.keys(),
+                                 command=lambda e: self._on_php_settings_change())
+        php_menu.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                           activebackground=THEME["accent"], activeforeground=THEME["white"],
+                           font=(THEME["font_family"], 9), highlightthickness=0)
+        php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        php_menu.pack(side="left", padx=4)
+        self._dir_list_var = tk.BooleanVar(value=bool(self._settings.get("dir_listing", False)))
+        tk.Checkbutton(phprow, text=lang.t("set_dirlist"), variable=self._dir_list_var,
+                       command=self._on_php_settings_change,
+                       bg=THEME["bg_elevated"], fg=THEME["text"],
+                       selectcolor=THEME["bg_input"], activebackground=THEME["bg_elevated"],
+                       activeforeground=THEME["text"], font=(THEME["font_family"], 9),
+                       highlightthickness=0, bd=0).pack(side="left", padx=(16, 0))
+
         # Components are explicitly selected here; installation is never triggered at startup.
         select_box = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
         select_box.pack(fill="x", padx=10, pady=(5, 3))
@@ -2993,6 +3356,23 @@ class App:
             self._settings["log_size"] = 9
         self._save_settings()
         self._apply_log_font()
+
+    def _on_php_settings_change(self):
+        mode = self._php_mode_map.get(self._php_mode_var.get(), "dev")
+        self._settings["php_mode"] = mode
+        self._settings["dir_listing"] = bool(self._dir_list_var.get())
+        self._save_settings()
+        def w():
+            try:
+                self.svc.write_configs()
+                self.log(f"PHP mode: {mode}, directory listing: {'on' if self._settings['dir_listing'] else 'off'}")
+                if self.svc.prun():
+                    self.log("Restarting PHP to apply new settings...")
+                    self.svc.stop_php()
+                    self.svc.start_php()
+            except Exception as e:
+                self.log("PHP settings ERROR: " + str(e))
+        threading.Thread(target=w, daemon=True).start()
 
     def _apply_log_font(self):
         try:
@@ -3535,7 +3915,7 @@ class App:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Exit", lambda i, x: self.exit())
         )
-        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V14", menu)
+        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V15 PRO", menu)
         self.tray.on_activate = lambda i: self.show()
         threading.Thread(target=self.tray.run, daemon=True).start()
 
