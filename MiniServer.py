@@ -270,6 +270,22 @@ LOCALES = {
     "site_type": {"ru": "Тип (php/node/static):", "en": "Type (php/node/static):", "es": "Tipo (php/node/static):", "de": "Typ (php/node/static):", "fr": "Type (php/node/static) :", "zh": "类型 (php/node/static)："},
     "site_https_q": {"ru": "Включить HTTPS (нужен mkcert)?", "en": "Enable HTTPS (needs mkcert)?", "es": "¿Activar HTTPS (requiere mkcert)?", "de": "HTTPS aktivieren (braucht mkcert)?", "fr": "Activer HTTPS (nécessite mkcert) ?", "zh": "启用 HTTPS（需要 mkcert）？"},
     "site_hosts_admin": {"ru": "Нет прав на запись hosts — запустите от имени администратора", "en": "No permission to write hosts — run as administrator", "es": "Sin permiso para escribir hosts — ejecute como administrador", "de": "Keine hosts-Schreibrechte — als Administrator starten", "fr": "Permission hosts refusée — lancer en administrateur", "zh": "无权写入 hosts——请以管理员身份运行"},
+    "tab_procs": {"ru": "Процессы", "en": "Processes", "es": "Procesos", "de": "Prozesse", "fr": "Processus", "zh": "进程"},
+    "col_proc": {"ru": "Процесс", "en": "Process", "es": "Proceso", "de": "Prozess", "fr": "Processus", "zh": "进程"},
+    "col_mem": {"ru": "Память", "en": "Memory", "es": "Memoria", "de": "Speicher", "fr": "Mémoire", "zh": "内存"},
+    "col_parent": {"ru": "Родитель", "en": "Parent", "es": "Padre", "de": "Parent", "fr": "Parent", "zh": "父进程"},
+    "log_level": {"ru": "Уровень:", "en": "Level:", "es": "Nivel:", "de": "Stufe:", "fr": "Niveau :", "zh": "级别："},
+    "log_find": {"ru": "Поиск:", "en": "Search:", "es": "Buscar:", "de": "Suchen:", "fr": "Rechercher :", "zh": "搜索："},
+    "level_all": {"ru": "Все", "en": "All", "es": "Todos", "de": "Alle", "fr": "Tous", "zh": "全部"},
+    "tab_dbmanager": {"ru": "Менеджер БД", "en": "DB Manager", "es": "Gestor BD", "de": "DB-Manager", "fr": "Gestion BD", "zh": "数据库管理"},
+    "db_list": {"ru": "Список БД", "en": "List DBs", "es": "Ver BD", "de": "DBs listen", "fr": "Lister BD", "zh": "列出数据库"},
+    "db_create": {"ru": "Создать", "en": "Create", "es": "Crear", "de": "Erstellen", "fr": "Créer", "zh": "创建"},
+    "db_drop": {"ru": "Удалить БД", "en": "Drop DB", "es": "Borrar BD", "de": "DB löschen", "fr": "Supprimer BD", "zh": "删除数据库"},
+    "db_users": {"ru": "Пользователи", "en": "Users", "es": "Usuarios", "de": "Benutzer", "fr": "Utilisateurs", "zh": "用户"},
+    "db_mkuser": {"ru": "+ Пользователь", "en": "+ User", "es": "+ Usuario", "de": "+ Benutzer", "fr": "+ Utilisateur", "zh": "+ 用户"},
+    "db_backup": {"ru": "Бэкап", "en": "Backup", "es": "Respaldo", "de": "Backup", "fr": "Sauvegarde", "zh": "备份"},
+    "db_restore": {"ru": "Восстановить", "en": "Restore", "es": "Restaurar", "de": "Wiederherst.", "fr": "Restaurer", "zh": "恢复"},
+    "db_flush": {"ru": "Очистить Redis", "en": "Flush Redis", "es": "Vaciar Redis", "de": "Redis leeren", "fr": "Vider Redis", "zh": "清空 Redis"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -1666,6 +1682,191 @@ http {{
         safe_db = '"' + dbname.replace('"', '""') + '"'
         self._pg_run(admin_user, admin_pass, "postgres", f"CREATE DATABASE {safe_db};")
         self.log(f"PostgreSQL database created: {dbname}")
+    def proc_list(self):
+        ps = ("Get-CimInstance Win32_Process | ForEach-Object { \"{0}|{1}|{2}|{3}\" -f $_.Name,$_.ProcessId,$_.ParentProcessId,$_.WorkingSetSize }; "
+              "'---CONN---'; "
+              "Get-NetTCPConnection -State Listen | ForEach-Object { \"{0}|{1}\" -f $_.LocalPort,$_.OwningProcess }")
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True,
+                           text=True, timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError("process list failed")
+        procs, ports, section = [], {}, 0
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if line == "---CONN---":
+                section = 1
+                continue
+            p = line.split("|")
+            if section == 0:
+                try:
+                    procs.append({"name": p[0], "pid": int(p[1]), "ppid": int(p[2]),
+                                  "mem": int(p[3]) // 1048576})
+                except (ValueError, IndexError):
+                    continue
+            else:
+                try:
+                    ports.setdefault(int(p[1]), []).append(p[0])
+                except (ValueError, IndexError):
+                    continue
+        for pr in procs:
+            pr["ports"] = ",".join(ports.get(pr["pid"], []))
+        procs.sort(key=lambda x: -x["mem"])
+        return procs
+    def _my_run(self, user, passwd, db, sql):
+        mysql = self.md / "bin" / "mysql.exe"
+        if not mysql.exists():
+            raise RuntimeError("mysql.exe not found — is MariaDB installed?")
+        cmd = [str(mysql), "-u", user or "root", "--port", str(CONFIG["mariadb_port"]),
+               "-N", "-B", "-e", sql]
+        if db:
+            cmd += [db]
+        if passwd:
+            cmd += ["-p" + passwd]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "mysql failed")
+        return (r.stdout or "").strip()
+    def _pg_run(self, admin_user, admin_pass, dbname, sql, tuples=False):
+        psql = self.pgd / "bin" / "psql.exe"
+        if not psql.exists():
+            raise RuntimeError("psql.exe not found — is PostgreSQL installed?")
+        env = os.environ.copy()
+        if admin_pass:
+            env["PGPASSWORD"] = admin_pass
+        cmd = [str(psql), "-U", admin_user, "-h", "127.0.0.1",
+               "-p", str(CONFIG["postgresql_port"]), "-d", dbname,
+               "-v", "ON_ERROR_STOP=1"]
+        if tuples:
+            cmd += ["-t", "-A"]
+        cmd += ["-c", sql]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "psql failed")
+        return (r.stdout or "").strip()
+    def db_list(self, engine, user, passwd):
+        if engine == "PostgreSQL":
+            out = self._pg_run(user or "postgres", passwd, "postgres",
+                               "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY 1;",
+                               tuples=True)
+        else:
+            out = self._my_run(user, passwd, "", "SHOW DATABASES;")
+        return [l for l in out.splitlines() if l.strip()]
+    def db_users(self, engine, user, passwd):
+        if engine == "PostgreSQL":
+            out = self._pg_run(user or "postgres", passwd, "postgres",
+                               "SELECT usename FROM pg_user ORDER BY 1;", tuples=True)
+        else:
+            out = self._my_run(user, passwd, "", "SELECT CONCAT(user, '@', host) FROM mysql.user ORDER BY 1;")
+        return [l for l in out.splitlines() if l.strip()]
+    def db_create(self, engine, user, passwd, dbname):
+        if not dbname:
+            raise RuntimeError("Database name is required")
+        if engine == "PostgreSQL":
+            safe = '"' + dbname.replace('"', '""') + '"'
+            self._pg_run(user or "postgres", passwd, "postgres", f"CREATE DATABASE {safe};")
+        else:
+            safe = "`" + dbname.replace("`", "``") + "`"
+            self._my_run(user, passwd, "", f"CREATE DATABASE {safe} CHARACTER SET utf8mb4;")
+        self.log(f"Database created: {dbname}")
+    def db_drop(self, engine, user, passwd, dbname):
+        if not dbname:
+            raise RuntimeError("Database name is required")
+        if engine == "PostgreSQL":
+            safe = '"' + dbname.replace('"', '""') + '"'
+            self._pg_run(user or "postgres", passwd, "postgres", f"DROP DATABASE {safe};")
+        else:
+            safe = "`" + dbname.replace("`", "``") + "`"
+            self._my_run(user, passwd, "", f"DROP DATABASE {safe};")
+        self.log(f"Database dropped: {dbname}")
+    def db_mkuser(self, engine, user, passwd, new_user, new_pass):
+        if not new_user or not new_pass:
+            raise RuntimeError("New user and password are required")
+        if engine == "PostgreSQL":
+            u = '"' + new_user.replace('"', '""') + '"'
+            p = new_pass.replace("'", "''")
+            self._pg_run(user or "postgres", passwd, "postgres",
+                         f"CREATE USER {u} WITH PASSWORD '{p}';")
+        else:
+            u = new_user.replace("'", "''")
+            pw = new_pass.replace("'", "''")
+            self._my_run(user, passwd, "",
+                         f"CREATE USER '{u}'@'%' IDENTIFIED BY '{pw}'; "
+                         f"GRANT ALL PRIVILEGES ON *.* TO '{u}'@'%'; FLUSH PRIVILEGES;")
+        self.log(f"User created: {new_user}")
+    def db_backup(self, engine, user, passwd, dbname, filepath):
+        if not dbname:
+            raise RuntimeError("Database name is required")
+        if engine == "PostgreSQL":
+            tool = self.pgd / "bin" / "pg_dump.exe"
+            if not tool.exists():
+                raise RuntimeError("pg_dump.exe not found")
+            env = os.environ.copy()
+            if passwd:
+                env["PGPASSWORD"] = passwd
+            cmd = [str(tool), "-U", user or "postgres", "-h", "127.0.0.1",
+                   "-p", str(CONFIG["postgresql_port"]), "-d", dbname, "-f", filepath]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        else:
+            tool = self.md / "bin" / "mysqldump.exe"
+            if not tool.exists():
+                raise RuntimeError("mysqldump.exe not found")
+            cmd = [str(tool), "-u", user or "root", "--port", str(CONFIG["mariadb_port"])]
+            if passwd:
+                cmd += ["-p" + passwd]
+            cmd += ["--databases", dbname, f"--result-file={filepath}"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "backup failed")
+        self.log(f"Backup saved: {filepath}")
+    def db_restore(self, engine, user, passwd, dbname, filepath):
+        p = Path(filepath)
+        if not p.is_file():
+            raise RuntimeError(f"Dump file not found: {filepath}")
+        if engine == "PostgreSQL":
+            tool = self.pgd / "bin" / "psql.exe"
+            if not tool.exists():
+                raise RuntimeError("psql.exe not found")
+            env = os.environ.copy()
+            if passwd:
+                env["PGPASSWORD"] = passwd
+            cmd = [str(tool), "-U", user or "postgres", "-h", "127.0.0.1",
+                   "-p", str(CONFIG["postgresql_port"]), "-d", dbname or "postgres",
+                   "-v", "ON_ERROR_STOP=1", "-f", str(p.resolve())]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        else:
+            tool = self.md / "bin" / "mysql.exe"
+            if not tool.exists():
+                raise RuntimeError("mysql.exe not found")
+            cmd = [str(tool), "-u", user or "root", "--port", str(CONFIG["mariadb_port"])]
+            if passwd:
+                cmd += ["-p" + passwd]
+            if dbname:
+                cmd += [dbname]
+            with open(str(p.resolve()), "rb") as f:
+                r = subprocess.run(cmd, stdin=f, capture_output=True, text=True, timeout=300,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "restore failed")
+        self.log(f"Restored from: {filepath}")
+    def redis_flush(self, password):
+        cli = self.rdd / "redis-cli.exe"
+        if not cli.exists():
+            raise RuntimeError("redis-cli.exe not found")
+        cmd = [str(cli), "-h", "127.0.0.1", "-p", str(CONFIG["redis_port"])]
+        if password:
+            cmd += ["-a", password, "--no-auth-warning"]
+        cmd += ["FLUSHALL"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "redis flush failed")
+        self.log("Redis FLUSHALL: OK")
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -2624,9 +2825,28 @@ class App:
             ("proc", lang.t("tab_process"), None),
         ]
 
+        self._log_level_var = tk.StringVar(value="ALL")
+        self._log_search_var = tk.StringVar(value="")
         for vid, title, path in tabs:
             frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
             nb.add(frame, title)
+
+            if vid == "system":
+                fbar = tk.Frame(frame, bg=THEME["bg_elevated"])
+                fbar.pack(fill="x", padx=10, pady=(5, 0))
+                tk.Label(fbar, text=lang.t("log_level"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                         font=(THEME["font_family"], 9)).pack(side="left")
+                lvl = tk.OptionMenu(fbar, self._log_level_var, "ALL", "ERROR", "WARNING")
+                lvl.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                              activebackground=THEME["accent"], activeforeground=THEME["white"],
+                              font=(THEME["font_family"], 9), highlightthickness=0)
+                lvl["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+                lvl.pack(side="left", padx=4)
+                tk.Label(fbar, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                         font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+                tk.Entry(fbar, textvariable=self._log_search_var, bg=THEME["bg_input"], fg=THEME["text"],
+                         insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                         relief="flat", bd=0, width=24).pack(side="left", padx=4)
 
             t = ScrolledText(frame, wrap="word", bg="#0d0f16", fg="#b8bdd0",
                              insertbackground="white", font=("Cascadia Code", 9),
@@ -2666,6 +2886,14 @@ class App:
         db_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(db_frame, lang.t('tab_db'))
         self._build_db(db_frame)
+
+        dbm_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(dbm_frame, lang.t('tab_dbmanager'))
+        self._build_dbmanager(dbm_frame)
+
+        procs_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(procs_frame, lang.t('tab_procs'))
+        self._build_procs(procs_frame)
 
         settings_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(settings_frame, lang.t('tab_settings'))
@@ -2895,6 +3123,271 @@ class App:
         url = f"http://127.0.0.1:{port}/"
         self.log(f"Opening Node.js app: {url}")
         webbrowser.open(url)
+
+    def _build_dbmanager(self, parent):
+        top = tk.Frame(parent, bg=THEME["bg_elevated"])
+        top.pack(fill="x", padx=10, pady=5)
+        tk.Label(top, text=lang.t("sql_engine"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._dbm_engine = tk.StringVar(value="MariaDB")
+        eng = tk.OptionMenu(top, self._dbm_engine, "MariaDB", "PostgreSQL")
+        eng.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat",
+                      activebackground=THEME["accent"], activeforeground=THEME["white"],
+                      font=(THEME["font_family"], 9), highlightthickness=0)
+        eng["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        eng.pack(side="left", padx=4)
+        tk.Label(top, text=lang.t("db_user"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
+        self._dbm_user = tk.StringVar(value="root")
+        tk.Entry(top, textvariable=self._dbm_user, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=12,
+                 relief="flat", bd=0).pack(side="left", padx=2)
+        tk.Label(top, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
+        self._dbm_pass = tk.StringVar(value="")
+        tk.Entry(top, textvariable=self._dbm_pass, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=12,
+                 relief="flat", bd=0, show="*").pack(side="left", padx=2)
+        tk.Label(top, text=lang.t("db_name"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(10, 2))
+        self._dbm_db = tk.StringVar(value="")
+        tk.Entry(top, textvariable=self._dbm_db, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=16,
+                 relief="flat", bd=0).pack(side="left", padx=2)
+
+        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
+        btns.pack(fill="x", padx=10, pady=2)
+        StyledButton(btns, lang.t("db_list"), lambda: self._dbm_simple("list"), color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_create"), lambda: self._dbm_simple("create"), color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_drop"), lambda: self._dbm_simple("drop"), color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_users"), lambda: self._dbm_simple("users"), color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_mkuser"), self._dbm_mkuser, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=110, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_backup"), self._dbm_backup, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("db_restore"), self._dbm_restore, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+
+        rrow = tk.Frame(parent, bg=THEME["bg_elevated"])
+        rrow.pack(fill="x", padx=10, pady=2)
+        tk.Label(rrow, text="Redis", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=(THEME["font_family"], 9, "bold")).pack(side="left")
+        tk.Label(rrow, text=lang.t("db_pass"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._dbm_rpass = tk.StringVar(value="")
+        tk.Entry(rrow, textvariable=self._dbm_rpass, bg=THEME["bg_input"], fg=THEME["text"],
+                 insertbackground=THEME["text"], font=("Cascadia Code", 9), width=16,
+                 relief="flat", bd=0, show="*").pack(side="left", padx=2)
+        StyledButton(rrow, lang.t("db_flush"), self._dbm_flush, color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=120, height=26, font_size=8).pack(side="left", padx=8)
+
+        self._dbm_out = ScrolledText(parent, wrap="word", bg="#0d0f16", fg="#b8bdd0",
+                                     insertbackground="white", font=("Cascadia Code", 9),
+                                     relief="flat", bd=0, padx=10, pady=6, height=10,
+                                     selectbackground=THEME["accent"],
+                                     selectforeground=THEME["white"])
+        self._dbm_out.pack(fill="both", expand=True, padx=10, pady=4)
+        self._dbm_out.configure(state="disabled")
+        self._dbm_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                    font=(THEME["font_family"], 8), anchor="w")
+        self._dbm_status.pack(fill="x", padx=12, pady=(0, 6))
+
+    def _dbm_show(self, text):
+        def ui():
+            self._dbm_out.configure(state="normal")
+            self._dbm_out.delete("1.0", "end")
+            self._dbm_out.insert("1.0", text)
+            self._dbm_out.see("end")
+            self._dbm_out.configure(state="disabled")
+            self._dbm_status.configure(text="")
+        self.root.after(0, ui)
+
+    def _dbm_failed(self, e):
+        self.log("DB Manager ERROR: " + str(e))
+        self.root.after(0, lambda: self._dbm_status.configure(text=str(e)[:200]))
+
+    def _dbm_creds(self):
+        return (self._dbm_engine.get(), self._dbm_user.get().strip(),
+                self._dbm_pass.get(), self._dbm_db.get().strip())
+
+    def _dbm_simple(self, what):
+        eng, user, pwd, db = self._dbm_creds()
+        if what == "drop" and not DarkPrompt.ask_yes_no(
+                self.root, lang.t("db_drop"), f"{lang.t('confirm_delete')} {db}?"):
+            return
+        def w():
+            try:
+                if what == "list":
+                    rows = self.svc.db_list(eng, user, pwd)
+                    self._dbm_show("\n".join(rows) or "—")
+                elif what == "users":
+                    rows = self.svc.db_users(eng, user, pwd)
+                    self._dbm_show("\n".join(rows) or "—")
+                elif what == "create":
+                    self.svc.db_create(eng, user, pwd, db)
+                    self._dbm_show(f"OK: {db}")
+                elif what == "drop":
+                    self.svc.db_drop(eng, user, pwd, db)
+                    self._dbm_show(f"OK: {db}")
+            except Exception as e:
+                self._dbm_failed(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dbm_mkuser(self):
+        eng, user, pwd, _db = self._dbm_creds()
+        new_user = DarkPrompt.ask_string(self.root, lang.t("db_mkuser"), lang.t("db_user"))
+        if not new_user:
+            return
+        new_pass = DarkPrompt.ask_string(self.root, lang.t("db_mkuser"), lang.t("db_pass"))
+        if new_pass is None:
+            return
+        def w():
+            try:
+                self.svc.db_mkuser(eng, user, pwd, new_user.strip(), new_pass)
+                self._dbm_show(f"OK: {new_user}")
+            except Exception as e:
+                self._dbm_failed(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dbm_backup(self):
+        eng, user, pwd, db = self._dbm_creds()
+        if not db:
+            messagebox.showinfo(APP_NAME, lang.t("db_name"))
+            return
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(defaultextension=".sql",
+                                            filetypes=[("SQL dump", "*.sql")],
+                                            initialfile=f"{db}.sql")
+        if not path:
+            return
+        def w():
+            try:
+                self.svc.db_backup(eng, user, pwd, db, path)
+                self._dbm_show(f"OK: {path}")
+            except Exception as e:
+                self._dbm_failed(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dbm_restore(self):
+        eng, user, pwd, db = self._dbm_creds()
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[("SQL dump", "*.sql"), ("All", "*.*")])
+        if not path:
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("db_restore"),
+                                     f"{db or '*'} ← {Path(path).name}?"):
+            return
+        def w():
+            try:
+                self.svc.db_restore(eng, user, pwd, db, path)
+                self._dbm_show(f"OK: {path}")
+            except Exception as e:
+                self._dbm_failed(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dbm_flush(self):
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("db_flush"), "Redis FLUSHALL?"):
+            return
+        pwd = self._dbm_rpass.get()
+        def w():
+            try:
+                self.svc.redis_flush(pwd)
+                self._dbm_show("OK: FLUSHALL")
+            except Exception as e:
+                self._dbm_failed(e)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _build_procs(self, parent):
+        self._procs_rows = []
+        top = tk.Frame(parent, bg=THEME["bg_elevated"])
+        top.pack(fill="x", padx=10, pady=5)
+        StyledButton(top, lang.t("btn_refresh"), self._procs_refresh, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+        StyledButton(top, lang.t("btn_delete"), self._procs_kill, color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+        tk.Label(top, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        self._procs_search_var = tk.StringVar(value="")
+        se = tk.Entry(top, textvariable=self._procs_search_var, bg=THEME["bg_input"], fg=THEME["text"],
+                      insertbackground=THEME["text"], font=("Cascadia Code", 9),
+                      relief="flat", bd=0, width=24)
+        se.pack(side="left", padx=4)
+        se.bind("<KeyRelease>", lambda e: self._procs_filter())
+        cols = ("pid", "proc", "parent", "mem", "port")
+        self._procs_tree = ttk.Treeview(parent, columns=cols, show="headings", height=14,
+                                        style="Big.Treeview")
+        self._procs_tree.heading("pid", text=lang.t("col_pid"))
+        self._procs_tree.heading("proc", text=lang.t("col_proc"))
+        self._procs_tree.heading("parent", text=lang.t("col_parent"))
+        self._procs_tree.heading("mem", text=lang.t("col_mem"))
+        self._procs_tree.heading("port", text=lang.t("col_port"))
+        self._procs_tree.column("pid", width=80)
+        self._procs_tree.column("proc", width=260)
+        self._procs_tree.column("parent", width=100)
+        self._procs_tree.column("mem", width=100)
+        self._procs_tree.column("port", width=140)
+        self._procs_tree.pack(fill="both", expand=True, padx=10, pady=4)
+        self._procs_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                      font=(THEME["font_family"], 8), anchor="w")
+        self._procs_status.pack(fill="x", padx=12, pady=(0, 6))
+        self._procs_refresh()
+
+    def _procs_filter(self):
+        if not hasattr(self, "_procs_tree"):
+            return
+        q = self._procs_search_var.get().strip().lower()
+        for item in self._procs_tree.get_children():
+            self._procs_tree.delete(item)
+        for pr in self._procs_rows:
+            if q and q not in pr["name"].lower() and q not in str(pr["pid"]):
+                continue
+            self._procs_tree.insert("", "end", iid=pr["pid"],
+                                    values=(pr["pid"], pr["name"], pr["ppid"],
+                                            f"{pr['mem']} MB", pr["ports"]))
+
+    def _procs_refresh(self):
+        self._procs_status.configure(text="…")
+        def w():
+            try:
+                rows = self.svc.proc_list()
+                def ui():
+                    self._procs_rows = rows
+                    self._procs_filter()
+                    self._procs_status.configure(text="")
+                self.root.after(0, ui)
+            except Exception as e:
+                self.root.after(0, lambda: self._procs_status.configure(text=str(e)[:200]))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _procs_kill(self):
+        sel = self._procs_tree.selection()
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        try:
+            pid = int(sel[0])
+        except ValueError:
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_delete"),
+                                     f"{lang.t('confirm_delete')} PID {pid}?"):
+            return
+        kill_pid_tree(pid)
+        self.log(f"Killed PID {pid}")
+        self.root.after(1500, self._procs_refresh)
 
     def _build_docker(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
@@ -4241,7 +4734,17 @@ class App:
 
     def refresh_logs(self):
         try:
-            self.settext("system", "\n".join(self.lines))
+            lines = self.lines
+            try:
+                lvl = self._log_level_var.get()
+                if lvl and lvl != "ALL":
+                    lines = [l for l in lines if lvl in l]
+                q = self._log_search_var.get().strip().lower()
+                if q:
+                    lines = [l for l in lines if q in l.lower()]
+            except Exception:
+                lines = self.lines
+            self.settext("system", "\n".join(lines))
             for vid, (_, p) in self.views.items():
                 if p is None:
                     continue
