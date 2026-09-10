@@ -210,6 +210,8 @@ LOCALES = {
     "btn_no": {"ru": "Нет", "en": "No", "es": "No", "de": "Nein", "fr": "Non", "zh": "否"},
     "tip_help": {"ru": "Открыть справку и документацию", "en": "Open help and documentation", "es": "Abrir ayuda y documentación", "de": "Hilfe und Dokumentation öffnen", "fr": "Ouvrir l'aide et la documentation", "zh": "打开帮助和文档"},
     "tip_toggle_all": {"ru": "Запустить или остановить все сервисы", "en": "Start or stop all services", "es": "Iniciar o detener todos los servicios", "de": "Alle Dienste starten oder stoppen", "fr": "Démarrer ou arrêter tous les services", "zh": "启动或停止所有服务"},
+    "tip_start_all": {"ru": "Запустить все сервисы", "en": "Start all services", "es": "Iniciar todos los servicios", "de": "Alle Dienste starten", "fr": "Démarrer tous les services", "zh": "启动所有服务"},
+    "tip_stop_all": {"ru": "Остановить все сервисы", "en": "Stop all services", "es": "Detener todos los servicios", "de": "Alle Dienste stoppen", "fr": "Arrêter tous les services", "zh": "停止所有服务"},
     "tip_restart_all": {"ru": "Перезапустить все сервисы", "en": "Restart all services", "es": "Reiniciar todos los servicios", "de": "Alle Dienste neu starten", "fr": "Redémarrer tous les services", "zh": "重启所有服务"},
     "tip_start": {"ru": "Запустить / остановить сервис", "en": "Start / stop the service", "es": "Iniciar / detener el servicio", "de": "Dienst starten / stoppen", "fr": "Démarrer / arrêter le service", "zh": "启动 / 停止服务"},
     "tip_restart": {"ru": "Перезапустить сервис", "en": "Restart the service", "es": "Reiniciar el servicio", "de": "Dienst neu starten", "fr": "Redémarrer le service", "zh": "重启服务"},
@@ -2043,24 +2045,28 @@ class App:
                 highlightthickness=1 if c == lang.get() else 0))
             self._lang_buttons[code] = btn
 
-        self._toggle_all_btn = StyledButton(controls, lang.t("start_all"), self._toggle_all,
+        _start_all_btn = StyledButton(controls, lang.t("start_all"), self.start_all,
             color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"],
-            width=122, height=34, font_size=8)
-        self._toggle_all_btn.pack(side="right", padx=(10,0))
-        ToolTip(self._toggle_all_btn, lang.t("tip_toggle_all"))
+            width=112, height=34, font_size=8)
+        _start_all_btn.pack(side="right", padx=(10,0))
+        ToolTip(_start_all_btn, lang.t("tip_start_all"))
+        _stop_all_btn = StyledButton(controls, lang.t("stop_all"), self.stop_all,
+            color=THEME["danger"], hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+            width=112, height=34, font_size=8)
+        _stop_all_btn.pack(side="right", padx=4)
+        ToolTip(_stop_all_btn, lang.t("tip_stop_all"))
         _restart_all_btn = StyledButton(controls, lang.t("restart_all"), self.restart_all, color=THEME["warning_dim"],
             hover_color=THEME["warning"], active_color="#ba5e17", width=140, height=34, font_size=8)
         _restart_all_btn.pack(side="right", padx=4)
         ToolTip(_restart_all_btn, lang.t("tip_restart_all"))
-        _help_btn = StyledButton(controls, lang.t("help_btn"), self._show_help, color=THEME["bg_card"],
-            hover_color=THEME["bg_elevated"], active_color=THEME["bg_input"], width=70, height=34, font_size=8)
+        _help_btn = StyledButton(controls, lang.t("help_btn"), self._show_help, color=THEME["accent"],
+            hover_color=THEME["accent_hover"], active_color=THEME["accent_active"], width=70, height=34, font_size=8)
         _help_btn.pack(side="right", padx=4)
         ToolTip(_help_btn, lang.t("tip_help"))
         _donate_btn = StyledButton(controls, lang.t("btn_donate"), self._show_donate, color="#e17055",
             hover_color="#f0816e", active_color="#c0392b", width=104, height=34, font_size=8)
         _donate_btn.pack(side="right", padx=4)
         ToolTip(_donate_btn, lang.t("donate_title"))
-        self._all_running = False
 
         self._port_label = tk.Label(parent, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
                                     font=("Cascadia Code", 8), anchor="w", padx=24, pady=7)
@@ -3098,12 +3104,6 @@ class App:
         else:
             self.worker(start_fn, lang.t("status_starting", svc=attr))
 
-    def _toggle_all(self):
-        if self._all_running:
-            self.stop_all()
-        else:
-            self.start_all()
-
     def _update_toggle_btn(self, attr, running):
         btn = getattr(self, attr + "_toggle")
         if running:
@@ -3151,18 +3151,6 @@ class App:
             for prefix, running in [("apache", a), ("db", d), ("php", p), ("pg", pg), ("redis", rd), ("nginx", nx), ("docker", dk), ("node", no)]:
                 self._update_toggle_btn(prefix, running)
 
-            self._all_running = any([a, d, p, pg, rd, nx])
-            if self._all_running:
-                self._toggle_all_btn._text = lang.t("stop_all")
-                self._toggle_all_btn._color = THEME["danger"]
-                self._toggle_all_btn._hover_color = "#ff6b5a"
-                self._toggle_all_btn._active_color = THEME["danger_dim"]
-            else:
-                self._toggle_all_btn._text = lang.t("start_all")
-                self._toggle_all_btn._color = THEME["success"]
-                self._toggle_all_btn._hover_color = "#10d8a0"
-                self._toggle_all_btn._active_color = THEME["success_dim"]
-            self._toggle_all_btn._draw(self._toggle_all_btn._color)
         finally:
             if not self.closing:
                 self.root.after(1000, self.refresh)
