@@ -233,6 +233,8 @@ LOCALES = {
     "donate_text": {"ru": "Если программа полезна — поддержите разработку. Спасибо!", "en": "If you find the app useful, please support its development. Thank you!", "es": "Si la aplicación le resulta útil, apoye su desarrollo. ¡Gracias!", "de": "Wenn Ihnen die App nützt, unterstützen Sie bitte die Entwicklung. Danke!", "fr": "Si l'application vous est utile, soutenez son développement. Merci !", "zh": "如果这个应用对您有用，请支持它的开发。谢谢！"},
     "donate_copy": {"ru": "Копировать", "en": "Copy", "es": "Copiar", "de": "Kopieren", "fr": "Copier", "zh": "复制"},
     "donate_copied": {"ru": "Адрес скопирован", "en": "Address copied", "es": "Dirección copiada", "de": "Adresse kopiert", "fr": "Adresse copiée", "zh": "地址已复制"},
+    "kill_title": {"ru": "Порт занят", "en": "Port busy", "es": "Puerto ocupado", "de": "Port belegt", "fr": "Port occupé", "zh": "端口被占用"},
+    "kill_text": {"ru": "Порт {port} занят: {detail}. Завершить мешающий процесс и продолжить запуск?", "en": "Port {port} is busy: {detail}. Kill the blocking process and continue?", "es": "El puerto {port} está ocupado: {detail}. ¿Terminar el proceso y continuar?", "de": "Port {port} ist belegt: {detail}. Blockierenden Prozess beenden und fortfahren?", "fr": "Le port {port} est occupé : {detail}. Terminer le processus et continuer ?", "zh": "端口 {port} 被占用：{detail}。结束该进程并继续吗？"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -658,7 +660,7 @@ def install_component(name,log,progress):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={}
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -802,9 +804,28 @@ port={CONFIG["mariadb_port"]}
             txt=re.sub(r"\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\]\s*=\s*(?:true|false)\s*;", "", txt)
             txt+="\n$cfg['Servers'][$i]['AllowNoPassword'] = true;\n"
             pma_cfg.write_text(txt,encoding="utf-8")
-    def arun(self):return port_open(CONFIG["apache_port"])
-    def drun(self):return port_open(CONFIG["mariadb_port"])
-    def prun(self):return port_open(CONFIG["php_cgi_port"])
+    def _alive(self, proc):
+        try:
+            return proc is not None and proc.poll() is None
+        except Exception:
+            return False
+    def _port_cached(self, port, ttl=8):
+        now = time.monotonic()
+        hit = self._port_cache.get(port)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        val = port_open(port)
+        self._port_cache[port] = (now, val)
+        return val
+    def arun(self):
+        if self._alive(self.apache):return True
+        return self._port_cached(CONFIG["apache_port"])
+    def drun(self):
+        if self._alive(self.db):return True
+        return self._port_cached(CONFIG["mariadb_port"], 15)
+    def prun(self):
+        if self._alive(self.php):return True
+        return self._port_cached(CONFIG["php_cgi_port"])
     def start_php(self):
         if self.prun():self.log("PHP CGI is already running");return
         self.write_configs();exe=self.pd/"php-cgi.exe"
@@ -956,7 +977,9 @@ port={CONFIG["mariadb_port"]}
         if not wait_port_closed(CONFIG["mariadb_port"], 12):
             raise RuntimeError("MariaDB could not be stopped on port %s" % CONFIG["mariadb_port"])
         self.log("MariaDB stopped")
-    def pgrun(self):return port_open(CONFIG["postgresql_port"])
+    def pgrun(self):
+        if self._alive(self.pg):return True
+        return self._port_cached(CONFIG["postgresql_port"], 15)
     def initialize_pg(self):
         data=self.pgd/"data";data.mkdir(parents=True,exist_ok=True)
         exe=self.pgd/"bin/initdb.exe"
@@ -1003,7 +1026,9 @@ port={CONFIG["mariadb_port"]}
         if not wait_port_closed(CONFIG["postgresql_port"], 12):
             raise RuntimeError("PostgreSQL could not be stopped on port %s" % CONFIG["postgresql_port"])
         self.log("PostgreSQL stopped")
-    def redisrun(self):return port_open(CONFIG["redis_port"])
+    def redisrun(self):
+        if self._alive(self.redis_proc):return True
+        return self._port_cached(CONFIG["redis_port"], 15)
     def start_redis(self):
         if self.redisrun():self.log("Redis is already running");return
         self._ensure_component("redis")
@@ -1024,7 +1049,9 @@ port={CONFIG["mariadb_port"]}
         if not wait_port_closed(CONFIG["redis_port"], 8):
             raise RuntimeError("Redis could not be stopped on port %s" % CONFIG["redis_port"])
         self.log("Redis stopped")
-    def nginxrun(self):return port_open(CONFIG["nginx_port"])
+    def nginxrun(self):
+        if self._alive(self.nginx):return True
+        return self._port_cached(CONFIG["nginx_port"])
     def start_nginx(self):
         # Apache and Nginx are mutually exclusive in MiniServer.
         if web_server_running("apache") or self.arun():
@@ -1745,9 +1772,9 @@ class CodeEditor:
                                      takefocus=0)
         self._line_numbers.pack(side="left", fill="y")
 
-        self._minimap = tk.Text(body, width=16, padx=2, pady=8,
+        self._minimap = tk.Text(body, width=30, padx=2, pady=8,
                                 bg=self.scheme["bg"], fg=self.scheme["fg"],
-                                font=(self.font_family, 2),
+                                font=(self.font_family, 3),
                                 state="disabled", relief="flat", bd=0,
                                 cursor="arrow", takefocus=0, wrap="none")
         self._minimap.pack(side="right", fill="y")
@@ -1901,7 +1928,7 @@ class CodeEditor:
         self._text.configure(font=font)
         self._line_numbers.configure(font=font)
         try:
-            self._minimap.configure(font=(self.font_family, 2))
+            self._minimap.configure(font=(self.font_family, 3))
         except Exception:
             pass
         self._update_line_numbers()
@@ -2903,7 +2930,7 @@ class App:
             cb.grid(row=idx // 4, column=idx % 4, sticky="w", padx=8, pady=2)
 
         cols = ("component", "state", "archive", "expected")
-        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=5,
+        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=11,
                                        style="Big.Treeview")
         self._set_tree.heading("component", text=lang.t("col_component"))
         self._set_tree.heading("state", text=lang.t("col_state"))
@@ -2913,7 +2940,7 @@ class App:
         self._set_tree.column("state", width=100)
         self._set_tree.column("archive", width=200)
         self._set_tree.column("expected", width=260)
-        self._set_tree.pack(fill="x", padx=10, pady=4)
+        self._set_tree.pack(fill="both", expand=True, padx=10, pady=4)
 
         btns = tk.Frame(parent, bg=THEME["bg_elevated"])
         btns.pack(fill="x", padx=10, pady=4)
@@ -3227,7 +3254,24 @@ class App:
                     self.root.after(0, lambda e=e: messagebox.showerror(title + " error", str(e)))
         threading.Thread(target=w, daemon=True).start()
 
-    def start_a(self): self.worker(self.svc.start_apache, "Starting Apache")
+    def _start_guarded(self, port, start_fn, title):
+        victims = []
+        if port_open(port):
+            owners = port_owners(port)
+            if owners:
+                detail = ", ".join(f"{name or 'unknown'} (PID {pid})" for pid, name in owners)
+                if not DarkPrompt.ask_yes_no(self.root, lang.t("kill_title"),
+                                             lang.t("kill_text", port=port, detail=detail)):
+                    return
+                victims = [pid for pid, _ in owners]
+        def run():
+            for pid in victims:
+                kill_pid_tree(pid)
+            if victims:
+                wait_port_closed(port, 8)
+            start_fn()
+        self.worker(run, title)
+    def start_a(self): self._start_guarded(CONFIG["apache_port"], self.svc.start_apache, "Starting Apache")
     def stop_a(self): self.worker(self.svc.stop_apache, "Stopping Apache")
     def restart_a(self):
         def restart():
@@ -3241,22 +3285,22 @@ class App:
             self.svc.start_apache()
         self.worker(restart, "Restarting Apache")
 
-    def start_d(self): self.worker(self.svc.start_db, "Starting MariaDB")
+    def start_d(self): self._start_guarded(CONFIG["mariadb_port"], self.svc.start_db, "Starting MariaDB")
     def stop_d(self): self.worker(self.svc.stop_db, "Stopping MariaDB")
     def restart_d(self): self.worker(lambda: (self.svc.stop_db(), self.svc.start_db()), "Restarting MariaDB")
-    def start_p(self): self.worker(self.svc.start_php, "Starting PHP")
+    def start_p(self): self._start_guarded(CONFIG["php_cgi_port"], self.svc.start_php, "Starting PHP")
     def stop_p(self): self.worker(self.svc.stop_php, "Stopping PHP")
     def restart_p(self): self.worker(lambda: (self.svc.stop_php(), self.svc.start_php()), "Restarting PHP")
 
-    def start_pg_ui(self): self.worker(self.svc.start_pg, "Starting PostgreSQL")
+    def start_pg_ui(self): self._start_guarded(CONFIG["postgresql_port"], self.svc.start_pg, "Starting PostgreSQL")
     def stop_pg_ui(self): self.worker(self.svc.stop_pg, "Stopping PostgreSQL")
     def restart_pg(self): self.worker(lambda: (self.svc.stop_pg(), self.svc.start_pg()), "Restarting PostgreSQL")
 
-    def start_redis_ui(self): self.worker(self.svc.start_redis, "Starting Redis")
+    def start_redis_ui(self): self._start_guarded(CONFIG["redis_port"], self.svc.start_redis, "Starting Redis")
     def stop_redis_ui(self): self.worker(self.svc.stop_redis, "Stopping Redis")
     def restart_redis(self): self.worker(lambda: (self.svc.stop_redis(), self.svc.start_redis()), "Restarting Redis")
 
-    def start_nginx_ui(self): self.worker(self.svc.start_nginx, "Starting Nginx")
+    def start_nginx_ui(self): self._start_guarded(CONFIG["nginx_port"], self.svc.start_nginx, "Starting Nginx")
     def stop_nginx_ui(self): self.worker(self.svc.stop_nginx, "Stopping Nginx")
     def restart_nginx(self): self.worker(lambda: (self.svc.stop_nginx(), self.svc.start_nginx()), "Restarting Nginx")
     def setup_ssl_cmd(self): self.worker(self.svc.setup_ssl, "Setting up SSL")
@@ -3529,7 +3573,7 @@ class App:
     def _show_donate(self):
         win = tk.Toplevel(self.root)
         win.title(lang.t("donate_title"))
-        win.geometry("560x560")
+        win.geometry("600x670")
         win.configure(bg=THEME["bg_card"], highlightbackground=THEME["accent"],
                       highlightthickness=1)
         win.transient(self.root)
@@ -3549,28 +3593,27 @@ class App:
             path, addr = DONATE[coin]
             row = tk.Frame(win, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                            highlightthickness=1)
-            row.pack(fill="x", padx=16, pady=5)
+            row.pack(fill="x", padx=16, pady=6)
             try:
-                img = Image.open(str(path)).resize((96, 96), Image.LANCZOS)
+                img = Image.open(str(path)).resize((112, 112), Image.LANCZOS)
                 photo = ImageTk.PhotoImage(img)
                 self._donate_imgs.append(photo)
-                tk.Label(row, image=photo, bg=THEME["bg_elevated"]).pack(side="left", padx=10, pady=8)
+                tk.Label(row, image=photo, bg="white", bd=0).pack(side="left", padx=12, pady=10)
             except Exception:
                 tk.Label(row, text=coin, bg=THEME["bg_elevated"], fg=THEME["accent"],
-                         font=(THEME["font_family"], 16, "bold")).pack(side="left", padx=10, pady=8)
+                         font=(THEME["font_family"], 16, "bold")).pack(side="left", padx=12, pady=10)
             mid = tk.Frame(row, bg=THEME["bg_elevated"])
-            mid.pack(side="left", fill="both", expand=True, padx=4, pady=8)
+            mid.pack(side="left", fill="both", expand=True, padx=(2, 12), pady=10)
             tk.Label(mid, text=coin, bg=THEME["bg_elevated"], fg=THEME["text"],
                      font=(THEME["font_family"], 11, "bold"), anchor="w").pack(fill="x")
-            var = tk.StringVar(value=addr)
-            tk.Entry(mid, textvariable=var, bg=THEME["bg_input"], fg=THEME["text_dim"],
-                     font=("Cascadia Code", 8), relief="flat", bd=0,
-                     state="readonly").pack(fill="x", pady=(4, 6))
+            tk.Label(mid, text=addr, bg=THEME["bg_input"], fg=THEME["text"],
+                     font=("Cascadia Code", 9), wraplength=350, justify="left",
+                     anchor="w", padx=10, pady=8).pack(fill="x", pady=(6, 8))
             StyledButton(mid, lang.t("donate_copy"),
                          lambda a=addr: self._copy_donate(a, hint),
-                         color=THEME["bg_input"], hover_color=THEME["border_light"],
-                         active_color=THEME["border"],
-                         width=110, height=26, font_size=8).pack(anchor="w")
+                         color=THEME["accent"], hover_color=THEME["accent_hover"],
+                         active_color=THEME["accent_active"],
+                         width=150, height=28, font_size=9).pack(anchor="w")
 
     def _copy_donate(self, addr, hint):
         try:
