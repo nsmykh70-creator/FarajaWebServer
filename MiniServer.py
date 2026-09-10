@@ -298,6 +298,9 @@ LOCALES = {
     "tab_logs": {"ru": "Логи", "en": "Logs", "es": "Registros", "de": "Logs", "fr": "Logs", "zh": "日志"},
     "tab_projects": {"ru": "Проекты", "en": "Projects", "es": "Proyectos", "de": "Projekte", "fr": "Projets", "zh": "项目"},
     "tab_monitor": {"ru": "Мониторинг", "en": "Monitor", "es": "Monitor", "de": "Monitor", "fr": "Moniteur", "zh": "监控"},
+    "dock_networks": {"ru": "Сети", "en": "Networks", "es": "Redes", "de": "Netzwerke", "fr": "Réseaux", "zh": "网络"},
+    "dock_volumes": {"ru": "Тома", "en": "Volumes", "es": "Volúmenes", "de": "Volumes", "fr": "Volumes", "zh": "卷"},
+    "perf_baseline": {"ru": "В эталон", "en": "Set baseline", "es": "Referencia", "de": "Basiswert", "fr": "Référence", "zh": "设为基线"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -929,7 +932,7 @@ Action php-handler /php-cgi-bin/php-cgi.exe virtual
     SetHandler php-handler
 </FilesMatch>
 
-Include conf/vhosts/*.conf
+IncludeOptional conf/vhosts/*.conf
 
 ErrorLog "{l}/apache-error.log"
 CustomLog "{l}/apache-access.log" combined
@@ -1903,6 +1906,42 @@ http {{
         self._my_run("root", cur_pass, "",
                      f"ALTER USER 'root'@'localhost' IDENTIFIED BY '{pw}'; FLUSH PRIVILEGES;")
         self.log("MariaDB root password updated")
+    def docker_networks(self):
+        r = subprocess.run(["docker", "network", "ls", "--format", "{{.Name}}|{{.Driver}}|{{.Scope}}"],
+                           capture_output=True, text=True, timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout).strip()[:200] or "docker network ls failed")
+        rows = []
+        for line in (r.stdout or "").splitlines():
+            p = (line.split("|") + ["", "", ""])[:3]
+            if p[0]:
+                rows.append(p)
+        return rows
+    def docker_volumes(self):
+        r = subprocess.run(["docker", "volume", "ls", "--format", "{{.Name}}|{{.Driver}}"],
+                           capture_output=True, text=True, timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout).strip()[:200] or "docker volume ls failed")
+        rows = []
+        for line in (r.stdout or "").splitlines():
+            p = (line.split("|") + ["", ""])[:2]
+            if p[0]:
+                rows.append(p)
+        return rows
+    def docker_net_rm(self, name):
+        r = subprocess.run(["docker", "network", "rm", name], capture_output=True, text=True,
+                           timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "docker network rm failed")
+        self.log(f"docker network rm {name}: OK")
+    def docker_vol_rm(self, name):
+        r = subprocess.run(["docker", "volume", "rm", name], capture_output=True, text=True,
+                           timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode != 0:
+            raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:200] or "docker volume rm failed")
+        self.log(f"docker volume rm {name}: OK")
     def node_installed(self):
         if (RUNTIME/"Nodejs"/"node.exe").exists():
             return True
@@ -2858,6 +2897,7 @@ class App:
             ("apache_err", lang.t("tab_apache_err"), LOGS / "apache-error.log"),
             ("php_err", lang.t("tab_php_err"), LOGS / "php-error.log"),
             ("mariadb_err", lang.t("tab_mariadb_err"), LOGS / "mariadb-error.log"),
+            ("node_log", lang.t("tab_node"), LOGS / "node-process.log"),
             ("proc", lang.t("tab_process"), None),
         ]
 
@@ -3395,6 +3435,12 @@ class App:
                                             hover_color="#55e39a", active_color=THEME["success_dim"],
                                             width=100, height=26, font_size=8)
         self._perf_start_btn.pack(side="left", padx=(16, 2))
+        StyledButton(r2, "Auto", self._perf_auto, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=80, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(r2, lang.t("perf_baseline"), self._perf_set_base, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
         StyledButton(r2, lang.t("stop"), lambda: self._perf_stop.set(), color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      width=100, height=26, font_size=8).pack(side="left", padx=2)
@@ -3428,7 +3474,13 @@ class App:
             res.grid_columnconfigure(c, weight=1)
 
         self._perf_canvas = tk.Canvas(parent, bg="#0d0f16", highlightthickness=0, height=150)
-        self._perf_canvas.pack(fill="x", padx=10, pady=(0, 8))
+        self._perf_canvas.pack(fill="x", padx=10, pady=(0, 2))
+        self._perf_base_label = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["warning"],
+                                         font=("Cascadia Code", 9), anchor="w")
+        self._perf_base_label.pack(fill="x", padx=12, pady=(0, 6))
+        self._perf_base = None
+        self._perf_on_done = None
+        self._perf_auto_rows = []
         self._perf_rps_hist = []
         self._perf_p95_hist = []
         self._perf_cpu_hist = []
@@ -3601,10 +3653,20 @@ class App:
         self._perf_vars["P95"].set(f"{p95:.0f}")
         self._perf_vars["P99"].set(f"{p99:.0f}")
         self._perf_summary = {"n": n, "err": err, "ok_pct": ok_pct, "avg": avg,
-                              "p50": p50, "p95": p95, "p99": p99,
+                              "p50": p50, "p95": p95, "p99": p99, "rps": rps,
                               "rps_peak": max(self._perf_rps_hist) if self._perf_rps_hist else 0.0,
                               "users": st["users"], "dur": st["dur"], "base": st["base"],
                               "mb": st["bytes"] / 1048576.0}
+        base_sm = getattr(self, "_perf_base", None)
+        if base_sm:
+            try:
+                dr = sm_rps = self._perf_summary["rps"] - base_sm.get("rps_peak", 0)
+                dp = self._perf_summary["p95"] - base_sm.get("p95", 0)
+                self._perf_base_label.configure(
+                    text=f"ΔRPS {dr:+.0f} | ΔP95 {dp:+.0f} ms  (vs baseline: "
+                         f"{base_sm.get('users', '?')} users, {base_sm.get('base', '')})")
+            except Exception:
+                pass
         self._perf_tick_n = getattr(self, "_perf_tick_n", 0) + 1
         if self._perf_tick_n % 3 == 0:
             threading.Thread(target=self._perf_sysstat, daemon=True).start()
@@ -3663,6 +3725,77 @@ class App:
         sm = self._perf_summary or {}
         self.log(f"Load test finished: {sm.get('n', 0)} req, "
                  f"{sm.get('ok_pct', 100.0):.2f}% OK, p95 {sm.get('p95', 0):.0f} ms")
+        cb = getattr(self, "_perf_on_done", None)
+        self._perf_on_done = None
+        if cb:
+            try:
+                cb(dict(sm))
+            except Exception as e:
+                self.log(f"Auto benchmark ERROR: {e}")
+
+    def _perf_set_base(self):
+        sm = getattr(self, "_perf_summary", None)
+        if not sm:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        self._perf_base = dict(sm)
+        self.log(f"Baseline set: {sm.get('users')} users, peak {sm.get('rps_peak', 0):.0f} rps, "
+                 f"p95 {sm.get('p95', 0):.0f} ms")
+
+    def _perf_auto(self):
+        if getattr(self, "_perf_running", False):
+            return
+        from urllib.parse import urlparse
+        base = self._perf_target_var.get().strip().rstrip("/") or "http://127.0.0.1/"
+        if not base.startswith(("http://", "https://")):
+            base = "http://" + base
+        try:
+            host = (urlparse(base).hostname or "").lower()
+        except Exception:
+            host = ""
+        allowed = {"127.0.0.1", "localhost", "::1"}
+        try:
+            allowed |= {str(s.get("domain", "")).lower() for s in (self._sites or []) if s.get("domain")}
+        except Exception:
+            pass
+        if host not in allowed:
+            if not DarkPrompt.ask_yes_no(self.root, lang.t("tab_perf"), f"{base} ?"):
+                return
+        stages = [(10, 15), (25, 20), (50, 30), (100, 30), (200, 30)]
+        self._perf_auto_rows = []
+        self.log(f"Auto benchmark started -> {base} ({len(stages)} stages)")
+
+        def run_stage(i):
+            if i >= len(stages):
+                self._perf_auto_report(base)
+                return
+            u, d = stages[i]
+            self._perf_users_var.set(str(u))
+            self._perf_dur_var.set(str(d))
+            self._perf_on_done = lambda sm, i=i: (
+                self._perf_auto_rows.append((u, d, sm)),
+                self.root.after(2000, lambda: run_stage(i + 1)))
+            self._perf_start()
+
+        run_stage(0)
+
+    def _perf_auto_report(self):
+        rows = getattr(self, "_perf_auto_rows", [])
+        if not rows:
+            return
+        self.log("Auto benchmark results (users | RPS peak | P95 | errors):")
+        table = []
+        for u, d, sm in rows:
+            line = (f"{u:>5} users | {sm.get('rps_peak', 0):>7.0f} rps | "
+                    f"p95 {sm.get('p95', 0):>6.0f} ms | err {sm.get('err', 0)}")
+            table.append(line)
+            self.log("  " + line)
+        stable = [r for r in rows if r[2].get("err", 1) == 0]
+        if stable:
+            best = max(stable, key=lambda r: r[2].get("rps_peak", 0))
+            self.log(f"Stable max: {best[2].get('rps_peak', 0):.0f} rps @ {best[0]} users")
+        self._perf_summary = dict(rows[-1][2])
+        self._perf_tick()
 
     def _perf_save(self):
         sm = getattr(self, "_perf_summary", None)
@@ -3685,6 +3818,9 @@ class App:
         ]
         if self._perf_cpu_hist:
             lines.append(f"CPU max: {max(self._perf_cpu_hist):.0f}%")
+        for u, d, sm in getattr(self, "_perf_auto_rows", []):
+            lines.append(f"auto {u}u/{d}s: peak {sm.get('rps_peak', 0):.0f} rps, "
+                         f"p95 {sm.get('p95', 0):.0f} ms, err {sm.get('err', 0)}")
         try:
             Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
             self.log(f"Report saved: {path}")
@@ -3850,9 +3986,41 @@ class App:
         self._dock_img_tree.column("image", width=280)
         self._dock_img_tree.column("tag", width=120)
         self._dock_img_tree.column("size", width=100)
-        self._dock_img_tree.pack(fill="x", padx=10, pady=(0, 6))
+        self._dock_img_tree.pack(fill="x", padx=10, pady=(0, 4))
+
+        nv = tk.Frame(parent, bg=THEME["bg_elevated"])
+        nv.pack(fill="x", padx=10, pady=(0, 6))
+        left = tk.Frame(nv, bg=THEME["bg_elevated"])
+        left.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        tk.Label(left, text=lang.t("dock_networks"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9, "bold"), anchor="w").pack(fill="x")
+        self._dock_net_tree = ttk.Treeview(left, columns=("name", "driver"), show="headings",
+                                           height=3, style="Big.Treeview")
+        self._dock_net_tree.heading("name", text=lang.t("col_cont"))
+        self._dock_net_tree.heading("driver", text="Driver")
+        self._dock_net_tree.column("name", width=160)
+        self._dock_net_tree.column("driver", width=100)
+        self._dock_net_tree.pack(fill="x")
+        StyledButton(left, lang.t("btn_remove"), self._dock_net_remove, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=90, height=22, font_size=8).pack(anchor="w", pady=2)
+        right = tk.Frame(nv, bg=THEME["bg_elevated"])
+        right.pack(side="left", fill="both", expand=True, padx=(5, 0))
+        tk.Label(right, text=lang.t("dock_volumes"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9, "bold"), anchor="w").pack(fill="x")
+        self._dock_vol_tree = ttk.Treeview(right, columns=("name", "driver"), show="headings",
+                                           height=3, style="Big.Treeview")
+        self._dock_vol_tree.heading("name", text=lang.t("col_cont"))
+        self._dock_vol_tree.heading("driver", text="Driver")
+        self._dock_vol_tree.column("name", width=160)
+        self._dock_vol_tree.column("driver", width=100)
+        self._dock_vol_tree.pack(fill="x")
+        StyledButton(right, lang.t("btn_remove"), self._dock_vol_remove, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=90, height=22, font_size=8).pack(anchor="w", pady=2)
         self._dock_refresh()
         self._dock_images_refresh()
+        self._dock_nets_vols_refresh()
 
     def _dock_fill(self, rows):
         for item in self._dock_tree.get_children():
@@ -3887,6 +4055,61 @@ class App:
                 self.root.after(0, self._dock_refresh)
             except Exception as e:
                 self.log(f"docker {action} ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_nets_vols_refresh(self):
+        def w():
+            try:
+                nets = self.svc.docker_networks()
+                vols = self.svc.docker_volumes()
+                def ui():
+                    for item in self._dock_net_tree.get_children():
+                        self._dock_net_tree.delete(item)
+                    for name, driver, _scope in nets:
+                        self._dock_net_tree.insert("", "end", iid="n:" + name, values=(name, driver))
+                    for item in self._dock_vol_tree.get_children():
+                        self._dock_vol_tree.delete(item)
+                    for name, driver in vols:
+                        self._dock_vol_tree.insert("", "end", iid="v:" + name, values=(name, driver))
+                self.root.after(0, ui)
+            except Exception as e:
+                self.root.after(0, lambda: self._dock_status.configure(text=str(e)[:200]))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_net_remove(self):
+        sel = list(self._dock_net_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        name = sel[0][2:]
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                     f"{lang.t('confirm_delete')} {name}?"):
+            return
+        def w():
+            try:
+                self.svc.docker_net_rm(name)
+                self.root.after(0, self._dock_nets_vols_refresh)
+            except Exception as e:
+                self.log(f"docker network rm ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _dock_vol_remove(self):
+        sel = list(self._dock_vol_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        name = sel[0][2:]
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                     f"{lang.t('confirm_delete')} {name}?"):
+            return
+        def w():
+            try:
+                self.svc.docker_vol_rm(name)
+                self.root.after(0, self._dock_nets_vols_refresh)
+            except Exception as e:
+                self.log(f"docker volume rm ERROR: {e}")
                 self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
         threading.Thread(target=w, daemon=True).start()
 
