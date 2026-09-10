@@ -13,16 +13,19 @@
 body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;line-height:1.6}
 .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
 nav{position:sticky;top:0;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);z-index:10}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;padding:12px 22px}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;flex-wrap:wrap;gap:8px}
 .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:18px}
 .brand img{height:40px}
-nav a{color:var(--dim);text-decoration:none;margin-left:22px;font-size:14px}
-nav a:hover{color:var(--accent)}
-.hero{text-align:center;padding:72px 0 56px}
+nav .links a{color:var(--dim);text-decoration:none;margin-left:18px;font-size:14px}
+nav .links a:hover{color:var(--accent)}
+.lng button{background:none;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:3px 9px;margin-left:4px;cursor:pointer;font-size:12px;font-weight:700}
+.lng button.on{border-color:var(--accent);color:var(--accent)}
+.hero{text-align:center;padding:64px 0 52px}
 .hero img{width:300px;max-width:80%}
-.hero h1{font-size:40px;margin:18px 0 10px}
+.hero h1{font-size:40px;margin:18px 0 6px}
 .hero h1 span{color:var(--accent)}
-.hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto 30px}
+.meaning{color:var(--accent);font-size:16px;margin-bottom:12px}
+.hero p.sub{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto 30px}
 .btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
 .btn{display:inline-block;padding:14px 34px;border-radius:10px;font-weight:700;font-size:16px;text-decoration:none}
 .btn-dl{background:var(--accent);color:#fff}
@@ -38,99 +41,137 @@ h2{font-size:28px;margin-bottom:8px}
 .feat .ico{font-size:28px}
 .feat h3{margin:10px 0 6px;font-size:17px}
 .feat p{color:var(--dim);font-size:14px}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.shots figure{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.shots img{width:100%;display:block;border-bottom:1px solid var(--border)}
+.shots figcaption{padding:10px 14px;color:var(--dim);font-size:14px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:15px}
 th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)}
 th{color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.5px}
 tr:last-child td{border-bottom:none}
 td.port{font-family:Consolas,monospace;color:var(--accent)}
 .badge{display:inline-block;background:var(--ok);color:#06280f;font-weight:800;font-size:12px;border-radius:20px;padding:2px 12px}
-.steps{counter-reset:s;display:grid;gap:14px}
+.steps{display:grid;gap:14px}
 .step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px 18px 64px;position:relative}
 .step::before{counter-increment:s;content:counter(s);position:absolute;left:18px;top:16px;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.steps{counter-reset:s}
 .step code{background:var(--elev);border:1px solid var(--border);border-radius:6px;padding:1px 8px;font-size:14px;color:var(--hover)}
 .faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:10px}
 .faq summary{cursor:pointer;font-weight:700}
 .faq p{color:var(--dim);margin-top:8px;font-size:15px}
-.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-.shots figure{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.shots img{width:100%;display:block;border-bottom:1px solid var(--border)}
-.shots figcaption{padding:10px 14px;color:var(--dim);font-size:14px}
+.don{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.dcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+.dcard img{width:150px;height:150px;border-radius:8px;background:#fff;padding:6px}
+.dcard h3{margin:10px 0 4px}
+.dcard code{display:block;font-size:11px;color:var(--dim);word-break:break-all;margin:8px 0 12px;min-height:36px}
+.dcard button{background:var(--card);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:8px 22px;cursor:pointer;font-weight:700}
+.dcard button:hover{background:var(--accent);color:#fff}
 footer{border-top:1px solid var(--border);padding:26px 0;color:var(--mut);font-size:14px;text-align:center}
 footer a{color:var(--accent);text-decoration:none}
-@media(max-width:640px){.hero h1{font-size:30px}nav a{margin-left:12px}}
+@media(max-width:640px){.hero h1{font-size:30px}nav .links a{margin-left:12px}}
 </style>
 </head>
 <body>
 <nav><div class="wrap">
 <div class="brand"><img src="logo.png" alt="Faraja WebServer">Faraja WebServer</div>
-<div><a href="#shots">Скриншоты</a><a href="#features">Возможности</a><a href="#services">Сервисы</a><a href="#start">Старт</a><a href="#faq">FAQ</a></div>
+<div class="links"><a href="#shots" data-i18n="nav_shots">Скриншоты</a><a href="#features" data-i18n="nav_feat">Возможности</a><a href="#services" data-i18n="nav_svc">Сервисы</a><a href="#start" data-i18n="nav_start">Старт</a><a href="#faq" data-i18n="nav_faq">FAQ</a><a href="#donate" data-i18n="nav_don">Донаты</a></div>
+<div class="lng"><button data-l="ru">RU</button><button data-l="en">EN</button><button data-l="es">ES</button><button data-l="de">DE</button><button data-l="fr">FR</button><button data-l="zh">ZH</button></div>
 </div></nav>
 
 <div class="wrap hero">
 <img src="logo.png" alt="Faraja WebServer logo">
-<h1>Локальный веб-сервер <span>за 5 минут</span></h1>
-<p>Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker и SSL — всё в одном portable EXE. Ничего не ставится в систему.</p>
+<h1><span data-i18n="hero_a">Локальный веб-сервер</span> <span style="color:var(--text)" data-i18n="hero_b">за 5 минут</span></h1>
+<div class="meaning" data-i18n="meaning">«Faraja» на языке суахили означает «Комфорт»</div>
+<p class="sub" data-i18n="hero_sub">Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker и SSL — всё в одном portable EXE. Ничего не ставится в систему.</p>
 <div class="btns">
-<a class="btn btn-dl" href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe">⬇ Скачать для Windows</a>
+<a class="btn btn-dl" data-i18n="btn_dl" href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe">⬇ Скачать для Windows</a>
 <a class="btn btn-gh" href="https://github.com/nsmykh70-creator/FarajaWebServer">★ GitHub</a>
 </div>
-<div class="ver">Windows 10/11 · ~20 МБ · бесплатно · MIT</div>
+<div class="ver" data-i18n="ver">Windows 10/11 · ~20 МБ · бесплатно · Apache-2.0</div>
 </div>
 
 <div class="wrap"><section id="shots">
-<h2>Скриншоты</h2><p class="sub">Так выглядит Faraja WebServer</p>
+<h2 data-i18n="shots_h">Скриншоты</h2><p class="sub" data-i18n="shots_sub">Так выглядит Faraja WebServer</p>
 <div class="shots">
-<figure><img src="screenshots/01-main.png" alt="Главная — карточки сервисов" loading="lazy"><figcaption>Главная — карточки сервисов</figcaption></figure>
-<figure><img src="screenshots/02-logs.png" alt="Логи установки и работы" loading="lazy"><figcaption>Логи установки и работы</figcaption></figure>
-<figure><img src="screenshots/03-settings.png" alt="Модули и настройки" loading="lazy"><figcaption>Модули, шрифт логов, установка</figcaption></figure>
-<figure><img src="screenshots/04-help.png" alt="Встроенная документация" loading="lazy"><figcaption>Встроенная пошаговая помощь</figcaption></figure>
-<figure><img src="screenshots/05-tray.png" alt="Меню системного трея" loading="lazy"><figcaption>Меню системного трея</figcaption></figure>
+<figure><img src="screenshots/01-main.png" alt="main" loading="lazy"><figcaption data-i18n="cap1">Главная — карточки сервисов</figcaption></figure>
+<figure><img src="screenshots/02-logs.png" alt="logs" loading="lazy"><figcaption data-i18n="cap2">Логи установки и работы</figcaption></figure>
+<figure><img src="screenshots/03-settings.png" alt="settings" loading="lazy"><figcaption data-i18n="cap3">Модули, шрифт логов, установка</figcaption></figure>
+<figure><img src="screenshots/04-help.png" alt="help" loading="lazy"><figcaption data-i18n="cap4">Встроенная пошаговая помощь</figcaption></figure>
+<figure><img src="screenshots/05-tray.png" alt="tray" loading="lazy"><figcaption data-i18n="cap5">Меню системного трея</figcaption></figure>
 </div></section>
 
 <section id="features">
-<h2>Возможности</h2><p class="sub">Полноценная среда разработки из одного файла</p>
+<h2 data-i18n="feat_h">Возможности</h2><p class="sub" data-i18n="feat_sub">Полноценная среда разработки из одного файла</p>
 <div class="grid">
-<div class="feat"><div class="ico">🖥️</div><h3>Всё в одном окне</h3><p>Карточки сервисов с кнопками Старт / Стоп / Рестарт, общий запуск одной кнопкой, трей.</p></div>
-<div class="feat"><div class="ico">🗄️</div><h3>Базы данных</h3><p>MariaDB + PostgreSQL, встроенный SQL-редактор и phpMyAdmin из коробки.</p></div>
-<div class="feat"><div class="ico">🔒</div><h3>Локальный HTTPS</h3><p>Выпуск доверенного SSL-сертификата для localhost в один клик (mkcert).</p></div>
-<div class="feat"><div class="ico">🌐</div><h3>Мультисайты</h3><p>Добавляйте сайты, открывайте их в браузере одной кнопкой.</p></div>
-<div class="feat"><div class="ico">📝</div><h3>Редактор кода</h3><p>Подсветка PHP, HTML, CSS, JS, TS, Python, темы, мини-карта, запоминание настроек.</p></div>
-<div class="feat"><div class="ico">🌍</div><h3>6 языков</h3><p>Русский, English, Español, Deutsch, Français, 中文 — переключение флажками.</p></div>
+<div class="feat"><div class="ico">🖥️</div><h3 data-i18n="f1h">Всё в одном окне</h3><p data-i18n="f1p">Карточки сервисов с кнопками Старт / Стоп / Рестарт, общий запуск одной кнопкой, трей.</p></div>
+<div class="feat"><div class="ico">🗄️</div><h3 data-i18n="f2h">Базы данных</h3><p data-i18n="f2p">MariaDB + PostgreSQL, встроенный SQL-редактор и phpMyAdmin из коробки.</p></div>
+<div class="feat"><div class="ico">🔒</div><h3 data-i18n="f3h">Локальный HTTPS</h3><p data-i18n="f3p">Доверенный SSL-сертификат для localhost в один клик (mkcert).</p></div>
+<div class="feat"><div class="ico">🌐</div><h3 data-i18n="f4h">Мультисайты</h3><p data-i18n="f4p">Добавляйте сайты, открывайте их в браузере одной кнопкой.</p></div>
+<div class="feat"><div class="ico">📝</div><h3 data-i18n="f5h">Редактор кода</h3><p data-i18n="f5p">Подсветка PHP, HTML, CSS, JS, TS, Python, 8 тем, мини-карта кода.</p></div>
+<div class="feat"><div class="ico">🌍</div><h3 data-i18n="f6h">6 языков</h3><p data-i18n="f6p">Русский, English, Español, Deutsch, Français, 中文 — переключение флажками.</p></div>
 </div></section>
 
 <section id="services">
-<h2>Сервисы и порты</h2><p class="sub">Порты меняются в <code>config/server.json</code></p>
+<h2 data-i18n="svc_h">Сервисы и порты</h2><p class="sub" data-i18n="svc_sub">Порты меняются в config/server.json</p>
 <table>
-<tr><th>Сервис</th><th>Назначение</th><th>Порт</th></tr>
-<tr><td>🪶 Apache</td><td>Веб-сервер (HTTP)</td><td class="port">8080</td></tr>
-<tr><td>🗄️ MariaDB</td><td>База данных (root без пароля)</td><td class="port">3306</td></tr>
-<tr><td>📜 PHP</td><td>Серверный язык, FastCGI</td><td class="port">9074</td></tr>
-<tr><td>🐘 PostgreSQL</td><td>Продвинутая СУБД</td><td class="port">5432</td></tr>
-<tr><td>⚡ Redis</td><td>Хранилище в памяти</td><td class="port">6379</td></tr>
-<tr><td>🔀 Nginx</td><td>Обратный прокси <span class="badge">HTTPS</span></td><td class="port">80</td></tr>
-<tr><td>🟢 Node.js</td><td>JS / TS скрипты</td><td class="port">—</td></tr>
-<tr><td>🐳 Docker</td><td>Статус и управление контейнерами</td><td class="port">—</td></tr>
+<tr><th data-i18n="th1">Сервис</th><th data-i18n="th2">Назначение</th><th data-i18n="th3">Порт</th></tr>
+<tr><td>🪶 Apache</td><td data-i18n="p_apache">Веб-сервер (HTTP)</td><td class="port">8080</td></tr>
+<tr><td>🗄️ MariaDB</td><td data-i18n="p_maria">База данных (root без пароля)</td><td class="port">3306</td></tr>
+<tr><td>📜 PHP</td><td data-i18n="p_php">Серверный язык, FastCGI</td><td class="port">9074</td></tr>
+<tr><td>🐘 PostgreSQL</td><td data-i18n="p_pg">Продвинутая СУБД</td><td class="port">5432</td></tr>
+<tr><td>⚡ Redis</td><td data-i18n="p_redis">Хранилище в памяти</td><td class="port">6379</td></tr>
+<tr><td>🔀 Nginx</td><td><span data-i18n="p_nginx">Обратный прокси</span> <span class="badge">HTTPS</span></td><td class="port">80</td></tr>
+<tr><td>🟢 Node.js</td><td data-i18n="p_node">JS / TS скрипты</td><td class="port">—</td></tr>
+<tr><td>🐳 Docker</td><td data-i18n="p_dock">Статус и контейнеры</td><td class="port">—</td></tr>
 </table></section>
 
 <section id="start">
-<h2>Быстрый старт</h2><p class="sub">От скачивания до своего сайта — пять шагов</p>
+<h2 data-i18n="start_h">Быстрый старт</h2><p class="sub" data-i18n="start_sub">От скачивания до своего сайта — пять шагов</p>
 <div class="steps">
-<div class="step"><b>Скачайте и запустите</b> <code>FarajaWebServer.exe</code>. При первом запуске отметьте нужные компоненты и нажмите «Установить».</div>
-<div class="step"><b>Нажмите «ЗАПУСТИТЬ ВСЕ»</b> — все бейджи сервисов станут зелёными.</div>
-<div class="step"><b>Откройте</b> <code>http://127.0.0.1:8080/</code> в браузере — стартовая страница.</div>
-<div class="step"><b>Положите проект в папку</b> <code>www/</code>, например <code>www/mysite/index.php</code> — он доступен по адресу <code>http://127.0.0.1:8080/mysite/</code>.</div>
-<div class="step"><b>Базы данных</b> — вкладка SQL (root без пароля) или кнопка phpMyAdmin.</div>
+<div class="step" data-i18n="s1"><b>Скачайте и запустите</b> <code>FarajaWebServer.exe</code>. При первом запуске отметьте нужные компоненты и нажмите «Установить».</div>
+<div class="step" data-i18n="s2"><b>Нажмите «ЗАПУСТИТЬ ВСЕ»</b> — все бейджи сервисов станут зелёными.</div>
+<div class="step" data-i18n="s3"><b>Откройте</b> <code>http://127.0.0.1:8080/</code> в браузере — стартовая страница.</div>
+<div class="step" data-i18n="s4"><b>Положите проект в папку</b> <code>www/</code> — он доступен по адресу <code>http://127.0.0.1:8080/mysite/</code>.</div>
+<div class="step" data-i18n="s5"><b>Базы данных</b> — вкладка SQL (root без пароля) или кнопка phpMyAdmin.</div>
 </div></section>
 
 <section id="faq" class="faq">
-<h2>Вопросы и ответы</h2><p class="sub">Типовые ситуации</p>
-<details><summary>Порт занят — что делать?</summary><p>Ошибка назовёт процесс и PID. Закройте чужую программу (Skype, IIS, другой сервер) либо смените порт в <code>config/server.json</code> и перезапустите сервис.</p></details>
-<details><summary>PHP-страница пустая?</summary><p>Убедитесь, что запущены и Apache, и PHP. Подробности — во вкладках «Ошибки Apache / PHP».</p></details>
-<details><summary>Нужен HTTPS?</summary><p>Нажмите «Настроить SSL», перезапустите Nginx — сайт откроется по <code>https://localhost/</code> без предупреждений браузера.</p></details>
-<details><summary>Куда класть свои файлы?</summary><p>В папку <code>www/</code> рядом с программой. Каждую подпапку можно оформить как сайт через вкладку «Сайты».</p></details>
-<details><summary>Это бесплатно?</summary><p>Да. Лицензия MIT — используйте и изменяйте свободно.</p></details>
-</section></div>
+<h2 data-i18n="faq_h">Вопросы и ответы</h2><p class="sub" data-i18n="faq_sub">Типовые ситуации</p>
+<details><summary data-i18n="q1">Порт занят — что делать?</summary><p data-i18n="a1">Ошибка назовёт процесс и PID. Закройте чужую программу либо смените порт в config/server.json.</p></details>
+<details><summary data-i18n="q2">PHP-страница пустая?</summary><p data-i18n="a2">Убедитесь, что запущены и Apache, и PHP. Подробности — во вкладках ошибок.</p></details>
+<details><summary data-i18n="q3">Нужен HTTPS?</summary><p data-i18n="a3">Нажмите «Настроить SSL», перезапустите Nginx — сайт откроется по https://localhost/ без предупреждений.</p></details>
+<details><summary data-i18n="q4">Куда класть свои файлы?</summary><p data-i18n="a4">В папку www/ рядом с программой. Каждую подпапку можно оформить как сайт.</p></details>
+<details><summary data-i18n="q5">Это бесплатно?</summary><p data-i18n="a5">Да. Лицензия Apache-2.0 — используйте и изменяйте свободно.</p></details>
+</section>
 
-<footer>Faraja WebServer · MIT License · <a href="https://github.com/nsmykh70-creator/FarajaWebServer">GitHub</a> · <a href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest">Скачать</a></footer>
+<section id="donate">
+<h2 data-i18n="don_h">Поддержать проект</h2><p class="sub" data-i18n="don_sub">Если Faraja WebServer полезен — поддержите разработку. Спасибо!</p>
+<div class="don">
+<div class="dcard"><img src="donate_btc.png" alt="BTC QR"><h3>Bitcoin (BTC)</h3><code>bc1q48l0mfvrs6kza5xs6qmzagatmpelrxzyqcwfhpz</code><button data-copy="bc1q48l0mfvrs6kza5xs6qmzagatmpelrxzyqcwfhpz" data-i18n="copy">Копировать</button></div>
+<div class="dcard"><img src="donate_eth.png" alt="ETH QR"><h3>Ethereum (ETH)</h3><code>0x6889fD4d5B688d6E3c4b7E5A2B1D6E8F2C3A4b5D</code><button data-copy="0x6889fD4d5B688d6E3c4b7E5A2B1D6E8F2C3A4b5D" data-i18n="copy">Копировать</button></div>
+<div class="dcard"><img src="donate_trx.png" alt="TRX QR"><h3>Tron (TRX)</h3><code>TN7V3t8EKjRTJFXNJwMjYpLqHGSQN7BTyv</code><button data-copy="TN7V3t8EKjRTJFXNJwMjYpLqHGSQN7BTyv" data-i18n="copy">Копировать</button></div>
+</div></section></div>
+
+<footer><span data-i18n="foot">Faraja WebServer · Лицензия Apache-2.0</span> · <a href="https://github.com/nsmykh70-creator/FarajaWebServer">GitHub</a> · <a href="https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest" data-i18n="foot_dl">Скачать</a></footer>
+
+<script>
+const I18N={
+ru:{nav_shots:"Скриншоты",nav_feat:"Возможности",nav_svc:"Сервисы",nav_start:"Старт",nav_faq:"FAQ",nav_don:"Донаты",hero_a:"Локальный веб-сервер",hero_b:"за 5 минут",meaning:"«Faraja» на языке суахили означает «Комфорт»",hero_sub:"Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker и SSL — всё в одном portable EXE. Ничего не ставится в систему.",btn_dl:"⬇ Скачать для Windows",ver:"Windows 10/11 · ~20 МБ · бесплатно · Apache-2.0",shots_h:"Скриншоты",shots_sub:"Так выглядит Faraja WebServer",cap1:"Главная — карточки сервисов",cap2:"Логи установки и работы",cap3:"Модули, шрифт логов, установка",cap4:"Встроенная пошаговая помощь",cap5:"Меню системного трея",feat_h:"Возможности",feat_sub:"Полноценная среда разработки из одного файла",f1h:"Всё в одном окне",f1p:"Карточки сервисов с кнопками Старт / Стоп / Рестарт, общий запуск одной кнопкой, трей.",f2h:"Базы данных",f2p:"MariaDB + PostgreSQL, встроенный SQL-редактор и phpMyAdmin из коробки.",f3h:"Локальный HTTPS",f3p:"Доверенный SSL-сертификат для localhost в один клик (mkcert).",f4h:"Мультисайты",f4p:"Добавляйте сайты, открывайте их в браузере одной кнопкой.",f5h:"Редактор кода",f5p:"Подсветка PHP, HTML, CSS, JS, TS, Python, 8 тем, мини-карта кода.",f6h:"6 языков",f6p:"Русский, English, Español, Deutsch, Français, 中文 — переключение флажками.",svc_h:"Сервисы и порты",svc_sub:"Порты меняются в config/server.json",th1:"Сервис",th2:"Назначение",th3:"Порт",p_apache:"Веб-сервер (HTTP)",p_maria:"База данных (root без пароля)",p_php:"Серверный язык, FastCGI",p_pg:"Продвинутая СУБД",p_redis:"Хранилище в памяти",p_nginx:"Обратный прокси",p_node:"JS / TS скрипты",p_dock:"Статус и контейнеры",start_h:"Быстрый старт",start_sub:"От скачивания до своего сайта — пять шагов",s1:"<b>Скачайте и запустите</b> <code>FarajaWebServer.exe</code>. При первом запуске отметьте нужные компоненты и нажмите «Установить».",s2:"<b>Нажмите «ЗАПУСТИТЬ ВСЕ»</b> — все бейджи сервисов станут зелёными.",s3:"<b>Откройте</b> <code>http://127.0.0.1:8080/</code> в браузере — стартовая страница.",s4:"<b>Положите проект в папку</b> <code>www/</code> — он доступен по адресу <code>http://127.0.0.1:8080/mysite/</code>.",s5:"<b>Базы данных</b> — вкладка SQL (root без пароля) или кнопка phpMyAdmin.",faq_h:"Вопросы и ответы",faq_sub:"Типовые ситуации",q1:"Порт занят — что делать?",a1:"Ошибка назовёт процесс и PID. Закройте чужую программу либо смените порт в config/server.json.",q2:"PHP-страница пустая?",a2:"Убедитесь, что запущены и Apache, и PHP. Подробности — во вкладках ошибок.",q3:"Нужен HTTPS?",a3:"Нажмите «Настроить SSL», перезапустите Nginx — сайт откроется по https://localhost/ без предупреждений.",q4:"Куда класть свои файлы?",a4:"В папку www/ рядом с программой. Каждую подпапку можно оформить как сайт.",q5:"Это бесплатно?",a5:"Да. Лицензия Apache-2.0 — используйте и изменяйте свободно.",don_h:"Поддержать проект",don_sub:"Если Faraja WebServer полезен — поддержите разработку. Спасибо!",copy:"Копировать",copied:"Скопировано ✓",foot:"Faraja WebServer · Лицензия Apache-2.0",foot_dl:"Скачать"},
+en:{nav_shots:"Screenshots",nav_feat:"Features",nav_svc:"Services",nav_start:"Start",nav_faq:"FAQ",nav_don:"Donate",hero_a:"Local web server",hero_b:"in 5 minutes",meaning:"“Faraja” means “Comfort” in Swahili",hero_sub:"Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker and SSL — all in one portable EXE. Nothing is installed into the system.",btn_dl:"⬇ Download for Windows",ver:"Windows 10/11 · ~20 MB · free · Apache-2.0",shots_h:"Screenshots",shots_sub:"This is what Faraja WebServer looks like",cap1:"Main — service cards",cap2:"Install and runtime logs",cap3:"Modules, log font, installation",cap4:"Built-in step-by-step help",cap5:"System tray menu",feat_h:"Features",feat_sub:"A full dev environment from a single file",f1h:"Everything in one window",f1p:"Service cards with Start / Stop / Restart, one-click launch of everything, tray.",f2h:"Databases",f2p:"MariaDB + PostgreSQL, built-in SQL editor and phpMyAdmin out of the box.",f3h:"Local HTTPS",f3p:"Trusted SSL certificate for localhost in one click (mkcert).",f4h:"Multi-site",f4p:"Add sites and open them in the browser with one click.",f5h:"Code editor",f5p:"PHP, HTML, CSS, JS, TS, Python highlighting, 8 themes, code minimap.",f6h:"6 languages",f6p:"Русский, English, Español, Deutsch, Français, 中文 — switch with flags.",svc_h:"Services and ports",svc_sub:"Ports are changed in config/server.json",th1:"Service",th2:"Purpose",th3:"Port",p_apache:"Web server (HTTP)",p_maria:"Database (root, no password)",p_php:"Server language, FastCGI",p_pg:"Advanced DBMS",p_redis:"In-memory store",p_nginx:"Reverse proxy",p_node:"JS / TS scripts",p_dock:"Status and containers",start_h:"Quick start",start_sub:"From download to your site in five steps",s1:"<b>Download and run</b> <code>FarajaWebServer.exe</code>. On first launch tick the components and press “Install”.",s2:"<b>Press “START ALL”</b> — all service badges turn green.",s3:"<b>Open</b> <code>http://127.0.0.1:8080/</code> in your browser — the welcome page.",s4:"<b>Put your project into</b> <code>www/</code> — it is served at <code>http://127.0.0.1:8080/mysite/</code>.",s5:"<b>Databases</b> — the SQL tab (root, no password) or the phpMyAdmin button.",faq_h:"FAQ",faq_sub:"Common situations",q1:"Port is busy — what to do?",a1:"The error names the process and PID. Close that program or change the port in config/server.json.",q2:"Blank PHP page?",a2:"Make sure both Apache and PHP are running. Details are in the error tabs.",q3:"Need HTTPS?",a3:"Press “Setup SSL”, restart Nginx — the site opens at https://localhost/ with no warnings.",q4:"Where to put my files?",a4:"Into the www/ folder next to the program. Any subfolder can become a site.",q5:"Is it free?",a5:"Yes. Apache-2.0 license — use and modify freely.",don_h:"Support the project",don_sub:"If Faraja WebServer is useful — please support its development. Thank you!",copy:"Copy",copied:"Copied ✓",foot:"Faraja WebServer · Apache-2.0 License",foot_dl:"Download"},
+es:{nav_shots:"Capturas",nav_feat:"Funciones",nav_svc:"Servicios",nav_start:"Inicio",nav_faq:"FAQ",nav_don:"Donar",hero_a:"Servidor web local",hero_b:"en 5 minutos",meaning:"«Faraja» significa «Comodidad» en suajili",hero_sub:"Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker y SSL — todo en un solo EXE portable. Nada se instala en el sistema.",btn_dl:"⬇ Descargar para Windows",ver:"Windows 10/11 · ~20 MB · gratis · Apache-2.0",shots_h:"Capturas",shots_sub:"Así es Faraja WebServer",cap1:"Principal — tarjetas de servicios",cap2:"Registros de instalación",cap3:"Módulos y ajustes",cap4:"Ayuda paso a paso",cap5:"Menú de la bandeja",feat_h:"Funciones",feat_sub:"Un entorno completo en un solo archivo",f1h:"Todo en una ventana",f1p:"Tarjetas con Iniciar / Detener / Reiniciar, inicio total con un clic, bandeja.",f2h:"Bases de datos",f2p:"MariaDB + PostgreSQL, editor SQL y phpMyAdmin incluidos.",f3h:"HTTPS local",f3p:"Certificado SSL de confianza para localhost en un clic (mkcert).",f4h:"Multisitio",f4p:"Agregue sitios y ábralos en el navegador con un clic.",f5h:"Editor de código",f5p:"Resaltado PHP, HTML, CSS, JS, TS, Python, 8 temas, minimapa.",f6h:"6 idiomas",f6p:"Русский, English, Español, Deutsch, Français, 中文 — con banderas.",svc_h:"Servicios y puertos",svc_sub:"Los puertos se cambian en config/server.json",th1:"Servicio",th2:"Propósito",th3:"Puerto",p_apache:"Servidor web (HTTP)",p_maria:"Base de datos (root sin clave)",p_php:"Lenguaje de servidor, FastCGI",p_pg:"SGBD avanzado",p_redis:"Almacén en memoria",p_nginx:"Proxy inverso",p_node:"Scripts JS / TS",p_dock:"Estado y contenedores",start_h:"Inicio rápido",start_sub:"De la descarga a su sitio en cinco pasos",s1:"<b>Descargue y ejecute</b> <code>FarajaWebServer.exe</code>. Marque componentes y pulse «Instalar».",s2:"<b>Pulse «INICIAR TODO»</b> — todo en verde.",s3:"<b>Abra</b> <code>http://127.0.0.1:8080/</code> en el navegador.",s4:"<b>Copie su proyecto a</b> <code>www/</code> — disponible en <code>http://127.0.0.1:8080/mysite/</code>.",s5:"<b>Bases de datos</b> — pestaña SQL (root sin clave) o phpMyAdmin.",faq_h:"Preguntas",faq_sub:"Situaciones típicas",q1:"¿Puerto ocupado?",a1:"El error indica el proceso y el PID. Cierre ese programa o cambie el puerto.",q2:"¿Página PHP en blanco?",a2:"Verifique que Apache y PHP estén en ejecución.",q3:"¿Necesita HTTPS?",a3:"Pulse «Configurar SSL», reinicie Nginx — https://localhost/ sin avisos.",q4:"¿Dónde pongo mis archivos?",a4:"En la carpeta www/ junto al programa.",q5:"¿Es gratis?",a5:"Sí. Licencia Apache-2.0 — úselo libremente.",don_h:"Apoyar el proyecto",don_sub:"Si Faraja WebServer le es útil — apoye su desarrollo. ¡Gracias!",copy:"Copiar",copied:"Copiado ✓",foot:"Faraja WebServer · Licencia Apache-2.0",foot_dl:"Descargar"},
+de:{nav_shots:"Bilder",nav_feat:"Funktionen",nav_svc:"Dienste",nav_start:"Start",nav_faq:"FAQ",nav_don:"Spenden",hero_a:"Lokaler Webserver",hero_b:"in 5 Minuten",meaning:"„Faraja“ bedeutet auf Swahili „Komfort“",hero_sub:"Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker und SSL — alles in einer portablen EXE. Nichts wird installiert.",btn_dl:"⬇ Für Windows laden",ver:"Windows 10/11 · ~20 MB · kostenlos · Apache-2.0",shots_h:"Bilder",shots_sub:"So sieht Faraja WebServer aus",cap1:"Haupt — Dienst-Karten",cap2:"Installations-Logs",cap3:"Module und Einstellungen",cap4:"Schritt-für-Schritt-Hilfe",cap5:"Taskleisten-Menü",feat_h:"Funktionen",feat_sub:"Komplette Umgebung aus einer Datei",f1h:"Alles in einem Fenster",f1p:"Dienst-Karten mit Starten / Stoppen / Neustart, Ein-Klick-Start, Tray.",f2h:"Datenbanken",f2p:"MariaDB + PostgreSQL, SQL-Editor und phpMyAdmin an Bord.",f3h:"Lokales HTTPS",f3p:"Vertrauenswürdiges SSL-Zertifikat für localhost mit einem Klick (mkcert).",f4h:"Multisite",f4p:"Sites hinzufügen und mit einem Klick im Browser öffnen.",f5h:"Code-Editor",f5p:"Highlighting für PHP, HTML, CSS, JS, TS, Python, 8 Themes, Minimap.",f6h:"6 Sprachen",f6p:"Русский, English, Español, Deutsch, Français, 中文 — per Flaggen.",svc_h:"Dienste und Ports",svc_sub:"Ports in config/server.json ändern",th1:"Dienst",th2:"Zweck",th3:"Port",p_apache:"Webserver (HTTP)",p_maria:"Datenbank (root ohne Passwort)",p_php:"Serversprache, FastCGI",p_pg:"Erweitertes DBMS",p_redis:"In-Memory-Speicher",p_nginx:"Reverse-Proxy",p_node:"JS- / TS-Skripte",p_dock:"Status und Container",start_h:"Schnellstart",start_sub:"Vom Download zur eigenen Seite in fünf Schritten",s1:"<b>Laden und starten Sie</b> <code>FarajaWebServer.exe</code>. Komponenten wählen, «Installieren».",s2:"<b>«ALLE STARTEN» drücken</b> — alles wird grün.",s3:"<b>Öffnen Sie</b> <code>http://127.0.0.1:8080/</code> im Browser.",s4:"<b>Projekt nach</b> <code>www/</code> kopieren — erreichbar unter <code>http://127.0.0.1:8080/mysite/</code>.",s5:"<b>Datenbanken</b> — SQL-Reiter (root ohne Passwort) oder phpMyAdmin.",faq_h:"Fragen",faq_sub:"Typische Situationen",q1:"Port belegt?",a1:"Der Fehler nennt Prozess und PID. Fremdes Programm schließen oder Port ändern.",q2:"Leere PHP-Seite?",a2:"Apache und PHP müssen beide laufen.",q3:"HTTPS nötig?",a3:"«SSL einrichten», Nginx neu starten — https://localhost/ ohne Warnungen.",q4:"Wohin mit Dateien?",a4:"In den Ordner www/ neben dem Programm.",q5:"Kostenlos?",a5:"Ja. Apache-2.0-Lizenz — frei verwenden.",don_h:"Projekt unterstützen",don_sub:"Wenn Faraja WebServer nützt — bitte die Entwicklung unterstützen. Danke!",copy:"Kopieren",copied:"Kopiert ✓",foot:"Faraja WebServer · Apache-2.0-Lizenz",foot_dl:"Laden"},
+fr:{nav_shots:"Captures",nav_feat:"Fonctions",nav_svc:"Services",nav_start:"Départ",nav_faq:"FAQ",nav_don:"Soutenir",hero_a:"Serveur web local",hero_b:"en 5 minutes",meaning:"« Faraja » signifie « Confort » en swahili",hero_sub:"Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker et SSL — le tout dans un seul EXE portable. Rien n'est installé.",btn_dl:"⬇ Télécharger pour Windows",ver:"Windows 10/11 · ~20 Mo · gratuit · Apache-2.0",shots_h:"Captures",shots_sub:"Voici Faraja WebServer",cap1:"Principal — cartes des services",cap2:"Journaux d'installation",cap3:"Modules et paramètres",cap4:"Aide pas à pas",cap5:"Menu de la zone de notification",feat_h:"Fonctions",feat_sub:"Un environnement complet en un fichier",f1h:"Tout dans une fenêtre",f1p:"Cartes avec Démarrer / Arrêter / Redémarrer, lancement global en un clic.",f2h:"Bases de données",f2p:"MariaDB + PostgreSQL, éditeur SQL et phpMyAdmin inclus.",f3h:"HTTPS local",f3p:"Certificat SSL de confiance pour localhost en un clic (mkcert).",f4h:"Multisite",f4p:"Ajoutez des sites, ouvrez-les en un clic.",f5h:"Éditeur de code",f5p:"Coloration PHP, HTML, CSS, JS, TS, Python, 8 thèmes, minimap.",f6h:"6 langues",f6p:"Русский, English, Español, Deutsch, Français, 中文 — par drapeaux.",svc_h:"Services et ports",svc_sub:"Ports modifiables dans config/server.json",th1:"Service",th2:"Rôle",th3:"Port",p_apache:"Serveur web (HTTP)",p_maria:"Base de données (root sans mot de passe)",p_php:"Langage serveur, FastCGI",p_pg:"SGBD avancé",p_redis:"Stockage en mémoire",p_nginx:"Proxy inverse",p_node:"Scripts JS / TS",p_dock:"Statut et conteneurs",start_h:"Démarrage rapide",start_sub:"Du téléchargement au site en cinq étapes",s1:"<b>Téléchargez et lancez</b> <code>FarajaWebServer.exe</code>. Cochez les composants, « Installer ».",s2:"<b>Cliquez « TOUT DÉMARRER »</b> — tout passe au vert.",s3:"<b>Ouvrez</b> <code>http://127.0.0.1:8080/</code> dans le navigateur.",s4:"<b>Copiez votre projet dans</b> <code>www/</code> — servi sur <code>http://127.0.0.1:8080/monsite/</code>.",s5:"<b>Bases de données</b> — onglet SQL (root sans mot de passe) ou phpMyAdmin.",faq_h:"Questions",faq_sub:"Situations courantes",q1:"Port occupé ?",a1:"L'erreur nomme le processus et le PID. Fermez-le ou changez le port.",q2:"Page PHP vide ?",a2:"Apache et PHP doivent tous deux tourner.",q3:"HTTPS requis ?",a3:"« Configurer SSL », redémarrez Nginx — https://localhost/ sans alertes.",q4:"Où mettre mes fichiers ?",a4:"Dans le dossier www/ à côté du programme.",q5:"Gratuit ?",a5:"Oui. Licence Apache-2.0 — usage libre.",don_h:"Soutenir le projet",don_sub:"Si Faraja WebServer vous est utile — soutenez son développement. Merci !",copy:"Copier",copied:"Copié ✓",foot:"Faraja WebServer · Licence Apache-2.0",foot_dl:"Télécharger"},
+zh:{nav_shots:"截图",nav_feat:"功能",nav_svc:"服务",nav_start:"入门",nav_faq:"问答",nav_don:"捐赠",hero_a:"本地 Web 服务器",hero_b:"5 分钟搞定",meaning:"“Faraja”在斯瓦希里语中意为“舒适”",hero_sub:"Apache、MariaDB、PHP、PostgreSQL、Redis、Nginx、Node.js、Docker 和 SSL——集于单个便携 EXE。系统零安装。",btn_dl:"⬇ 下载 Windows 版",ver:"Windows 10/11 · 约 20 MB · 免费 · Apache-2.0",shots_h:"截图",shots_sub:"Faraja WebServer 的样子",cap1:"主页——服务卡片",cap2:"安装与运行日志",cap3:"模块、日志字体、安装",cap4:"内置分步帮助",cap5:"系统托盘菜单",feat_h:"功能",feat_sub:"单个文件，完整开发环境",f1h:"一窗搞定",f1p:"服务卡片含启动 / 停止 / 重启，一键启动全部，托盘。",f2h:"数据库",f2p:"MariaDB + PostgreSQL，内置 SQL 编辑器和 phpMyAdmin。",f3h:"本地 HTTPS",f3p:"一键获取受信任的 localhost SSL 证书（mkcert）。",f4h:"多站点",f4p:"添加站点，一键在浏览器中打开。",f5h:"代码编辑器",f5p:"PHP、HTML、CSS、JS、TS、Python 高亮，8 套主题，代码小地图。",f6h:"6 种语言",f6p:"Русский、English、Español、Deutsch、Français、中文——旗帜切换。",svc_h:"服务与端口",svc_sub:"端口可在 config/server.json 中修改",th1:"服务",th2:"用途",th3:"端口",p_apache:"Web 服务器（HTTP）",p_maria:"数据库（root，无密码）",p_php:"服务端语言，FastCGI",p_pg:"高级数据库",p_redis:"内存存储",p_nginx:"反向代理",p_node:"JS / TS 脚本",p_dock:"状态与容器",start_h:"快速入门",start_sub:"五步从下载到自己的站点",s1:"<b>下载并运行</b> <code>FarajaWebServer.exe</code>。首次启动勾选组件并点击“安装”。",s2:"<b>点击“全部启动”</b>——所有徽章变绿。",s3:"<b>在浏览器中打开</b> <code>http://127.0.0.1:8080/</code>——欢迎页。",s4:"<b>将项目放入</b> <code>www/</code>——通过 <code>http://127.0.0.1:8080/mysite/</code> 访问。",s5:"<b>数据库</b>——SQL 选项卡（root 无密码）或 phpMyAdmin。",faq_h:"问答",faq_sub:"常见情况",q1:"端口被占用？",a1:"错误会显示进程名和 PID。关闭该程序或修改端口。",q2:"PHP 页面空白？",a2:"确认 Apache 和 PHP 都在运行。",q3:"需要 HTTPS？",a3:"点击“设置 SSL”，重启 Nginx——https://localhost/ 无警告。",q4:"文件放哪里？",a4:"放在程序旁的 www/ 文件夹中。",q5:"免费吗？",a5:"是。Apache-2.0 许可证——自由使用。",don_h:"支持项目",don_sub:"如果 Faraja WebServer 对您有用，请支持它的开发。谢谢！",copy:"复制",copied:"已复制 ✓",foot:"Faraja WebServer · Apache-2.0 许可证",foot_dl:"下载"}};
+let cur="ru";
+try{cur=localStorage.getItem("fw_lang")||"ru";}catch(e){}
+if(!I18N[cur])cur="ru";
+function setLang(l){if(!I18N[l])return;cur=l;try{localStorage.setItem("fw_lang",l);}catch(e){}
+document.documentElement.lang=l;
+document.querySelectorAll("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(I18N[l][k]!==undefined)el.innerHTML=I18N[l][k];});
+document.querySelectorAll(".lng button").forEach(function(b){b.classList.toggle("on",b.dataset.l===l);});}
+document.querySelectorAll(".lng button").forEach(function(b){b.addEventListener("click",function(){setLang(b.dataset.l);});});
+document.querySelectorAll("[data-copy]").forEach(function(b){b.addEventListener("click",function(){var a=b.getAttribute("data-copy");function done(){var t=b.textContent;b.textContent=I18N[cur].copied;setTimeout(function(){b.textContent=t;},1500);}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(a).then(done,done);}else{var ta=document.createElement("textarea");ta.value=a;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);done();}});});
+setLang(cur);
+</script>
 </body>
 </html>

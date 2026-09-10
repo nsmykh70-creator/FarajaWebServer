@@ -37,6 +37,14 @@ def tray_image():
     if LOGO_PNG.exists():
         return str(LOGO_PNG)
     return str(ICON)
+DONATE = {
+    "BTC": ("assets/donate_btc.png", "bc1q48l0mfvrs6kza5xs6qmzagatmpelrxzyqcwfhpz"),
+    "ETH": ("assets/donate_eth.png", "0x6889fD4d5B688d6E3c4b7E5A2B1D6E8F2C3A4b5D"),
+    "TRX": ("assets/donate_trx.png", "TN7V3t8EKjRTJFXNJwMjYpLqHGSQN7BTyv"),
+}
+for _c in DONATE:
+    DONATE[_c] = (seed(DONATE[_c][0]), DONATE[_c][1])
+del _c
 RUNTIME=APP_ROOT/"runtime"; DOWNLOADS=APP_ROOT/"downloads"; LOGS=APP_ROOT/"logs"; PMA=WWW/"phpmyadmin"
 for x in (RUNTIME,DOWNLOADS,LOGS,WWW,APP_ROOT/"tmp"): x.mkdir(parents=True,exist_ok=True)
 
@@ -219,6 +227,12 @@ LOCALES = {
     "col_dockstatus": {"ru": "Состояние", "en": "Status", "es": "Estado", "de": "Status", "fr": "État", "zh": "状态"},
     "col_ports": {"ru": "Порты", "en": "Ports", "es": "Puertos", "de": "Ports", "fr": "Ports", "zh": "端口"},
     "dock_notfound": {"ru": "Docker не найден. Установите Docker Desktop, затем нажмите Обновить.", "en": "Docker not found. Install Docker Desktop, then press Refresh.", "es": "Docker no encontrado. Instale Docker Desktop y pulse Actualizar.", "de": "Docker nicht gefunden. Docker Desktop installieren, dann Aktualisieren.", "fr": "Docker introuvable. Installez Docker Desktop, puis Actualiser.", "zh": "未找到 Docker。请安装 Docker Desktop，然后点击刷新。"},
+    "faraja_meaning": {"ru": "Название Faraja на языке суахили означает «Комфорт» — среда создана для комфортной разработки.", "en": "The name Faraja means “Comfort” in Swahili — an environment built for comfortable development.", "es": "El nombre Faraja significa «Comodidad» en suajili: un entorno creado para desarrollar con comodidad.", "de": "Der Name Faraja bedeutet auf Swahili „Komfort“ – eine Umgebung für komfortables Entwickeln.", "fr": "Le nom Faraja signifie « Confort » en swahili : un environnement pensé pour développer confortablement.", "zh": "Faraja 在斯瓦希里语中意为“舒适”——为舒适开发而打造的环境。"},
+    "btn_donate": {"ru": "❤ Поддержать", "en": "❤ Donate", "es": "❤ Donar", "de": "❤ Spenden", "fr": "❤ Soutenir", "zh": "❤ 捐赠"},
+    "donate_title": {"ru": "Поддержать Faraja WebServer", "en": "Support Faraja WebServer", "es": "Apoyar a Faraja WebServer", "de": "Faraja WebServer unterstützen", "fr": "Soutenir Faraja WebServer", "zh": "支持 Faraja WebServer"},
+    "donate_text": {"ru": "Если программа полезна — поддержите разработку. Спасибо!", "en": "If you find the app useful, please support its development. Thank you!", "es": "Si la aplicación le resulta útil, apoye su desarrollo. ¡Gracias!", "de": "Wenn Ihnen die App nützt, unterstützen Sie bitte die Entwicklung. Danke!", "fr": "Si l'application vous est utile, soutenez son développement. Merci !", "zh": "如果这个应用对您有用，请支持它的开发。谢谢！"},
+    "donate_copy": {"ru": "Копировать", "en": "Copy", "es": "Copiar", "de": "Kopieren", "fr": "Copier", "zh": "复制"},
+    "donate_copied": {"ru": "Адрес скопирован", "en": "Address copied", "es": "Dirección copiada", "de": "Adresse kopiert", "fr": "Adresse copiée", "zh": "地址已复制"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -2015,6 +2029,10 @@ class App:
             hover_color=THEME["bg_elevated"], active_color=THEME["bg_input"], width=70, height=34, font_size=8)
         _help_btn.pack(side="right", padx=4)
         ToolTip(_help_btn, lang.t("tip_help"))
+        _donate_btn = StyledButton(controls, lang.t("btn_donate"), self._show_donate, color="#e17055",
+            hover_color="#f0816e", active_color="#c0392b", width=104, height=34, font_size=8)
+        _donate_btn.pack(side="right", padx=4)
+        ToolTip(_donate_btn, lang.t("donate_title"))
         self._all_running = False
 
         self._port_label = tk.Label(parent, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
@@ -3508,6 +3526,60 @@ class App:
 
         threading.Thread(target=finalize, daemon=True).start()
 
+    def _show_donate(self):
+        win = tk.Toplevel(self.root)
+        win.title(lang.t("donate_title"))
+        win.geometry("560x560")
+        win.configure(bg=THEME["bg_card"], highlightbackground=THEME["accent"],
+                      highlightthickness=1)
+        win.transient(self.root)
+        try:
+            win.iconbitmap(str(ICON))
+        except Exception:
+            pass
+        tk.Label(win, text="❤  " + lang.t("donate_title"), bg=THEME["bg_card"],
+                 fg=THEME["accent"], font=(THEME["font_family"], 14, "bold")).pack(pady=(14, 2))
+        tk.Label(win, text=lang.t("donate_text"), bg=THEME["bg_card"], fg=THEME["text_dim"],
+                 font=(THEME["font_family"], 9), wraplength=500, justify="center").pack(pady=(0, 8))
+        hint = tk.Label(win, text="", bg=THEME["bg_card"], fg=THEME["success"],
+                        font=(THEME["font_family"], 8))
+        hint.pack()
+        self._donate_imgs = []
+        for coin in ("BTC", "ETH", "TRX"):
+            path, addr = DONATE[coin]
+            row = tk.Frame(win, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                           highlightthickness=1)
+            row.pack(fill="x", padx=16, pady=5)
+            try:
+                img = Image.open(str(path)).resize((96, 96), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._donate_imgs.append(photo)
+                tk.Label(row, image=photo, bg=THEME["bg_elevated"]).pack(side="left", padx=10, pady=8)
+            except Exception:
+                tk.Label(row, text=coin, bg=THEME["bg_elevated"], fg=THEME["accent"],
+                         font=(THEME["font_family"], 16, "bold")).pack(side="left", padx=10, pady=8)
+            mid = tk.Frame(row, bg=THEME["bg_elevated"])
+            mid.pack(side="left", fill="both", expand=True, padx=4, pady=8)
+            tk.Label(mid, text=coin, bg=THEME["bg_elevated"], fg=THEME["text"],
+                     font=(THEME["font_family"], 11, "bold"), anchor="w").pack(fill="x")
+            var = tk.StringVar(value=addr)
+            tk.Entry(mid, textvariable=var, bg=THEME["bg_input"], fg=THEME["text_dim"],
+                     font=("Cascadia Code", 8), relief="flat", bd=0,
+                     state="readonly").pack(fill="x", pady=(4, 6))
+            StyledButton(mid, lang.t("donate_copy"),
+                         lambda a=addr: self._copy_donate(a, hint),
+                         color=THEME["bg_input"], hover_color=THEME["border_light"],
+                         active_color=THEME["border"],
+                         width=110, height=26, font_size=8).pack(anchor="w")
+
+    def _copy_donate(self, addr, hint):
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(addr)
+            hint.configure(text=lang.t("donate_copied"))
+        except Exception:
+            pass
+
     def _show_help(self):
         win = tk.Toplevel(self.root)
         win.title(lang.t("doc_title"))
@@ -3925,7 +3997,10 @@ class App:
                              relief="flat", bd=0, padx=14, pady=10,
                              selectbackground=THEME["accent"], selectforeground=THEME["white"])
             t.pack(fill="both", expand=True, padx=0, pady=0)
-            t.insert("1.0", lang_docs.get(key, "").replace("MiniServer", APP_NAME).replace("LockSer", APP_NAME))
+            text = lang_docs.get(key, "").replace("MiniServer", APP_NAME).replace("LockSer", APP_NAME)
+            if key == "overview":
+                text = lang.t("faraja_meaning") + "\n\n" + text
+            t.insert("1.0", text)
             t.configure(state="disabled")
 
     def _first_run_wizard(self):

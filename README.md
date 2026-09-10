@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/nsmykh70-creator/FarajaWebServer)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/nsmykh70-creator/FarajaWebServer)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue)](MiniServer.py)
 
 **Faraja WebServer** — портативная локальная среда веб-разработки для Windows.
@@ -13,6 +13,9 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 **[⬇ Скачать FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)** ·
 **[🌐 Сайт проекта](https://nsmykh70-creator.github.io/FarajaWebServer/)**
+
+> *Название **Faraja** на языке суахили означает «Комфорт» — среда создана для комфортной разработки.*
+> *The name **Faraja** means “Comfort” in Swahili.*
 
 ---
 
@@ -43,8 +46,13 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 - [FAQ](#faq)
 - [Сборка из исходников](#сборка-из-исходников)
 - [Структура проекта](#структура-проекта)
+- [Поддержать проект](#поддержать-проект)
 - [Лицензия](#лицензия)
 - [English](#english)
+- [Español](#español)
+- [Deutsch](#deutsch)
+- [Français](#français)
+- [中文](#中文)
 
 ## Возможности
 
@@ -234,11 +242,73 @@ config/            — порты, сайты, задачи, язык (созд�
 docs/              — лендинг проекта (публикуется через GitHub Pages)
 ```
 
+## Поддержать проект
+
+Если Faraja WebServer полезен — поддержите разработку (QR-коды есть в приложении, кнопка «❤ Поддержать» в шапке):
+
+- **BTC:** `bc1q48l0mfvrs6kza5xs6qmzagatmpelrxzyqcwfhpz`
+- **ETH:** `0x6889fD4d5B688d6E3c4b7E5A2B1D6E8F2C3A4b5D`
+- **TRX:** `TN7V3t8EKjRTJFXNJwMjYpLqHGSQN7BTyv`
+
+Спасибо!
+
 ## Лицензия
 
-MIT — см. [LICENSE](LICENSE).
+Apache License 2.0 — см. [LICENSE](LICENSE).
 
 ---
+
+## Español
+
+**Faraja WebServer** — entorno de desarrollo local portátil para Windows
+(«Faraja» significa «Comodidad» en suajili): Apache 8080, MariaDB 3306
+(root sin contraseña), PHP 9074, PostgreSQL 5432, Redis 6379, Nginx 80,
+Node.js, Docker y SSL local — todo en un solo EXE, sin instalación.
+
+**Inicio rápido:** ejecute el EXE → marque componentes → pulse **INICIAR TODO** →
+abra `http://127.0.0.1:8080/` → copie su proyecto a `www/`.
+HTTPS: pulse «Configurar SSL», reinicie Nginx, abra `https://localhost/`.
+Idiomas: RU / EN / ES / DE / FR / ZH. Licencia: Apache-2.0.
+Descarga: [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+
+## Deutsch
+
+**Faraja WebServer** — portable lokale Web-Entwicklungsumgebung für Windows
+(«Faraja» bedeutet auf Swahili „Komfort“): Apache 8080, MariaDB 3306
+(root ohne Passwort), PHP 9074, PostgreSQL 5432, Redis 6379, Nginx 80,
+Node.js, Docker und lokales SSL — alles in einer EXE, keine Installation.
+
+**Schnellstart:** EXE starten → Komponenten wählen → **ALLE STARTEN** →
+`http://127.0.0.1:8080/` öffnen → Projekt nach `www/` kopieren.
+HTTPS: «SSL einrichten», Nginx neu starten, `https://localhost/` öffnen.
+Sprachen: RU / EN / ES / DE / FR / ZH. Lizenz: Apache-2.0.
+Download: [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+
+## Français
+
+**Faraja WebServer** — environnement de développement local portable pour Windows
+(« Faraja » signifie « Confort » en swahili) : Apache 8080, MariaDB 3306
+(root sans mot de passe), PHP 9074, PostgreSQL 5432, Redis 6379, Nginx 80,
+Node.js, Docker et SSL local — le tout dans un seul EXE, sans installation.
+
+**Démarrage :** lancez l'EXE → cochez les composants → **TOUT DÉMARRER** →
+ouvrez `http://127.0.0.1:8080/` → copiez votre projet dans `www/`.
+HTTPS : « Configurer SSL », redémarrez Nginx, ouvrez `https://localhost/`.
+Langues : RU / EN / ES / DE / FR / ZH. Licence : Apache-2.0.
+Téléchargement : [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+
+## 中文
+
+**Faraja WebServer** — Windows 便携式本地 Web 开发环境
+（Faraja 在斯瓦希里语中意为“舒适”）：Apache 8080、MariaDB 3306
+（root，无密码）、PHP 9074、PostgreSQL 5432、Redis 6379、Nginx 80、
+Node.js、Docker 和本地 SSL — 集于单个 EXE，无需安装。
+
+**快速入门：**运行 EXE → 勾选组件 → 点击「全部启动」→
+打开 `http://127.0.0.1:8080/` → 将项目复制到 `www/`。
+HTTPS：点击「设置 SSL」，重启 Nginx，打开 `https://localhost/`。
+语言：RU / EN / ES / DE / FR / ZH。许可证：Apache-2.0。
+下载：[FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
 
 ## English
 
