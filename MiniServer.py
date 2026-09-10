@@ -3063,6 +3063,40 @@ class App:
             self.views[vid] = (t, path)
             self._view_cache[vid] = None
 
+    def _scrollable(self, parent):
+        canvas = tk.Canvas(parent, bg=THEME["bg_elevated"], highlightthickness=0, bd=0)
+        vsb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        body = tk.Frame(canvas, bg=THEME["bg_elevated"])
+        wid = canvas.create_window((0, 0), window=body, anchor="nw")
+
+        def _fit(e=None):
+            try:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                canvas.itemconfig(wid, width=canvas.winfo_width())
+            except Exception:
+                pass
+        body.bind("<Configure>", _fit)
+        canvas.bind("<Configure>", _fit)
+
+        def _wheel(e):
+            try:
+                if hasattr(e, "delta") and e.delta:
+                    canvas.yview_scroll(-1 * (e.delta // 120), "units")
+                elif getattr(e, "num", 0) == 4:
+                    canvas.yview_scroll(-1, "units")
+                elif getattr(e, "num", 0) == 5:
+                    canvas.yview_scroll(1, "units")
+            except Exception:
+                pass
+            return "break"
+        canvas.bind("<MouseWheel>", _wheel)
+        canvas.bind("<Button-4>", _wheel)
+        canvas.bind("<Button-5>", _wheel)
+        return body
+
     def _data_tabs(self, parent):
         nb = OfficeTabs(parent, active_size=11, passive_size=9)
         sql_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
@@ -3071,43 +3105,43 @@ class App:
 
         db_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(db_frame, lang.t('tab_db'))
-        self._build_db(db_frame)
+        self._build_db(self._scrollable(db_frame))
 
         dbm_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(dbm_frame, lang.t('tab_dbmanager'))
-        self._build_dbmanager(dbm_frame)
+        self._build_dbmanager(self._scrollable(dbm_frame))
 
     def _projects_tabs(self, parent):
         nb = OfficeTabs(parent, active_size=11, passive_size=9)
         files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(files_frame, lang.t('tab_files'))
-        self._build_file_manager(files_frame)
+        self._build_file_manager(self._scrollable(files_frame))
 
         sites_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(sites_frame, lang.t('tab_sites'))
-        self._build_sites_manager(sites_frame)
+        self._build_sites_manager(self._scrollable(sites_frame))
 
         tasks_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(tasks_frame, lang.t('tab_tasks'))
-        self._build_task_scheduler(tasks_frame)
+        self._build_task_scheduler(self._scrollable(tasks_frame))
 
         node_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(node_frame, lang.t('tab_node'))
-        self._build_node(node_frame)
+        self._build_node(self._scrollable(node_frame))
 
     def _monitor_tabs(self, parent):
         nb = OfficeTabs(parent, active_size=11, passive_size=9)
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(docker_frame, lang.t('tab_docker'))
-        self._build_docker(docker_frame)
+        self._build_docker(self._scrollable(docker_frame))
 
         procs_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(procs_frame, lang.t('tab_procs'))
-        self._build_procs(procs_frame)
+        self._build_procs(self._scrollable(procs_frame))
 
         perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(perf_frame, lang.t('tab_perf'))
-        self._build_perf(perf_frame)
+        self._build_perf(self._scrollable(perf_frame))
 
     def _build_node(self, parent):
         self._node_file = APP_ROOT / "config" / "node.json"
@@ -4588,6 +4622,10 @@ class App:
         style.configure("Big.Treeview.Heading", background=THEME["bg_card"], foreground=THEME["text_dim"],
                         font=(THEME["font_family"], 8, "bold"), relief="flat", padding=[8,8])
         style.map("Big.Treeview.Heading", background=[("active", THEME["bg_input"])])
+        style.configure("Vertical.TScrollbar", background=THEME["bg_input"],
+                        troughcolor=THEME["bg"], arrowcolor=THEME["text_dim"],
+                        borderwidth=0, relief="flat")
+        style.map("Vertical.TScrollbar", background=[("active", THEME["border_light"])])
 
         main_nb = OfficeTabs(self.root, active_size=12, passive_size=9)
         tab1 = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab1, lang.t('tab_main'))
@@ -4615,7 +4653,7 @@ class App:
         tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor'))
         self._monitor_tabs(tab_monitor)
         tab_settings = tk.Frame(main_nb.body, bg=THEME["bg_elevated"]); main_nb.add(tab_settings, lang.t('tab_settings'))
-        self._build_settings(tab_settings)
+        self._build_settings(self._scrollable(tab_settings))
         self._status_bar(self.root)
         self.svc.ui_progress = self._install_progress
 
