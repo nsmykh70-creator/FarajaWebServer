@@ -899,6 +899,19 @@ class Services:
                 pass
         a_port = CONFIG["apache_port"]
         listing = "+Indexes" if self.dir_listing() else "-Indexes"
+        www_root = WWW.resolve().as_posix()
+        (vdir / "000-default.conf").write_text(
+            f'<VirtualHost 127.0.0.1:{a_port}>\n'
+            f'    ServerName 127.0.0.1\n'
+            f'    ServerAlias localhost\n'
+            f'    DocumentRoot "{www_root}"\n'
+            f'    <Directory "{www_root}">\n'
+            f'        Require all granted\n'
+            f'        AllowOverride All\n'
+            f'        Options {listing} +FollowSymLinks\n'
+            f'        DirectoryIndex index.html index.php index.htm\n'
+            f'    </Directory>\n'
+            f'</VirtualHost>\n', encoding="utf-8")
         for s in getattr(self, "sites_cache", []):
             if s.get("type", "php") in ("node", "python"):
                 continue
@@ -906,7 +919,11 @@ class Services:
                 domain = self.check_domain(s.get("domain", ""))
             except RuntimeError:
                 continue
-            root = Path(s.get("root", "")).resolve().as_posix()
+            root_p = Path(s.get("root", ""))
+            if not root_p.is_dir():
+                self.log(f"Site '{s.get('name', domain)}': root folder is missing, vhost skipped")
+                continue
+            root = root_p.resolve().as_posix()
             (vdir / f"{domain}.conf").write_text(
                 f'<VirtualHost 127.0.0.1:{a_port}>\n'
                 f'    ServerName {domain}\n'
@@ -974,6 +991,7 @@ Action php-handler /php-cgi-bin/php-cgi.exe virtual
 IncludeOptional conf/vhosts/*.conf
 
 ErrorLog "{l}/apache-error.log"
+LogFormat "%h %l %u %t \\"%r\\" %>s %b" combined
 CustomLog "{l}/apache-access.log" combined
 LogLevel warn
 '''
@@ -2746,9 +2764,25 @@ class CodeEditor:
                                  color=THEME["danger"], hover_color="#ff6b5a",
                                  active_color=THEME["danger_dim"], width=70, height=26, font_size=8)
         close_btn.pack(side="right", padx=5, pady=3)
+        wrap_btn = StyledButton(toolbar, "Wrap", self._toggle_wrap,
+                                color="#3c3c3c", hover_color="#505050",
+                                active_color="#2d2d2d", width=60, height=26, font_size=8)
+        wrap_btn.pack(side="right", padx=5, pady=3)
+        find_btn = StyledButton(toolbar, "Find", self._find_dialog,
+                                color="#3c3c3c", hover_color="#505050",
+                                active_color="#2d2d2d", width=60, height=26, font_size=8)
+        find_btn.pack(side="right", padx=5, pady=3)
 
         body = tk.Frame(self.win, bg=self.scheme["bg"])
         body.pack(fill="both", expand=True)
+
+        statusbar = tk.Frame(self.win, bg="#2d2d2d")
+        statusbar.pack(fill="x", side="bottom")
+        self._status_var = tk.StringVar(value="Ln 1, Col 1")
+        tk.Label(statusbar, textvariable=self._status_var, bg="#2d2d2d", fg="#888888",
+                 font=("Segoe UI", 8), anchor="w").pack(side="left", padx=10)
+        tk.Label(statusbar, text="Ctrl+F find · Ctrl+H replace · Ctrl+G line · Ctrl+D duplicate · Ctrl+/ comment",
+                 bg="#2d2d2d", fg="#666666", font=("Segoe UI", 8)).pack(side="right", padx=10)
 
         self._line_numbers = tk.Text(body, width=5, padx=6, pady=8,
                                      bg="#1e1e1e", fg="#858585",
@@ -2779,11 +2813,32 @@ class CodeEditor:
         self._text.pack(side="left", fill="both", expand=True)
 
         self._text.bind("<KeyRelease>", self._on_change)
+        self._text.bind("<ButtonRelease-1>", lambda e: self._update_status())
         self._text.bind("<MouseWheel>", self._on_scroll)
         self._text.bind("<Button-4>", self._on_scroll)
         self._text.bind("<Button-5>", self._on_scroll)
         self._text.bind("<Control-s>", lambda e: self._save())
+        self._text.bind("<Control-a>", lambda e: self._select_all())
+        self._text.bind("<Control-c>", lambda e: self._copy_or_line())
+        self._text.bind("<Control-x>", lambda e: self._cut_or_line())
+        self._text.bind("<Control-v>", lambda e: self._paste())
+        self._text.bind("<Control-z>", lambda e: self._undo())
+        self._text.bind("<Control-y>", lambda e: self._redo())
+        self._text.bind("<Control-Shift-Z>", lambda e: self._redo())
+        self._text.bind("<Control-f>", lambda e: self._find_dialog())
+        self._text.bind("<Control-h>", lambda e: self._find_dialog(replace=True))
+        self._text.bind("<Control-g>", lambda e: self._goto_line())
+        self._text.bind("<Control-d>", lambda e: self._duplicate())
+        self._text.bind("<Control-slash>", lambda e: self._toggle_comment())
+        self._text.bind("<Control-equal>", lambda e: self._zoom(1))
+        self._text.bind("<Control-plus>", lambda e: self._zoom(1))
+        self._text.bind("<Control-minus>", lambda e: self._zoom(-1))
+        self._text.bind("<Control-0>", lambda e: self._zoom(0))
+        self._text.bind("<Alt-z>", lambda e: self._toggle_wrap())
+        self._text.bind("<KeyPress>", self._auto_pair)
         self._text.bind("<Tab>", self._handle_tab)
+        self._text.bind("<Shift-Tab>", lambda e: self._unindent())
+        self._find_last = ""
 
         self._setup_tags()
         try:
@@ -2836,6 +2891,373 @@ class CodeEditor:
             pass
         return "break"
 
+    def _sel_range(self):
+        try:
+            if self._text.tag_ranges("sel"):
+                return (self._text.index("sel.first"), self._text.index("sel.last"))
+        except tk.TclError:
+            pass
+        return None
+
+    def _update_status(self):
+        try:
+            line, col = self._text.index("insert").split(".")
+            nlines = int(self._text.index("end-1c").split(".")[0])
+            nchars = len(self._text.get("1.0", "end-1c"))
+            self._status_var.set(f"Ln {line}, Col {int(col) + 1}   |   {nlines} lines, {nchars} chars")
+        except Exception:
+            pass
+
+    def _apply_font(self):
+        font = (self.font_family, self.font_size)
+        self._text.configure(font=font)
+        self._line_numbers.configure(font=font)
+        try:
+            self._minimap.configure(font=(self.font_family, 3))
+        except Exception:
+            pass
+        self._update_line_numbers()
+
+    def _select_all(self):
+        self._text.tag_add("sel", "1.0", "end-1c")
+        self._text.mark_set("insert", "end-1c")
+        self._text.see("insert")
+        return "break"
+
+    def _copy_or_line(self):
+        rng = self._sel_range()
+        try:
+            self.win.clipboard_clear()
+            if rng:
+                self.win.clipboard_append(self._text.get(rng[0], rng[1]))
+            else:
+                line = int(self._text.index("insert").split(".")[0])
+                self.win.clipboard_append(self._text.get(f"{line}.0", f"{line}.end") + "\n")
+        except Exception:
+            pass
+        return "break"
+
+    def _cut_or_line(self):
+        rng = self._sel_range()
+        try:
+            self.win.clipboard_clear()
+            if rng:
+                self.win.clipboard_append(self._text.get(rng[0], rng[1]))
+                self._text.delete(rng[0], rng[1])
+            else:
+                line = int(self._text.index("insert").split(".")[0])
+                self.win.clipboard_append(self._text.get(f"{line}.0", f"{line}.end") + "\n")
+                last = int(self._text.index("end-1c").split(".")[0])
+                if line < last:
+                    self._text.delete(f"{line}.0", f"{line + 1}.0")
+                else:
+                    self._text.delete(f"{line}.0", f"{line}.end")
+            self._on_change()
+        except Exception:
+            pass
+        return "break"
+
+    def _paste(self):
+        try:
+            self._text.event_generate("<<Paste>>")
+        except Exception:
+            pass
+        self.win.after_idle(self._on_change)
+        return "break"
+
+    def _undo(self):
+        try:
+            self._text.edit_undo()
+            self._on_change()
+        except Exception:
+            pass
+        return "break"
+
+    def _redo(self):
+        try:
+            self._text.edit_redo()
+            self._on_change()
+        except Exception:
+            pass
+        return "break"
+
+    def _zoom(self, step):
+        if step == 0:
+            self.font_size = 11
+        else:
+            self.font_size = max(6, min(32, self.font_size + step))
+        self._size_var.set(str(self.font_size))
+        self._apply_font()
+        self._save_editor_conf()
+        return "break"
+
+    def _toggle_wrap(self):
+        try:
+            cur = str(self._text.cget("wrap"))
+            self._text.configure(wrap="none" if cur == "word" else "word")
+        except Exception:
+            pass
+        return "break"
+
+    def _goto_line(self):
+        try:
+            val = DarkPrompt.ask_string(self.win, "Go to line", "Line number:")
+            if not val:
+                return "break"
+            line = max(1, int(val))
+            total = int(self._text.index("end-1c").split(".")[0])
+            line = min(line, total)
+            self._text.mark_set("insert", f"{line}.0")
+            self._text.see(f"{line}.0")
+            self._update_status()
+        except Exception:
+            pass
+        return "break"
+
+    def _duplicate(self):
+        try:
+            rng = self._sel_range()
+            if rng:
+                s, e = rng
+                if not e.endswith(".0"):
+                    e = self._text.index(f"{e.split('.')[0]}.end")
+                else:
+                    e = self._text.index(f"{int(e.split('.')[0]) - 1}.end")
+                text = self._text.get(s, e)
+                self._text.insert(e, "\n" + text)
+            else:
+                line = int(self._text.index("insert").split(".")[0])
+                text = self._text.get(f"{line}.0", f"{line}.end")
+                last = int(self._text.index("end-1c").split(".")[0])
+                if line >= last:
+                    self._text.insert("end-1c", "\n" + text)
+                else:
+                    self._text.insert(f"{line + 1}.0", text + "\n")
+            self._on_change()
+        except Exception:
+            pass
+        return "break"
+
+    def _comment_prefix(self):
+        mapping = {".py": "#", ".sh": "#", ".sql": "#", ".ini": "#", ".conf": "#",
+                   ".js": "//", ".ts": "//", ".php": "//", ".java": "//", ".c": "//",
+                   ".cpp": "//", ".cs": "//", ".go": "//", ".rs": "//",
+                   ".html": "<!--", ".htm": "<!--", ".xml": "<!--", ".vue": "<!--",
+                   ".css": "/*"}
+        return mapping.get(self.ext)
+
+    def _toggle_comment(self):
+        try:
+            pre = self._comment_prefix()
+            if not pre:
+                return "break"
+            rng = self._sel_range()
+            if rng:
+                start = int(rng[0].split(".")[0])
+                end = int(rng[1].split(".")[0])
+                if rng[1].endswith(".0") and end > start:
+                    end -= 1
+            else:
+                start = end = int(self._text.index("insert").split(".")[0])
+            lines = []
+            for ln in range(start, end + 1):
+                lines.append(self._text.get(f"{ln}.0", f"{ln}.end"))
+            non_empty = [l for l in lines if l.strip()]
+            if not non_empty:
+                return "break"
+            if pre in ("<!--", "/*"):
+                suf = {"<!--": " -->", "/*": " */"}[pre]
+                if all(l.strip().startswith(pre) and l.strip().endswith(suf) for l in non_empty):
+                    new = [l.replace(pre, "", 1).rsplit(suf, 1)[0] if l.strip().startswith(pre) else l
+                           for l in lines]
+                else:
+                    new = [(l[:len(l) - len(l.lstrip())] + pre + " " + l.lstrip() + " " + suf)
+                           if l.strip() else l for l in lines]
+            else:
+                if all(l.lstrip().startswith(pre) for l in non_empty):
+                    new = []
+                    for l in lines:
+                        s = l.lstrip()
+                        if s.startswith(pre):
+                            indent = l[:len(l) - len(s)]
+                            rest = s[len(pre):]
+                            if rest.startswith(" "):
+                                rest = rest[1:]
+                            new.append(indent + rest)
+                        else:
+                            new.append(l)
+                else:
+                    new = [(l[:len(l) - len(l.lstrip())] + pre + " " + l.lstrip())
+                           if l.strip() else l for l in lines]
+            for i, ln in enumerate(range(start, end + 1)):
+                self._text.delete(f"{ln}.0", f"{ln}.end")
+                self._text.insert(f"{ln}.0", new[i])
+            self._on_change()
+        except Exception:
+            pass
+        return "break"
+
+    def _auto_pair(self, e=None):
+        try:
+            if e is None or not e.char:
+                return
+            pairs = {"(": ")", "[": "]", "{": "}", '"': '"', "'": "'"}
+            closers = set(")]}'\"")
+            if e.char in pairs:
+                try:
+                    nxt = self._text.get("insert")
+                except Exception:
+                    nxt = ""
+                if e.char in "\"'" and nxt == e.char:
+                    self._text.mark_set("insert", "insert+1c")
+                    return "break"
+                rng = self._sel_range()
+                if rng:
+                    s, ee = rng
+                    self._text.insert(ee, pairs[e.char])
+                    self._text.insert(s, e.char)
+                    return "break"
+                if e.char in "\"'":
+                    try:
+                        cur = self._text.get("insert linestart", "insert")
+                    except Exception:
+                        cur = ""
+                    if cur and (cur[-1].isalnum() or cur[-1] == "_"):
+                        return
+                self._text.insert("insert", e.char + pairs[e.char])
+                self._text.mark_set("insert", "insert-1c")
+                self._on_change()
+                return "break"
+            elif e.char in closers:
+                try:
+                    nxt = self._text.get("insert")
+                except Exception:
+                    nxt = ""
+                if nxt == e.char:
+                    self._text.mark_set("insert", "insert+1c")
+                    return "break"
+        except Exception:
+            pass
+
+    def _find_dialog(self, replace=False):
+        if getattr(self, "_find_win", None) is not None:
+            try:
+                if self._find_win.winfo_exists():
+                    self._find_win.lift()
+                    self._find_win.focus_force()
+                    return
+            except Exception:
+                pass
+        win = tk.Toplevel(self.win)
+        self._find_win = win
+        win.title("Replace" if replace else "Find")
+        win.configure(bg="#2d2d2d")
+        win.geometry("420x210" if replace else "420x130")
+        win.transient(self.win)
+        tk.Label(win, text="Find:", bg="#2d2d2d", fg="#cccccc",
+                 font=("Segoe UI", 9)).pack(anchor="w", padx=12, pady=(10, 0))
+        fvar = tk.StringVar(value=getattr(self, "_find_last", ""))
+        fentry = tk.Entry(win, textvariable=fvar, bg="#3c3c3c", fg="#ffffff",
+                          insertbackground="white", font=("Consolas", 10),
+                          relief="flat", bd=0)
+        fentry.pack(fill="x", padx=12, pady=4)
+        fentry.focus_set()
+        fentry.select_range(0, "end")
+        rvar = tk.StringVar(value="")
+        rentry = None
+        if replace:
+            tk.Label(win, text="Replace with:", bg="#2d2d2d", fg="#cccccc",
+                     font=("Segoe UI", 9)).pack(anchor="w", padx=12)
+            rentry = tk.Entry(win, textvariable=rvar, bg="#3c3c3c", fg="#ffffff",
+                              insertbackground="white", font=("Consolas", 10),
+                              relief="flat", bd=0)
+            rentry.pack(fill="x", padx=12, pady=4)
+        case_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(win, text="Match case", variable=case_var, bg="#2d2d2d", fg="#cccccc",
+                       selectcolor="#3c3c3c", activebackground="#2d2d2d",
+                       activeforeground="#cccccc", font=("Segoe UI", 8),
+                       highlightthickness=0, bd=0).pack(anchor="w", padx=12)
+        btns = tk.Frame(win, bg="#2d2d2d")
+        btns.pack(fill="x", padx=12, pady=8)
+        for label, cmd in ([("◀ Prev", lambda: self._find_step(fvar.get(), bool(case_var.get()), -1)),
+                            ("Next ▶", lambda: self._find_step(fvar.get(), bool(case_var.get()), 1))] +
+                           ([("Replace", lambda: self._find_replace(fvar.get(), rvar.get(), bool(case_var.get()))),
+                             ("All", lambda: self._find_replace_all(fvar.get(), rvar.get(), bool(case_var.get())))]
+                            if replace else [])):
+            tk.Button(btns, text=label, command=cmd, bg="#3c3c3c", fg="#ffffff",
+                      activebackground="#505050", activeforeground="#ffffff",
+                      relief="flat", bd=0, font=("Segoe UI", 8), padx=10, pady=3).pack(side="left", padx=3)
+        fentry.bind("<Return>", lambda e: self._find_step(fvar.get(), bool(case_var.get()), 1))
+        fentry.bind("<Escape>", lambda e: win.destroy())
+
+    def _find_step(self, pattern, case, direction):
+        if not pattern:
+            return
+        self._find_last = pattern
+        try:
+            self._text.tag_remove("find_hit", "1.0", "end")
+            self._text.tag_configure("find_hit", background="#515c6a", foreground="#ffffff")
+            start = "insert+1c" if direction > 0 else "insert-1c"
+            pos = self._text.search(pattern, start, stopindex="end" if direction > 0 else "1.0",
+                                    forwards=direction > 0, backwards=direction < 0,
+                                    nocase=not case)
+            if not pos:
+                pos = self._text.search(pattern, "1.0" if direction > 0 else "end",
+                                        forwards=direction > 0, backwards=direction < 0,
+                                        nocase=not case)
+            if not pos:
+                return
+            count = tk.IntVar()
+            self._text.search(pattern, pos, stopindex="end", regexp=False, count=count)
+            ln = count.get() or len(pattern)
+            end = f"{pos}+{ln}c"
+            self._text.tag_add("find_hit", pos, end)
+            self._text.tag_add("sel", pos, end)
+            self._text.mark_set("insert", end if direction > 0 else pos)
+            self._text.see(pos)
+        except Exception:
+            pass
+
+    def _find_replace(self, pattern, repl, case):
+        if not pattern:
+            return
+        try:
+            rng = self._sel_range()
+            if rng and self._text.get(rng[0], rng[1]) == (pattern if case else self._text.get(rng[0], rng[1])):
+                check = self._text.get(rng[0], rng[1])
+                if (check == pattern) or (not case and check.lower() == pattern.lower()):
+                    self._text.delete(rng[0], rng[1])
+                    self._text.insert(rng[0], repl)
+                    self._on_change()
+        except Exception:
+            pass
+        self._find_step(pattern, case, 1)
+
+    def _find_replace_all(self, pattern, repl, case):
+        if not pattern:
+            return
+        try:
+            count = 0
+            start = "1.0"
+            while True:
+                pos = self._text.search(pattern, start, stopindex="end", nocase=not case)
+                if not pos:
+                    break
+                cvar = tk.IntVar()
+                self._text.search(pattern, pos, stopindex="end", regexp=False, count=cvar)
+                ln = cvar.get() or len(pattern)
+                end = f"{pos}+{ln}c"
+                self._text.delete(pos, end)
+                self._text.insert(pos, repl)
+                count += 1
+                start = f"{pos}+{len(repl)}c"
+                if count > 100000:
+                    break
+            self._on_change()
+            self._find_last = pattern
+        except Exception:
+            pass
+
     def _setup_tags(self):
         for name, color in self.scheme.items():
             if name in ("bg", "fg", "sel_bg", "sel_fg"):
@@ -2882,6 +3304,7 @@ class CodeEditor:
         self._update_line_numbers()
         self._highlight()
         self._minimap_schedule()
+        self._update_status()
 
     def _on_scroll(self, e=None):
         if e:
@@ -2895,7 +3318,42 @@ class CodeEditor:
         self._minimap_sync()
 
     def _handle_tab(self, e):
+        try:
+            rng = self._sel_range()
+            if rng:
+                start = int(rng[0].split(".")[0])
+                end = int(rng[1].split(".")[0])
+                if rng[1].endswith(".0") and end > start:
+                    end -= 1
+                for ln in range(start, end + 1):
+                    self._text.insert(f"{ln}.0", "    ")
+                self._on_change()
+                return "break"
+        except Exception:
+            pass
         self._text.insert("insert", "    ")
+        return "break"
+
+    def _unindent(self):
+        try:
+            rng = self._sel_range()
+            if rng:
+                start = int(rng[0].split(".")[0])
+                end = int(rng[1].split(".")[0])
+                if rng[1].endswith(".0") and end > start:
+                    end -= 1
+                lines = list(range(start, end + 1))
+            else:
+                lines = [int(self._text.index("insert").split(".")[0])]
+            for ln in lines:
+                line = self._text.get(f"{ln}.0", f"{ln}.end")
+                if line.startswith("    "):
+                    self._text.delete(f"{ln}.0", f"{ln}.4")
+                elif line.startswith("\t"):
+                    self._text.delete(f"{ln}.0", f"{ln}.1")
+            self._on_change()
+        except Exception:
+            pass
         return "break"
 
     def _save_editor_conf(self):
@@ -2910,9 +3368,7 @@ class CodeEditor:
     def _change_font(self, e=None):
         self.font_family = self._font_var.get()
         self.font_size = int(self._size_var.get())
-        font = (self.font_family, self.font_size)
-        self._text.configure(font=font)
-        self._line_numbers.configure(font=font)
+        self._apply_font()
         try:
             self._minimap.configure(font=(self.font_family, 3))
         except Exception:
