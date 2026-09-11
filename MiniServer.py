@@ -55,28 +55,29 @@ except Exception:
     CONFIG_FILE.write_text(json.dumps(CONFIG,indent=2),encoding="utf-8")
 
 THEME = {
-    "bg": "#0a0f16",
-    "bg_card": "#111923",
-    "bg_elevated": "#151f2c",
-    "bg_input": "#1b2735",
-    "border": "#263548",
-    "border_light": "#34465d",
-    "accent": "#4f8cff",
-    "accent_hover": "#6aa2ff",
-    "accent_active": "#3975e8",
-    "success": "#35d07f",
-    "success_dim": "#24965c",
-    "danger": "#ff5d6c",
-    "danger_dim": "#c83f50",
-    "warning": "#f39c12",
-    "warning_dim": "#e67e22",
-    "info": "#42c6ff",
-    "text": "#edf4ff",
-    "text_dim": "#9aabc0",
-    "text_muted": "#687b91",
+    # Unified Faraja visual system — based on the Settings reference screen.
+    "bg": "#071321",
+    "bg_card": "#0b1c2d",
+    "bg_elevated": "#0f2438",
+    "bg_input": "#132a40",
+    "border": "#1d4261",
+    "border_light": "#2a587d",
+    "accent": "#168cff",
+    "accent_hover": "#3aa0ff",
+    "accent_active": "#0b6ed6",
+    "success": "#16d68a",
+    "success_dim": "#0b9f66",
+    "danger": "#ff5b68",
+    "danger_dim": "#c83f4e",
+    "warning": "#ff9f1a",
+    "warning_dim": "#d97908",
+    "info": "#28b7ff",
+    "text": "#eef6ff",
+    "text_dim": "#a8bfd5",
+    "text_muted": "#6f8ba5",
     "white": "#ffffff",
-    "entry_bg": "#eceff3",
-    "entry_fg": "#15171d",
+    "entry_bg": "#eaf0f5",
+    "entry_fg": "#17202a",
     "font_family": "Segoe UI",
 }
 
@@ -334,12 +335,21 @@ LOCALES = {
     "site_phpver": {"ru": "Версия PHP (пусто — по умолчанию):", "en": "PHP version (empty — default):", "es": "Versión de PHP (vacío — predeterminada):", "de": "PHP-Version (leer — Standard):", "fr": "Version de PHP (vide — défaut) :", "zh": "PHP 版本（留空为默认）:"},
     "update_avail": {"ru": "Доступно обновление {ver} (у вас {cur}) — скачайте с GitHub", "en": "Update available {ver} (you have {cur}) — download from GitHub", "es": "Actualización disponible {ver} (tienes {cur}) — descarga de GitHub", "de": "Update verfügbar {ver} (installiert {cur}) — von GitHub laden", "fr": "Mise à jour {ver} disponible (vous avez {cur}) — voir GitHub", "zh": "有可用更新 {ver}（当前 {cur}）——请从 GitHub 下载"},
     "btn_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
+    "quick_actions": {"ru": "Быстрые действия", "en": "Quick actions", "es": "Acciones rápidas", "de": "Schnellzugriff", "fr": "Actions rapides", "zh": "快捷操作"},
     "btn_cut": {"ru": "Вырезать", "en": "Cut", "es": "Cortar", "de": "Ausschneiden", "fr": "Couper", "zh": "剪切"},
     "btn_paste": {"ru": "Вставить", "en": "Paste", "es": "Pegar", "de": "Einfügen", "fr": "Coller", "zh": "粘贴"},
     "btn_rename": {"ru": "Переименовать", "en": "Rename", "es": "Renombrar", "de": "Umbenennen", "fr": "Renommer", "zh": "重命名"},
     "dbm_actions": {"ru": "Действия", "en": "Actions", "es": "Acciones", "de": "Aktionen", "fr": "Actions", "zh": "操作"},
     "admin_hint": {"ru": "Совет: запустите от имени администратора — иначе недоступны запись hosts и HTTPS-домены", "en": "Tip: run as administrator — otherwise hosts editing and HTTPS domains are unavailable", "es": "Consejo: ejecute como administrador — sin esto no hay hosts ni dominios HTTPS", "de": "Tipp: als Administrator starten — sonst keine Hosts- und HTTPS-Domains", "fr": "Astuce : lancer en administrateur — sinon pas de hosts ni domaines HTTPS", "zh": "提示：请以管理员身份运行，否则无法使用 hosts 和 HTTPS 域名"},
     "site_no_hosts": {"ru": "Домен {domain} не резолвится — нет записи hosts (нужен администратор). Открываю через localhost.", "en": "Domain {domain} does not resolve — no hosts entry (administrator needed). Opening via localhost.", "es": "El dominio {domain} no resuelve — sin entrada hosts (se necesita administrador). Abriendo vía localhost.", "de": "Domain {domain} löst nicht auf — kein Hosts-Eintrag (Administrator nötig). Öffne via localhost.", "fr": "Le domaine {domain} ne résout pas — pas d'entrée hosts (administrateur requis). Ouverture via localhost.", "zh": "域名 {domain} 无法解析——缺少 hosts 条目（需要管理员权限）。改用 localhost 打开。"},
+}
+
+PAGE_SUBTITLES = {
+    "main": {"ru": "Сервисы и управление локальной средой", "en": "Services and local environment control", "es": "Servicios y entorno local", "de": "Dienste und lokale Umgebung", "fr": "Services et environnement local", "zh": "服务与本地环境管理"},
+    "logs": {"ru": "Журнал работы сервисов и системные события", "en": "Service logs and system events", "es": "Registros de servicios y eventos del sistema", "de": "Dienstprotokolle und Systemereignisse", "fr": "Journaux des services et événements système", "zh": "服务日志与系统事件"},
+    "db": {"ru": "SQL, базы данных и управление подключениями", "en": "SQL, databases and connection management", "es": "SQL, bases de datos y conexiones", "de": "SQL, Datenbanken und Verbindungen", "fr": "SQL, bases de données et connexions", "zh": "SQL、数据库与连接管理"},
+    "projects": {"ru": "Файлы, сайты, задачи и серверные проекты", "en": "Files, sites, tasks and server projects", "es": "Archivos, sitios, tareas y proyectos", "de": "Dateien, Sites, Aufgaben und Serverprojekte", "fr": "Fichiers, sites, tâches et projets serveur", "zh": "文件、站点、任务与服务器项目"},
+    "monitor": {"ru": "Docker, процессы и нагрузочное тестирование", "en": "Docker, processes and load testing", "es": "Docker, procesos y pruebas de carga", "de": "Docker, Prozesse und Lasttests", "fr": "Docker, processus et tests de charge", "zh": "Docker、进程与压力测试"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -378,7 +388,7 @@ class LangManager:
 lang = LangManager()
 
 APP_NAME = "Faraja WebServer"
-APP_VERSION = "15.2"
+APP_VERSION = "16.0"
 for _entry in LOCALES.values():
     for _code, _text in _entry.items():
         if "MiniServer" in _text:
@@ -2917,10 +2927,11 @@ class IconButton(tk.Canvas):
 
 class OfficeTabs:
     def __init__(self, parent, active_size=11, passive_size=9):
-        self.header = tk.Frame(parent, bg=THEME["bg"])
-        self.header.pack(fill="x", padx=12, pady=(8, 0))
-        sep = tk.Frame(parent, bg=THEME["border"], height=1)
-        sep.pack(fill="x", padx=12, pady=0)
+        self.header = tk.Frame(parent, bg=THEME["bg_card"],
+                               highlightbackground=THEME["border"], highlightthickness=1)
+        self.header.pack(fill="x", padx=12, pady=(2, 8))
+        self.separator = tk.Frame(parent, bg=THEME["bg"])
+        self.separator.pack_forget()
         self.body = tk.Frame(parent, bg=THEME["bg"])
         self.body.pack(fill="both", expand=True)
         self._tabs = []
@@ -2928,9 +2939,14 @@ class OfficeTabs:
         self._active_size = active_size
         self._passive_size = passive_size
 
+    def hide_header(self):
+        """Hide the tab strip when the host provides its own navigation."""
+        self.header.pack_forget()
+        self.separator.pack_forget()
+
     def add(self, frame, text):
         idx = len(self._tabs)
-        cv = tk.Canvas(self.header, bg=THEME["bg"], highlightthickness=0,
+        cv = tk.Canvas(self.header, bg=THEME["bg_card"], highlightthickness=0,
                        cursor="hand2", bd=0)
         cv.pack(side="left", padx=(0, 6), anchor="s")
         cv.bind("<Button-1>", lambda e, i=idx: self.select(i))
@@ -4037,7 +4053,7 @@ def run_perf_child(cfg_path):
 class App:
     def __init__(self):
         self.root=tk.Tk()
-        self.root.title(f"{APP_NAME} V15 PRO")
+        self.root.title(f"{APP_NAME} V16")
         self.root.geometry("1280x860")
         self.root.minsize(1120,750)
         self.root.configure(bg=THEME["bg"])
@@ -4058,6 +4074,11 @@ class App:
             except Exception:
                 pass
         self.lines=[];self.svc=Services(self.log);self.tray=None;self.closing=False
+        # Scrollable pages register their canvases here.  A single application-wide
+        # wheel handler then routes the wheel to the currently visible page, so
+        # scrolling is not dependent on the mouse being over a narrow scrollbar.
+        self._scroll_canvases = []
+        self._install_global_wheel()
         self._pulse = 0
         self._docker_ok = False
         self.build()
@@ -4083,6 +4104,96 @@ class App:
         except Exception as e:
             self.log("Web server reconciliation error: " + str(e))
 
+    def _install_global_wheel(self):
+        """Route mouse-wheel input to the active scrollable page.
+
+        The handler is intentionally application-wide.  If the pointer is over a
+        native text/tree widget, its own class binding is allowed to handle the
+        wheel.  Otherwise the visible page canvas receives the scroll event.
+        """
+        def _native_scroll_widget(widget):
+            try:
+                w = widget
+                while w is not None and w is not self.root:
+                    if isinstance(w, (tk.Text, ttk.Treeview, tk.Listbox)):
+                        return True
+                    w = w.master
+            except Exception:
+                pass
+            return False
+
+        def _wheel(event):
+            if self.closing:
+                return
+            try:
+                under = self.root.winfo_containing(event.x_root, event.y_root)
+            except Exception:
+                under = None
+
+            # Let Text/Treeview/Listbox widgets keep their native scrolling.
+            if under is not None and _native_scroll_widget(under):
+                return
+
+            canvas = None
+            # The visible scrollable canvas is the active page.  Hidden notebook
+            # pages are not mapped and therefore are ignored automatically.
+            for candidate in reversed(getattr(self, "_scroll_canvases", [])):
+                try:
+                    if candidate.winfo_exists() and candidate.winfo_viewable():
+                        canvas = candidate
+                        break
+                except Exception:
+                    continue
+            if canvas is None:
+                return
+
+            try:
+                if getattr(event, "delta", 0):
+                    units = -1 if event.delta > 0 else 1
+                    # Windows wheel messages are commonly multiples of 120.
+                    count = max(1, abs(int(event.delta)) // 120)
+                    canvas.yview_scroll(units * count, "units")
+                elif getattr(event, "num", 0) == 4:
+                    canvas.yview_scroll(-1, "units")
+                elif getattr(event, "num", 0) == 5:
+                    canvas.yview_scroll(1, "units")
+                return "break"
+            except Exception:
+                return
+
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            try:
+                self.root.bind_all(seq, _wheel, add="+")
+            except Exception:
+                pass
+
+    def _page_header(self, parent, title, subtitle, icon="▦"):
+        """Standard page header shared by every top-level workspace section."""
+        head = tk.Frame(parent, bg=THEME["bg"])
+        head.pack(fill="x", padx=16, pady=(14, 8))
+
+        icon_box = tk.Frame(head, bg=THEME["accent"], width=40, height=40)
+        icon_box.pack(side="left")
+        icon_box.pack_propagate(False)
+        tk.Label(icon_box, text=icon, bg=THEME["accent"], fg=THEME["white"],
+                 font=("Segoe UI Symbol", 18, "bold")).pack(expand=True)
+
+        copy = tk.Frame(head, bg=THEME["bg"])
+        copy.pack(side="left", padx=11)
+        tk.Label(copy, text=title, bg=THEME["bg"], fg=THEME["text"],
+                 font=(THEME["font_family"], 16, "bold")).pack(anchor="w")
+        if subtitle:
+            tk.Label(copy, text=subtitle, bg=THEME["bg"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 8)).pack(anchor="w", pady=(2, 0))
+        return head
+
+    def _page_body(self, parent):
+        """Card-like body shell used behind non-settings pages."""
+        shell = tk.Frame(parent, bg=THEME["bg_card"],
+                         highlightbackground=THEME["border"], highlightthickness=1)
+        shell.pack(fill="both", expand=True, padx=16, pady=(0, 14))
+        return shell
+
     def _header(self, parent):
         hdr = tk.Frame(parent, bg=THEME["bg"])
         hdr.pack(fill="x")
@@ -4102,10 +4213,11 @@ class App:
         if self._logo_img is not None:
             tk.Label(brand, image=self._logo_img, bg=THEME["bg"]).pack(side="left", padx=(0, 12))
         else:
-            mark = tk.Canvas(brand, width=38, height=38, bg=THEME["bg"], highlightthickness=0)
+            mark = tk.Frame(brand, bg=THEME["accent"], width=42, height=42)
             mark.pack(side="left", padx=(0, 12))
-            mark.create_oval(2, 2, 36, 36, fill=THEME["accent"], outline="")
-            mark.create_text(19, 19, text="F", fill=THEME["white"], font=(THEME["font_family"], 16, "bold"))
+            mark.pack_propagate(False)
+            tk.Label(mark, text="F", bg=THEME["accent"], fg=THEME["white"],
+                     font=(THEME["font_family"], 18, "bold")).pack(expand=True)
         title_box = tk.Frame(brand, bg=THEME["bg"])
         title_box.pack(side="left")
         tk.Label(title_box, text=APP_NAME, bg=THEME["bg"], fg=THEME["text"],
@@ -4197,9 +4309,11 @@ class App:
         inner = tk.Frame(card, bg=THEME["bg_card"])
         inner.pack(fill="both", expand=True, padx=14, pady=12)
         top = tk.Frame(inner, bg=THEME["bg_card"]); top.pack(fill="x")
-        icon = tk.Label(top, text=icon_text, bg=THEME["bg_elevated"], fg=THEME["accent"],
-                        width=3, height=1, font=("Segoe UI Emoji", 14))
-        icon.pack(side="left", padx=(0,10))
+        icon_box = tk.Frame(top, bg=THEME["bg_elevated"], width=36, height=36,
+                            highlightbackground=THEME["border"], highlightthickness=1)
+        icon_box.pack(side="left", padx=(0,10)); icon_box.pack_propagate(False)
+        tk.Label(icon_box, text=icon_text, bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=("Segoe UI Emoji", 14)).pack(expand=True)
         name_box = tk.Frame(top, bg=THEME["bg_card"]); name_box.pack(side="left", fill="x", expand=True)
         tk.Label(name_box, text=lang.t(name_key), bg=THEME["bg_card"], fg=THEME["text"],
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w")
@@ -4229,6 +4343,14 @@ class App:
     def _action_bar(self, parent):
         shell = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["border"], highlightthickness=1)
         shell.pack(fill="x", padx=12, pady=(10,14))
+        title = tk.Frame(shell, bg=THEME["bg_card"]); title.pack(fill="x", padx=12, pady=(10, 2))
+        glyph = tk.Frame(title, bg=THEME["bg_elevated"], width=28, height=28,
+                         highlightbackground=THEME["border"], highlightthickness=1)
+        glyph.pack(side="left"); glyph.pack_propagate(False)
+        tk.Label(glyph, text="⚡", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                 font=("Segoe UI Emoji", 12)).pack(expand=True)
+        tk.Label(title, text=lang.t("quick_actions"), bg=THEME["bg_card"], fg=THEME["text"],
+                 font=(THEME["font_family"], 10, "bold")).pack(side="left", padx=9)
         left = tk.Frame(shell, bg=THEME["bg_card"]); left.pack(side="left", padx=10, pady=9)
         for kind, cmd, color, hover, active, tip in [
             ("globe", self.localhost, THEME["accent"], THEME["accent_hover"],
@@ -4256,6 +4378,9 @@ class App:
 
 
     def _log_tabs(self, parent):
+        self._page_header(parent, lang.t("tab_logs"),
+                          PAGE_SUBTITLES["logs"].get(lang.get(), PAGE_SUBTITLES["logs"]["en"]), "≡")
+        page = self._page_body(parent)
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Dark.TNotebook", background=THEME["bg"], borderwidth=0,
@@ -4287,7 +4412,7 @@ class App:
                                        {"side": "top", "sticky": "nswe",
                                         "children": [("Notebook.label", {"sticky": "nswe"})]})]})])
 
-        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        nb = OfficeTabs(page, active_size=11, passive_size=9)
         self._extra_nb = nb
         self.views = {}
         self._view_cache = {}
@@ -4342,22 +4467,25 @@ class App:
 
     def _scrollable(self, parent, bg=None):
         bg = bg or THEME["bg_elevated"]
-        canvas = tk.Canvas(parent, bg=bg, highlightthickness=0, bd=0)
-        vsb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        host = tk.Frame(parent, bg=bg)
+        host.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(host, bg=bg, highlightthickness=0, bd=0)
+        vsb = ttk.Scrollbar(host, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=vsb.set)
-        vsb.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
         body = tk.Frame(canvas, bg=bg)
         wid = canvas.create_window((0, 0), window=body, anchor="nw")
 
+        # Register the canvas once.  The global wheel handler selects whichever
+        # registered canvas is currently visible.
+        self._scroll_canvases.append(canvas)
+
         def _fit(e=None):
             try:
                 canvas.configure(scrollregion=canvas.bbox("all"))
-                canvas.itemconfig(wid, width=canvas.winfo_width())
-                try:
-                    need = body.winfo_reqheight() > canvas.winfo_height()
-                except Exception:
-                    need = True
+                canvas.itemconfig(wid, width=max(1, canvas.winfo_width()))
+                need = body.winfo_reqheight() > canvas.winfo_height() + 2
                 if need:
                     if not vsb.winfo_ismapped():
                         vsb.pack(side="right", fill="y")
@@ -4367,44 +4495,16 @@ class App:
                     canvas.yview_moveto(0.0)
             except Exception:
                 pass
+
         body.bind("<Configure>", _fit)
         canvas.bind("<Configure>", _fit)
-
-        def _wheel(e):
-            try:
-                if not canvas.winfo_viewable():
-                    return
-                x, y = canvas.winfo_rootx(), canvas.winfo_rooty()
-                if not (x <= e.x_root <= x + canvas.winfo_width()
-                        and y <= e.y_root <= y + canvas.winfo_height()):
-                    return
-                w = self.root.winfo_containing(e.x_root, e.y_root)
-                while w is not None and w is not canvas and w is not body:
-                    if isinstance(w, tk.Text):
-                        return
-                    try:
-                        w = w.master
-                    except Exception:
-                        break
-                if hasattr(e, "delta") and e.delta:
-                    canvas.yview_scroll(-1 * (e.delta // 120), "units")
-                elif getattr(e, "num", 0) == 4:
-                    canvas.yview_scroll(-1, "units")
-                elif getattr(e, "num", 0) == 5:
-                    canvas.yview_scroll(1, "units")
-            except Exception:
-                pass
-            return "break"
-
-        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-            try:
-                self.root.bind_all(seq, _wheel, add="+")
-            except Exception:
-                pass
         return body
 
     def _data_tabs(self, parent):
-        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        self._page_header(parent, lang.t("tab_db"),
+                          PAGE_SUBTITLES["db"].get(lang.get(), PAGE_SUBTITLES["db"]["en"]), "▦")
+        page = self._page_body(parent)
+        nb = OfficeTabs(page, active_size=11, passive_size=9)
         sql_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(sql_frame, lang.t('tab_sql'))
         self._build_sql_editor(sql_frame)
@@ -4418,7 +4518,10 @@ class App:
         self._build_dbmanager(self._scrollable(dbm_frame))
 
     def _projects_tabs(self, parent):
-        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        self._page_header(parent, lang.t("tab_projects"),
+                          PAGE_SUBTITLES["projects"].get(lang.get(), PAGE_SUBTITLES["projects"]["en"]), "□")
+        page = self._page_body(parent)
+        nb = OfficeTabs(page, active_size=11, passive_size=9)
         files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(files_frame, lang.t('tab_files'))
         self._build_file_manager(files_frame)
@@ -4440,7 +4543,10 @@ class App:
         self._build_phpini(self._scrollable(phpini_frame))
 
     def _monitor_tabs(self, parent):
-        nb = OfficeTabs(parent, active_size=11, passive_size=9)
+        self._page_header(parent, lang.t("tab_monitor"),
+                          PAGE_SUBTITLES["monitor"].get(lang.get(), PAGE_SUBTITLES["monitor"]["en"]), "⌁")
+        page = self._page_body(parent)
+        nb = OfficeTabs(page, active_size=11, passive_size=9)
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(docker_frame, lang.t('tab_docker'))
         self._build_docker(self._scrollable(docker_frame))
@@ -6415,15 +6521,137 @@ class App:
                  font=("Cascadia Code", 7, "bold")).pack(side="right", padx=14)
 
 
+    def _nav_button(self, parent, text, icon, command, active=False):
+        bg = THEME["accent"] if active else THEME["bg_card"]
+        fg = THEME["white"] if active else THEME["text_dim"]
+        btn = tk.Frame(parent, bg=bg, height=38, cursor="hand2")
+        btn.pack(fill="x", pady=2)
+        btn.pack_propagate(False)
+        rail = tk.Frame(btn, bg=THEME["accent"] if active else bg, width=3)
+        rail.pack(side="left", fill="y")
+        tk.Label(btn, text=icon, bg=bg, fg=THEME["white"] if active else THEME["accent"],
+                 font=("Segoe UI Emoji", 13), width=3).pack(side="left", padx=(7, 1))
+        tk.Label(btn, text=text, bg=bg, fg=fg,
+                 font=(THEME["font_family"], 9, "bold" if active else "normal"),
+                 anchor="w").pack(side="left", fill="x", expand=True)
+        if active:
+            tk.Label(btn, text="›", bg=bg, fg=THEME["white"],
+                     font=(THEME["font_family"], 15, "bold")).pack(side="right", padx=10)
+        for w in btn.winfo_children():
+            w.bind("<Button-1>", lambda e: command())
+            w.bind("<Enter>", lambda e, b=btn, a=active: b.configure(bg=THEME["bg_elevated"] if not a else THEME["accent_hover"]))
+            w.bind("<Leave>", lambda e, b=btn, a=active, c=bg: b.configure(bg=c))
+        btn.bind("<Button-1>", lambda e: command())
+        btn.bind("<Enter>", lambda e, b=btn, a=active: b.configure(bg=THEME["bg_elevated"] if not a else THEME["accent_hover"]))
+        btn.bind("<Leave>", lambda e, b=btn, a=active, c=bg: b.configure(bg=c))
+        return btn
+
+    def _build_sidebar(self, parent, main_nb):
+        side = tk.Frame(parent, bg=THEME["bg_card"], width=228,
+                        highlightbackground=THEME["border"], highlightthickness=1)
+        side.pack(side="left", fill="y")
+        side.pack_propagate(False)
+
+        top = tk.Frame(side, bg=THEME["bg_card"])
+        top.pack(fill="x", padx=14, pady=(16, 10))
+        tk.Label(top, text="NAVIGATION", bg=THEME["bg_card"], fg=THEME["text_muted"],
+                 font=("Cascadia Code", 8, "bold")).pack(anchor="w")
+
+        nav = tk.Frame(side, bg=THEME["bg_card"])
+        nav.pack(fill="x", padx=8)
+        items = [
+            (lang.t("tab_main"), "⌂", 0),
+            (lang.t("tab_logs"), "▤", 1),
+            (lang.t("tab_db"), "▦", 2),
+            (lang.t("tab_projects"), "□", 3),
+            (lang.t("tab_monitor"), "⌁", 4),
+            (lang.t("tab_settings"), "⚙", 5),
+        ]
+        self._sidebar_buttons = []
+        def select(idx):
+            main_nb.select(idx)
+            for i, b in enumerate(self._sidebar_buttons):
+                self._style_nav_button(b, i == idx)
+            self._sidebar_active = idx
+        for label, icon, idx in items:
+            b = self._nav_button(nav, label, icon, lambda i=idx: select(i), active=(idx == 0))
+            self._sidebar_buttons.append(b)
+
+        spacer = tk.Frame(side, bg=THEME["bg_card"])
+        spacer.pack(fill="both", expand=True)
+        server = tk.Frame(side, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
+        server.pack(fill="x", padx=14, pady=14)
+        tk.Label(server, text="●", bg=THEME["bg_elevated"], fg=THEME["success"],
+                 font=(THEME["font_family"], 14)).pack(side="left", padx=(10, 6), pady=10)
+        sb = tk.Frame(server, bg=THEME["bg_elevated"]); sb.pack(side="left", pady=8)
+        tk.Label(sb, text="FarajaWebServer", bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 8, "bold")).pack(anchor="w")
+        tk.Label(sb, text="LOCAL • READY", bg=THEME["bg_elevated"], fg=THEME["text_muted"],
+                 font=("Cascadia Code", 7)).pack(anchor="w", pady=(2,0))
+
+    def _style_nav_button(self, btn, active):
+        bg = THEME["accent"] if active else THEME["bg_card"]
+        fg = THEME["white"] if active else THEME["text_dim"]
+        btn.configure(bg=bg)
+        for child in btn.winfo_children():
+            try:
+                child.configure(bg=bg)
+                if isinstance(child, tk.Label):
+                    if child.cget("text") in ("⌂", "▤", "▦", "□", "⌁", "⚙"):
+                        child.configure(fg=THEME["white"] if active else THEME["accent"])
+                    elif child.cget("text") == "›":
+                        child.configure(fg=THEME["white"] if active else bg)
+                    else:
+                        child.configure(fg=fg)
+            except Exception:
+                pass
+        try:
+            btn.winfo_children()[0].configure(bg=THEME["accent"] if active else bg)
+        except Exception:
+            pass
+
+    def _settings_header(self, parent):
+        head = tk.Frame(parent, bg=THEME["bg"])
+        head.pack(fill="x", padx=20, pady=(18, 12))
+        icon = tk.Frame(head, bg=THEME["accent"], width=42, height=42)
+        icon.pack(side="left"); icon.pack_propagate(False)
+        tk.Label(icon, text="⚙", bg=THEME["accent"], fg=THEME["white"],
+                 font=("Segoe UI Emoji", 19)).pack(expand=True)
+        text = tk.Frame(head, bg=THEME["bg"]); text.pack(side="left", padx=12)
+        tk.Label(text, text=lang.t("tab_settings"), bg=THEME["bg"], fg=THEME["text"],
+                 font=(THEME["font_family"], 18, "bold")).pack(anchor="w")
+        tk.Label(text, text="Управление сервером, окружением и конфигурацией", bg=THEME["bg"],
+                 fg=THEME["text_dim"], font=(THEME["font_family"], 9)).pack(anchor="w", pady=(2,0))
+
+    def _settings_card(self, parent, title, subtitle, icon="⚙"):
+        card = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["border"], highlightthickness=1)
+        card.pack(fill="x", pady=(0, 10))
+        top = tk.Frame(card, bg=THEME["bg_card"]); top.pack(fill="x", padx=14, pady=(12, 8))
+        ic = tk.Frame(top, bg=THEME["bg_elevated"], width=34, height=34); ic.pack(side="left"); ic.pack_propagate(False)
+        tk.Label(ic, text=icon, bg=THEME["bg_elevated"], fg=THEME["accent"], font=("Segoe UI Emoji", 14)).pack(expand=True)
+        tb = tk.Frame(top, bg=THEME["bg_card"]); tb.pack(side="left", padx=10)
+        tk.Label(tb, text=title, bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"], 10, "bold")).pack(anchor="w")
+        if subtitle:
+            tk.Label(tb, text=subtitle, bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).pack(anchor="w", pady=(2,0))
+        body = tk.Frame(card, bg=THEME["bg_card"]); body.pack(fill="x", padx=14, pady=(0, 14))
+        return card, body
+
+    def _modern_settings_field(self, parent, label, variable, width=None, row=0, col=0, colspan=1):
+        box = tk.Frame(parent, bg=THEME["bg_card"])
+        box.grid(row=row, column=col, columnspan=colspan, sticky="ew", padx=5, pady=5)
+        tk.Label(box, text=label, bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).pack(anchor="w", pady=(0,4))
+        e = tk.Entry(box, textvariable=variable, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"],
+                     font=("Cascadia Code", 9), relief="flat", bd=0, highlightthickness=1,
+                     highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
+        if width: e.configure(width=width)
+        e.pack(fill="x", ipady=7)
+        return e
+
     def build(self):
         self._header(self.root)
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Main.TNotebook", background=THEME["bg"], borderwidth=0, tabmargins=[14, 10, 14, 0])
-        style.configure("Main.TNotebook.Tab", background=THEME["bg"], foreground=THEME["text_dim"],
-                        padding=[20, 11], font=(THEME["font_family"], 9, "bold"), borderwidth=0, focuscolor=THEME["bg"])
-        style.map("Main.TNotebook.Tab", background=[("selected", THEME["bg_elevated"]), ("active", THEME["bg_card"])],
-                  foreground=[("selected", THEME["accent"]), ("active", THEME["text"])])
+        style.configure("Main.TNotebook", background=THEME["bg"], borderwidth=0)
         style.configure("Modern.Horizontal.TProgressbar", troughcolor=THEME["bg_input"], background=THEME["accent"],
                         bordercolor=THEME["bg_input"], lightcolor=THEME["accent"], darkcolor=THEME["accent"], thickness=6)
         style.configure("Big.Treeview", background=THEME["bg_elevated"], fieldbackground=THEME["bg_elevated"],
@@ -6431,18 +6659,21 @@ class App:
         style.map("Big.Treeview", background=[("selected", THEME["accent"])], foreground=[("selected", THEME["white"])])
         style.configure("Big.Treeview.Heading", background=THEME["bg_card"], foreground=THEME["text_dim"],
                         font=(THEME["font_family"], 8, "bold"), relief="flat", padding=[8,8])
-        style.map("Big.Treeview.Heading", background=[("active", THEME["bg_input"])])
-        style.configure("Vertical.TScrollbar", background=THEME["bg_input"],
-                        troughcolor=THEME["bg"], arrowcolor=THEME["text_dim"],
-                        borderwidth=0, relief="flat")
-        style.map("Vertical.TScrollbar", background=[("active", THEME["border_light"])])
+        style.configure("Vertical.TScrollbar", background=THEME["bg_input"], troughcolor=THEME["bg"],
+                        arrowcolor=THEME["text_dim"], borderwidth=0, relief="flat")
 
-        main_nb = OfficeTabs(self.root, active_size=12, passive_size=9)
+        workspace = tk.Frame(self.root, bg=THEME["bg"])
+        workspace.pack(fill="both", expand=True)
+        main_nb = OfficeTabs(workspace, active_size=12, passive_size=9)
+        main_nb.hide_header()
+
         tab1 = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab1, lang.t('tab_main'))
-
-        services_outer = tk.Frame(tab1, bg=THEME["bg"])
-        services_outer.pack(fill="both", expand=True, padx=8, pady=4)
-        services_frame = self._scrollable(services_outer, bg=THEME["bg"])
+        self._page_header(tab1, lang.t("tab_main"),
+                          PAGE_SUBTITLES["main"].get(lang.get(), PAGE_SUBTITLES["main"]["en"]), "⌂")
+        main_shell = self._page_body(tab1)
+        services_outer = tk.Frame(main_shell, bg=THEME["bg_card"])
+        services_outer.pack(fill="both", expand=True, padx=6, pady=6)
+        services_frame = self._scrollable(services_outer, bg=THEME["bg_card"])
         services_frame.grid_columnconfigure(0, weight=1); services_frame.grid_columnconfigure(1, weight=1)
         self._service_row, self._service_col = 0, 0
         self._service_card(services_frame, "apache", "🪶", "apache", self.start_a, self.stop_a, self.restart_a)
@@ -6453,20 +6684,24 @@ class App:
         self._service_card(services_frame, "nginx", "🔀", "nginx", self.start_nginx_ui, self.stop_nginx_ui, self.restart_nginx)
         self._service_card(services_frame, "docker", "🐳", "docker", self.start_docker_ui, self.stop_docker_ui)
         self._service_card(services_frame, "nodejs", "🟢", "node", self.start_node_ui, self.stop_node_ui)
-        self._action_bar(tab1)
+        self._action_bar(main_shell)
 
-        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_logs, lang.t('tab_logs'))
-        self._log_tabs(tab_logs)
-        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_data, lang.t('tab_db'))
-        self._data_tabs(tab_data)
-        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_projects, lang.t('tab_projects'))
-        self._projects_tabs(tab_projects)
-        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor'))
-        self._monitor_tabs(tab_monitor)
-        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg_elevated"]); main_nb.add(tab_settings, lang.t('tab_settings'))
-        self._build_settings(self._scrollable(tab_settings))
+        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_logs, lang.t('tab_logs')); self._log_tabs(tab_logs)
+        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_data, lang.t('tab_db')); self._data_tabs(tab_data)
+        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_projects, lang.t('tab_projects')); self._projects_tabs(tab_projects)
+        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor')); self._monitor_tabs(tab_monitor)
+        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_settings, lang.t('tab_settings')); self._build_settings(self._scrollable(tab_settings, bg=THEME["bg"]))
+
+        self._build_sidebar(workspace, main_nb)
+        main_nb.body.pack_configure(side="right", fill="both", expand=True)
+        # body was already packed by OfficeTabs; sidebar is added after it, so move it to the right explicitly.
+        try:
+            main_nb.body.lift()
+        except Exception:
+            pass
         self._status_bar(self.root)
         self.svc.ui_progress = self._install_progress
+        self._sidebar_active = 0
 
 
     def context(self, t):
@@ -7214,268 +7449,130 @@ class App:
             self._settings = {}
         try:
             p = Path(self._settings.get("downloads", str(DOWNLOADS)))
-            if p.is_dir():
-                DOWNLOADS = p
+            if p.is_dir(): DOWNLOADS = p
         except Exception:
             pass
 
-        title = tk.Label(parent, text=lang.t("set_modules"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                         font=(THEME["font_family"], 10, "bold"), anchor="w")
-        title.pack(fill="x", padx=12, pady=(8, 2))
+        self._settings_header(parent)
+        content = tk.Frame(parent, bg=THEME["bg"])
+        content.pack(fill="both", expand=True, padx=16, pady=(0, 14))
+        content.grid_columnconfigure(0, weight=3)
+        content.grid_columnconfigure(1, weight=2)
 
-        dl = tk.Frame(parent, bg=THEME["bg_elevated"])
-        dl.pack(fill="x", padx=10, pady=4)
-        tk.Label(dl, text=lang.t("set_dl_folder"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
+        left = tk.Frame(content, bg=THEME["bg"]); left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        right = tk.Frame(content, bg=THEME["bg"]); right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        _, body = self._settings_card(left, lang.t("set_modules"), "Рабочие каталоги и локальные архивы", "▣")
+        body.grid_columnconfigure(0, weight=1)
+        tk.Label(body, text=lang.t("set_dl_folder"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).grid(row=0, column=0, sticky="w", padx=5, pady=(2,4))
         self._set_dl_var = tk.StringVar(value=str(DOWNLOADS))
-        tk.Entry(dl, textvariable=self._set_dl_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
-                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
-                 relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
-        IconButton(dl, "folder", self._set_browse_dl, color=THEME["accent"],
-                     hover_color=THEME["accent_hover"], active_color=THEME["accent_active"],
-                     size=28, tip=lang.t("first_run_browse") + " — " + lang.t("tip_browse")).pack(side="left", padx=2)
-        IconButton(dl, "folder", self._set_open_dl, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     size=28, tip=lang.t("set_open_folder") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
-        IconButton(dl, "refresh", self._set_refresh, color=THEME["info"],
-                     hover_color="#2e9bf5", active_color="#0769b5",
-                     size=28, tip=lang.t("set_rescan") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
+        e = tk.Entry(body, textvariable=self._set_dl_var, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"],
+                     font=("Cascadia Code", 9), relief="flat", bd=0, highlightthickness=1,
+                     highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
+        e.grid(row=1, column=0, sticky="ew", padx=5, pady=(0,5), ipady=7)
+        actions = tk.Frame(body, bg=THEME["bg_card"]); actions.grid(row=1, column=1, padx=(5,0))
+        IconButton(actions, "folder", self._set_browse_dl, color=THEME["accent"], hover_color=THEME["accent_hover"], active_color=THEME["accent_active"], size=30, tip=lang.t("first_run_browse")).pack(side="left", padx=2)
+        IconButton(actions, "folder", self._set_open_dl, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("set_open_folder")).pack(side="left", padx=2)
+        IconButton(actions, "refresh", self._set_refresh, color=THEME["info"], hover_color="#2e9bf5", active_color="#0769b5", size=30, tip=lang.t("set_rescan")).pack(side="left", padx=2)
 
-        logf = tk.Frame(parent, bg=THEME["bg_elevated"])
-        logf.pack(fill="x", padx=10, pady=4)
-        tk.Label(logf, text=lang.t("set_logs"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 10, "bold")).pack(side="left")
-        tk.Label(logf, text=lang.t("set_font"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(16, 2))
+        _, body = self._settings_card(left, lang.t("set_logs"), "Настройки отображения журнала", "≡")
+        row = tk.Frame(body, bg=THEME["bg_card"]); row.pack(fill="x")
         log_fonts = ["Cascadia Code", "Consolas", "Courier New", "Source Code Pro", "Fira Code", "Segoe UI"]
-        if self._settings.get("log_font") not in log_fonts and self._settings.get("log_font"):
-            log_fonts.insert(0, self._settings["log_font"])
+        if self._settings.get("log_font") not in log_fonts and self._settings.get("log_font"): log_fonts.insert(0, self._settings["log_font"])
         self._log_font_var = tk.StringVar(value=self._settings.get("log_font", "Cascadia Code"))
-        log_font_menu = tk.OptionMenu(logf, self._log_font_var, *log_fonts,
-                                      command=lambda e: self._on_log_font_change())
-        log_font_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                                activebackground=THEME["accent"], activeforeground=THEME["white"],
-                                font=(THEME["font_family"], 9), highlightthickness=0)
-        log_font_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        log_font_menu.pack(side="left", padx=4)
-        tk.Label(logf, text=lang.t("set_font_size"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        tk.Label(row, text=lang.t("set_font"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
+        fm = tk.OptionMenu(row, self._log_font_var, *log_fonts, command=lambda e: self._on_log_font_change())
+        fm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat", highlightthickness=0, font=(THEME["font_family"],9)); fm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"]); fm.pack(side="left", padx=5)
+        tk.Label(row, text=lang.t("set_font_size"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(side="left", padx=(14,5))
         self._log_size_var = tk.StringVar(value=str(self._settings.get("log_size", 9)))
-        log_size_menu = tk.OptionMenu(logf, self._log_size_var,
-                                      "8", "9", "10", "11", "12", "13", "14", "16",
-                                      command=lambda e: self._on_log_font_change())
-        log_size_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                                activebackground=THEME["accent"], activeforeground=THEME["white"],
-                                font=(THEME["font_family"], 9), highlightthickness=0)
-        log_size_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        log_size_menu.pack(side="left", padx=4)
+        sm = tk.OptionMenu(row, self._log_size_var, *["8","9","10","11","12","13","14","16"], command=lambda e: self._on_log_font_change())
+        sm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat", highlightthickness=0, font=(THEME["font_family"],9)); sm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"]); sm.pack(side="left", padx=5)
 
-        phprow = tk.Frame(parent, bg=THEME["bg_elevated"])
-        phprow.pack(fill="x", padx=10, pady=4)
-        tk.Label(phprow, text=lang.t("set_phpmode"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 10, "bold")).pack(side="left")
+        _, body = self._settings_card(left, lang.t("set_phpmode"), "PHP FastCGI и поведение локального сервера", "</>")
+        row = tk.Frame(body, bg=THEME["bg_card"]); row.pack(fill="x")
         self._php_mode_map = {lang.t("php_dev"): "dev", lang.t("php_safe"): "safe"}
         _cur_mode = self._settings.get("php_mode", "dev")
-        self._php_mode_var = tk.StringVar(
-            value=lang.t("php_safe") if _cur_mode == "safe" else lang.t("php_dev"))
-        php_menu = tk.OptionMenu(phprow, self._php_mode_var, *self._php_mode_map.keys(),
-                                 command=lambda e: self._on_php_settings_change())
-        php_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                           activebackground=THEME["accent"], activeforeground=THEME["white"],
-                           font=(THEME["font_family"], 9), highlightthickness=0)
-        php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        php_menu.pack(side="left", padx=4)
+        self._php_mode_var = tk.StringVar(value=lang.t("php_safe") if _cur_mode == "safe" else lang.t("php_dev"))
+        tk.Label(row, text=lang.t("set_phpmode"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
+        pm = tk.OptionMenu(row, self._php_mode_var, *self._php_mode_map.keys(), command=lambda e: self._on_php_settings_change())
+        pm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat", highlightthickness=0, font=(THEME["font_family"],9)); pm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"]); pm.pack(side="left", padx=5)
         self._dir_list_var = tk.BooleanVar(value=bool(self._settings.get("dir_listing", False)))
-        tk.Checkbutton(phprow, text=lang.t("set_dirlist"), variable=self._dir_list_var,
-                       command=self._on_php_settings_change,
-                       bg=THEME["bg_elevated"], fg=THEME["text"],
-                       selectcolor=THEME["bg_input"], activebackground=THEME["bg_elevated"],
-                       activeforeground=THEME["text"], font=(THEME["font_family"], 9),
-                       highlightthickness=0, bd=0).pack(side="left", padx=(16, 0))
+        tk.Checkbutton(row, text=lang.t("set_dirlist"), variable=self._dir_list_var, command=self._on_php_settings_change,
+                       bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"],
+                       activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).pack(side="left", padx=(18,0))
 
-        envsel = tk.Frame(parent, bg=THEME["bg_elevated"])
-        envsel.pack(fill="x", padx=10, pady=4)
-
-        portbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                           highlightthickness=1)
-        portbox.pack(fill="x", padx=10, pady=4)
-        tk.Label(portbox, text=lang.t("set_ports"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        pg = tk.Frame(portbox, bg=THEME["bg_elevated"])
-        pg.pack(fill="x", padx=10, pady=(0, 4))
+        _, body = self._settings_card(left, lang.t("set_ports"), "Порты сервисов • применяются с перезапуском активных процессов", "▦")
+        grid = tk.Frame(body, bg=THEME["bg_card"]); grid.pack(fill="x")
         self._port_vars = {}
-        _pdefs = (("Apache", "apache_port"), ("MariaDB", "mariadb_port"), ("PHP", "php_cgi_port"),
-                  ("PostgreSQL", "postgresql_port"), ("Redis", "redis_port"), ("Nginx", "nginx_port"))
+        _pdefs = (("Apache", "apache_port"), ("MariaDB", "mariadb_port"), ("PHP", "php_cgi_port"), ("PostgreSQL", "postgresql_port"), ("Redis", "redis_port"), ("Nginx", "nginx_port"))
         for idx, (label, key) in enumerate(_pdefs):
-            tk.Label(pg, text=f"{label}:", bg=THEME["bg_elevated"], fg=THEME["text"],
-                     font=(THEME["font_family"], 9)).grid(row=idx // 3, column=(idx % 3) * 2,
-                                                          sticky="w", padx=(0, 4), pady=3)
-            var = tk.StringVar(value=str(CONFIG.get(key, "")))
-            e = tk.Entry(pg, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
-                         insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
-                         relief="flat", bd=0, width=7, highlightthickness=1,
-                         highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
-            e.grid(row=idx // 3, column=(idx % 3) * 2 + 1, sticky="w", padx=(0, 12), pady=3)
-            self._port_vars[key] = var
-        IconButton(pg, "check", self._ports_apply, color=THEME["success"],
-                   hover_color="#55e39a", active_color=THEME["success_dim"],
-                   size=28, tip=lang.t("db_apply")).grid(row=0, column=6, rowspan=2,
-                                                         padx=8, pady=3, sticky="ns")
+            box = tk.Frame(grid, bg=THEME["bg_card"]); box.grid(row=idx//3, column=idx%3, sticky="ew", padx=5, pady=5); grid.grid_columnconfigure(idx%3, weight=1)
+            tk.Label(box, text=label, bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(anchor="w")
+            var = tk.StringVar(value=str(CONFIG.get(key, ""))); self._port_vars[key] = var
+            tk.Entry(box, textvariable=var, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"], font=("Cascadia Code",9), relief="flat", bd=0, width=10, highlightthickness=1, highlightbackground=THEME["border"], highlightcolor=THEME["accent"]).pack(fill="x", ipady=6, pady=(3,0))
+        foot = tk.Frame(body, bg=THEME["bg_card"]); foot.pack(fill="x", pady=(8,0))
         self._autostart_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(pg, text=lang.t("set_autostart"), variable=self._autostart_var,
-                       command=self._autostart_toggle,
-                       bg=THEME["bg_elevated"], fg=THEME["text"],
-                       selectcolor=THEME["bg_input"], activebackground=THEME["bg_elevated"],
-                       activeforeground=THEME["text"], font=(THEME["font_family"], 9),
-                       highlightthickness=0, bd=0).grid(row=1, column=6, sticky="w",
-                                                        padx=8, pady=3)
+        tk.Checkbutton(foot, text=lang.t("set_autostart"), variable=self._autostart_var, command=self._autostart_toggle,
+                       bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"], activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).pack(side="left")
+        IconButton(foot, "check", self._ports_apply, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("db_apply")).pack(side="right")
         threading.Thread(target=self._autostart_refresh, daemon=True).start()
 
-        snapbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                           highlightthickness=1)
-        snapbox.pack(fill="x", padx=10, pady=4)
-        IconButton(snapbox, "save", self._snapshot_make, color=THEME["success"],
-                   hover_color="#55e39a", active_color=THEME["success_dim"],
-                   size=28, tip=lang.t("set_snapshot")).pack(side="left", padx=(10, 2), pady=8)
-        tk.Label(snapbox, text=lang.t("set_snapshot"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=2, pady=8)
-        IconButton(snapbox, "up", self._snapshot_restore, color=THEME["warning_dim"],
-                   hover_color=THEME["warning"], active_color="#ba5e17",
-                   size=28, tip=lang.t("set_restore")).pack(side="left", padx=(14, 2), pady=8)
-        tk.Label(snapbox, text=lang.t("set_restore"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left", padx=2, pady=8)
-        self._update_label = tk.Label(snapbox, text="", bg=THEME["bg_elevated"],
-                                      fg=THEME["warning"],
-                                      font=(THEME["font_family"], 8))
-        self._update_label.pack(side="right", padx=10, pady=8)
-        threading.Thread(target=self._update_check, daemon=True).start()
-
-        envbox = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                        highlightthickness=1)
-        envbox.pack(side="left", fill="both", expand=True, padx=(0, 5))
-        tk.Label(envbox, text=lang.t("set_env"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
+        # Right column: environment and installed components.
+        _, body = self._settings_card(right, lang.t("set_env"), "Версии PHP, Node.js, Python и инструментов", "◈")
         try:
-            _php_vers = list(comps().get("php_versions", {}).keys()) or ["8.2", "8.3", "8.4"]
-            _node_vers = list(comps().get("node_versions", {}).keys()) or ["20", "22", "24"]
-            _py_vers = list(comps().get("python_versions", {}).keys()) or ["3.11", "3.12", "3.13"]
+            _php_vers = list(comps().get("php_versions", {}).keys()) or ["8.2","8.3","8.4"]
+            _node_vers = list(comps().get("node_versions", {}).keys()) or ["20","22","24"]
+            _py_vers = list(comps().get("python_versions", {}).keys()) or ["3.11","3.12","3.13"]
             _cur_php, _cur_node, _cur_py = self.svc.env_active()
         except Exception:
-            _php_vers, _node_vers, _py_vers = ["8.2", "8.3", "8.4"], ["20", "22", "24"], ["3.11", "3.12", "3.13"]
+            _php_vers, _node_vers, _py_vers = ["8.2","8.3","8.4"], ["20","22","24"], ["3.11","3.12","3.13"]
             _cur_php, _cur_node, _cur_py = "", "", ""
-        erow = tk.Frame(envbox, bg=THEME["bg_elevated"])
-        erow.pack(fill="x", padx=6, pady=2)
-        tk.Label(erow, text=lang.t("env_php"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
-        self._env_php_var = tk.StringVar(value=_cur_php if _cur_php in _php_vers else _php_vers[-1])
-        _php_menu = tk.OptionMenu(erow, self._env_php_var, *_php_vers)
-        _php_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                            activebackground=THEME["accent"], activeforeground=THEME["white"],
-                            font=(THEME["font_family"], 9), highlightthickness=0)
-        _php_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        _php_menu.pack(side="left", padx=4)
-        self._env_php_cur = tk.Label(erow, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
-                                     font=("Cascadia Code", 9))
-        self._env_php_cur.pack(side="left", padx=4)
-        IconButton(erow, "check", self._env_apply_php, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
-        erow2 = tk.Frame(envbox, bg=THEME["bg_elevated"])
-        erow2.pack(fill="x", padx=6, pady=2)
-        tk.Label(erow2, text=lang.t("env_node"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
-        self._env_node_var = tk.StringVar(value=_cur_node if _cur_node in _node_vers else _node_vers[-1])
-        _node_menu = tk.OptionMenu(erow2, self._env_node_var, *_node_vers)
-        _node_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                             activebackground=THEME["accent"], activeforeground=THEME["white"],
-                             font=(THEME["font_family"], 9), highlightthickness=0)
-        _node_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        _node_menu.pack(side="left", padx=4)
-        self._env_node_cur = tk.Label(erow2, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
-                                      font=("Cascadia Code", 9))
-        self._env_node_cur.pack(side="left", padx=4)
-        IconButton(erow2, "check", self._env_apply_node, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
-        erow_py = tk.Frame(envbox, bg=THEME["bg_elevated"])
-        erow_py.pack(fill="x", padx=6, pady=2)
-        tk.Label(erow_py, text="Python:", bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
-        self._env_py_var = tk.StringVar(value=_cur_py if _cur_py in _py_vers else _py_vers[-1])
-        _py_menu = tk.OptionMenu(erow_py, self._env_py_var, *_py_vers)
-        _py_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
-                           activebackground=THEME["accent"], activeforeground=THEME["white"],
-                           font=(THEME["font_family"], 9), highlightthickness=0)
-        _py_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
-        _py_menu.pack(side="left", padx=4)
-        self._env_py_cur = tk.Label(erow_py, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
-                                    font=("Cascadia Code", 9))
-        self._env_py_cur.pack(side="left", padx=4)
-        IconButton(erow_py, "check", self._env_apply_python, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
-        erow3 = tk.Frame(envbox, bg=THEME["bg_elevated"])
-        erow3.pack(fill="x", padx=6, pady=(2, 8))
-        tk.Label(erow3, text=lang.t("env_tools"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9)).pack(side="left")
+        def envrow(label, versions, current, apply, attr):
+            r = tk.Frame(body, bg=THEME["bg_card"]); r.pack(fill="x", pady=4)
+            tk.Label(r, text=label, bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"],8,"bold"), width=10, anchor="w").pack(side="left")
+            var = tk.StringVar(value=current if current in versions else versions[-1]); setattr(self, attr+"_var", var)
+            m = tk.OptionMenu(r, var, *versions); m.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat", highlightthickness=0, font=(THEME["font_family"],9)); m["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"]); m.pack(side="left")
+            cur = tk.Label(r, text="…", bg=THEME["bg_card"], fg=THEME["text_dim"], font=("Cascadia Code",8)); cur.pack(side="left", padx=8); setattr(self, attr+"_cur", cur)
+            IconButton(r, "check", apply, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=28, tip=lang.t("db_apply")).pack(side="right")
+        envrow(lang.t("env_php"), _php_vers, _cur_php, self._env_apply_php, "_env_php")
+        envrow(lang.t("env_node"), _node_vers, _cur_node, self._env_apply_node, "_env_node")
+        envrow("Python", _py_vers, _cur_py, self._env_apply_python, "_env_py")
+        tk.Frame(body, bg=THEME["border"], height=1).pack(fill="x", pady=7)
         self._env_tools_var = tk.StringVar(value="…")
-        tk.Label(erow3, textvariable=self._env_tools_var, bg=THEME["bg_elevated"],
-                 fg=THEME["text_dim"], font=("Cascadia Code", 8)).pack(side="left", padx=4)
+        tk.Label(body, text=lang.t("env_tools"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(anchor="w")
+        tk.Label(body, textvariable=self._env_tools_var, bg=THEME["bg_card"], fg=THEME["text_dim"], font=("Cascadia Code",8), justify="left", wraplength=390).pack(anchor="w", pady=(3,0))
 
-        # Components are explicitly selected here; installation is never triggered at startup.
-        select_box = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"], highlightthickness=1)
-        select_box.pack(side="left", fill="both", expand=True, padx=(5, 0))
-        tk.Label(select_box, text=lang.t("set_select"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
+        _, body = self._settings_card(right, lang.t("set_select"), "Выберите локальные компоненты для установки", "↓")
         self._set_component_vars = {}
-        cb_grid = tk.Frame(select_box, bg=THEME["bg_elevated"])
-        cb_grid.pack(fill="x", padx=6, pady=(0, 6))
-        try:
-            manifest_names = [n for n, i in comps().items() if is_component(i)]
-        except Exception:
-            manifest_names = ["apache", "php", "mariadb", "postgresql", "redis", "nginx", "nodejs", "phpmyadmin"]
+        cb_grid = tk.Frame(body, bg=THEME["bg_card"]); cb_grid.pack(fill="x")
+        try: manifest_names = [n for n,i in comps().items() if is_component(i)]
+        except Exception: manifest_names = ["apache","php","mariadb","postgresql","redis","nginx","nodejs","phpmyadmin"]
         for idx, name in enumerate(manifest_names):
-            var = tk.BooleanVar(value=False)
-            self._set_component_vars[name] = var
-            cb = tk.Checkbutton(cb_grid, text=name.upper(), variable=var,
-                                bg=THEME["bg_elevated"], fg=THEME["text"],
-                                selectcolor=THEME["bg_input"], activebackground=THEME["bg_elevated"],
-                                activeforeground=THEME["text"], font=(THEME["font_family"], 9),
-                                highlightthickness=0, bd=0)
-            cb.grid(row=idx // 4, column=idx % 4, sticky="w", padx=8, pady=2)
-        inst_row = tk.Frame(select_box, bg=THEME["bg_elevated"])
-        inst_row.pack(fill="x", padx=6, pady=(0, 8))
-        IconButton(inst_row, "down", self._set_install_selected, color=THEME["success"],
-                     hover_color="#55e39a", active_color=THEME["success_dim"],
-                     size=28, tip=lang.t("set_install_sel")).pack(side="left", padx=2)
-        IconButton(inst_row, "down", self._set_install_missing, color=THEME["info"],
-                     hover_color="#2e9bf5", active_color="#0769b5",
-                     size=28, tip=lang.t("set_install_missing")).pack(side="left", padx=2)
+            var = tk.BooleanVar(value=False); self._set_component_vars[name] = var
+            tk.Checkbutton(cb_grid, text=name.upper(), variable=var, bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"], activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).grid(row=idx//2, column=idx%2, sticky="w", padx=5, pady=3)
+        ir = tk.Frame(body, bg=THEME["bg_card"]); ir.pack(fill="x", pady=(8,0))
+        IconButton(ir, "down", self._set_install_selected, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("set_install_sel")).pack(side="left", padx=2)
+        IconButton(ir, "down", self._set_install_missing, color=THEME["info"], hover_color="#2e9bf5", active_color="#0769b5", size=30, tip=lang.t("set_install_missing")).pack(side="left", padx=2)
+
+        _, body = self._settings_card(right, "Резервная копия", "Сохранение и восстановление состояния Faraja", "↥")
+        br = tk.Frame(body, bg=THEME["bg_card"]); br.pack(fill="x")
+        IconButton(br, "save", self._snapshot_make, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=32, tip=lang.t("set_snapshot")).pack(side="left", padx=2)
+        tk.Label(br, text=lang.t("set_snapshot"), bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
+        IconButton(br, "up", self._snapshot_restore, color=THEME["warning_dim"], hover_color=THEME["warning"], active_color="#ba5e17", size=32, tip=lang.t("set_restore")).pack(side="left", padx=(16,2))
+        tk.Label(br, text=lang.t("set_restore"), bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
+        self._update_label = tk.Label(body, text="", bg=THEME["bg_card"], fg=THEME["warning"], font=(THEME["font_family"],8), wraplength=400, justify="left")
+        self._update_label.pack(anchor="w", pady=(8,0))
+        threading.Thread(target=self._update_check, daemon=True).start()
 
         cols = ("component", "state", "archive", "expected")
-        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
-                                       style="Big.Treeview")
-        self._set_tree.heading("component", text=lang.t("col_component"))
-        self._set_tree.heading("state", text=lang.t("col_state"))
-        self._set_tree.heading("archive", text=lang.t("col_archive"))
-        self._set_tree.heading("expected", text=lang.t("col_expected"))
-        self._set_tree.column("component", width=110)
-        self._set_tree.column("state", width=100)
-        self._set_tree.column("archive", width=200)
-        self._set_tree.column("expected", width=260)
-        self._set_tree.pack(fill="x", padx=10, pady=4)
-
-        prog = tk.Frame(parent, bg=THEME["bg_elevated"])
-        prog.pack(fill="x", padx=10, pady=(0, 8))
-        self._set_progress = ttk.Progressbar(prog, mode="determinate", length=300,
-                                             style="Modern.Horizontal.TProgressbar")
-        self._set_progress.pack(side="left", padx=2)
-        self._set_progress_label = tk.Label(prog, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
-                                            font=(THEME["font_family"], 8))
-        self._set_progress_label.pack(side="left", padx=6)
-        self._set_refresh()
-        self._apply_log_font()
-        self._env_refresh_versions()
+        self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=7, style="Big.Treeview")
+        for col, text in zip(cols, (lang.t("col_component"), lang.t("col_state"), lang.t("col_archive"), lang.t("col_expected"))): self._set_tree.heading(col, text=text)
+        self._set_tree.column("component", width=110); self._set_tree.column("state", width=100); self._set_tree.column("archive", width=200); self._set_tree.column("expected", width=300)
+        self._set_tree.pack(fill="x", padx=20, pady=(0,8))
+        prog = tk.Frame(parent, bg=THEME["bg"]); prog.pack(fill="x", padx=20, pady=(0,10))
+        self._set_progress = ttk.Progressbar(prog, mode="determinate", length=300, style="Modern.Horizontal.TProgressbar"); self._set_progress.pack(side="left")
+        self._set_progress_label = tk.Label(prog, text="", bg=THEME["bg"], fg=THEME["text_dim"], font=(THEME["font_family"],8)); self._set_progress_label.pack(side="left", padx=8)
+        self._set_refresh(); self._apply_log_font(); self._env_refresh_versions()
 
     def _env_refresh_versions(self):
         def w():
@@ -8253,7 +8350,7 @@ class App:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Exit", lambda i, x: self.exit())
         )
-        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V15 PRO", menu)
+        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V16", menu)
         self.tray.on_activate = lambda i: self.show()
         threading.Thread(target=self.tray.run, daemon=True).start()
 
