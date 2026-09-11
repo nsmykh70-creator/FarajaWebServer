@@ -76,8 +76,8 @@ THEME = {
     "text_dim": "#a8bfd5",
     "text_muted": "#6f8ba5",
     "white": "#ffffff",
-    "entry_bg": "#eaf0f5",
-    "entry_fg": "#17202a",
+    "entry_bg": "#132a40",
+    "entry_fg": "#eef6ff",
     "font_family": "Segoe UI",
 }
 
@@ -207,6 +207,14 @@ LOCALES = {
     "set_font": {"ru": "Шрифт:", "en": "Font:", "es": "Fuente:", "de": "Schriftart:", "fr": "Police :", "zh": "字体："},
     "set_font_size": {"ru": "Размер:", "en": "Size:", "es": "Tamaño:", "de": "Größe:", "fr": "Taille :", "zh": "大小："},
     "nodejs": {"ru": "Node.js", "en": "Node.js", "es": "Node.js", "de": "Node.js", "fr": "Node.js", "zh": "Node.js"},
+    "svc_desc_apache": {"ru": "Веб-сервер для PHP-сайтов", "en": "Web server for PHP sites", "es": "Servidor web para sitios PHP", "de": "Webserver für PHP-Seiten", "fr": "Serveur web pour sites PHP", "zh": "用于 PHP 网站的 Web 服务器"},
+    "svc_desc_db": {"ru": "База данных MySQL / MariaDB", "en": "MySQL / MariaDB database", "es": "Base de datos MySQL / MariaDB", "de": "MySQL / MariaDB Datenbank", "fr": "Base de données MySQL / MariaDB", "zh": "MySQL / MariaDB 数据库"},
+    "svc_desc_php": {"ru": "Интерпретатор PHP (FastCGI)", "en": "PHP interpreter (FastCGI)", "es": "Intérprete PHP (FastCGI)", "de": "PHP-Interpreter (FastCGI)", "fr": "Interpréteur PHP (FastCGI)", "zh": "PHP 解释器 (FastCGI)"},
+    "svc_desc_pg": {"ru": "База данных PostgreSQL", "en": "PostgreSQL database", "es": "Base de datos PostgreSQL", "de": "PostgreSQL Datenbank", "fr": "Base de données PostgreSQL", "zh": "PostgreSQL 数据库"},
+    "svc_desc_redis": {"ru": "Кэш и очереди в памяти", "en": "In-memory cache and queues", "es": "Caché y colas en memoria", "de": "Cache und Warteschlangen im Speicher", "fr": "Cache et files en mémoire", "zh": "内存缓存和队列"},
+    "svc_desc_nginx": {"ru": "Реверс-прокси на порту 80", "en": "Reverse proxy on port 80", "es": "Proxy inverso en el puerto 80", "de": "Reverse-Proxy auf Port 80", "fr": "Proxy inverse sur le port 80", "zh": "80 端口反向代理"},
+    "svc_desc_docker": {"ru": "Контейнеры Docker Desktop", "en": "Docker Desktop containers", "es": "Contenedores de Docker Desktop", "de": "Docker-Desktop-Container", "fr": "Conteneurs Docker Desktop", "zh": "Docker Desktop 容器"},
+    "svc_desc_node": {"ru": "Серверы приложений Node.js", "en": "Node.js application servers", "es": "Servidores de aplicaciones Node.js", "de": "Node.js-Anwendungsserver", "fr": "Serveurs d'applications Node.js", "zh": "Node.js 应用服务器"},
     "btn_ok": {"ru": "ОК", "en": "OK", "es": "Aceptar", "de": "OK", "fr": "OK", "zh": "确定"},
     "btn_cancel": {"ru": "Отмена", "en": "Cancel", "es": "Cancelar", "de": "Abbrechen", "fr": "Annuler", "zh": "取消"},
     "btn_yes": {"ru": "Да", "en": "Yes", "es": "Sí", "de": "Ja", "fr": "Oui", "zh": "是"},
@@ -299,6 +307,7 @@ LOCALES = {
     "db_flush": {"ru": "Очистить Redis", "en": "Flush Redis", "es": "Vaciar Redis", "de": "Redis leeren", "fr": "Vider Redis", "zh": "清空 Redis"},
     "tab_perf": {"ru": "Нагрузка", "en": "Load Test", "es": "Carga", "de": "Lasttest", "fr": "Charge", "zh": "压力测试"},
     "perf_target": {"ru": "Цель:", "en": "Target:", "es": "Objetivo:", "de": "Ziel:", "fr": "Cible :", "zh": "目标："},
+    "perf_results": {"ru": "Результаты", "en": "Results", "es": "Resultados", "de": "Ergebnisse", "fr": "Résultats", "zh": "结果"},
     "perf_profile": {"ru": "Профиль:", "en": "Profile:", "es": "Perfil:", "de": "Profil:", "fr": "Profil :", "zh": "配置文件："},
     "perf_users": {"ru": "Пользователи:", "en": "Users:", "es": "Usuarios:", "de": "Benutzer:", "fr": "Utilisateurs :", "zh": "用户数："},
     "perf_duration": {"ru": "Длительность (с):", "en": "Duration (s):", "es": "Duración (s):", "de": "Dauer (s):", "fr": "Durée (s) :", "zh": "时长（秒）："},
@@ -320,6 +329,9 @@ LOCALES = {
     "env_node": {"ru": "Node.js:", "en": "Node.js:", "es": "Node.js:", "de": "Node.js:", "fr": "Node.js :", "zh": "Node.js："},
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
     "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
+    "card_containers": {"ru": "Контейнеры", "en": "Containers", "es": "Contenedores", "de": "Container", "fr": "Conteneurs", "zh": "容器"},
+    "card_servers": {"ru": "Серверы", "en": "Servers", "es": "Servidores", "de": "Server", "fr": "Serveurs", "zh": "服务器"},
+    "card_procs": {"ru": "Процессы", "en": "Processes", "es": "Procesos", "de": "Prozesse", "fr": "Processus", "zh": "进程"},
     "dbm_conn": {"ru": "Подключение", "en": "Connection", "es": "Conexión", "de": "Verbindung", "fr": "Connexion", "zh": "连接"},
     "tab_phpini": {"ru": "PHP.ini", "en": "PHP.ini", "es": "PHP.ini", "de": "PHP.ini", "fr": "PHP.ini", "zh": "PHP.ini"},
     "phpini_search": {"ru": "Поиск:", "en": "Search:", "es": "Buscar:", "de": "Suchen:", "fr": "Rechercher :", "zh": "搜索："},
@@ -2708,10 +2720,25 @@ class ToolTip:
 
 
 class IconButton(tk.Canvas):
-    """Square button with a vector-drawn pictogram (language-independent)."""
+    """Square button with a vector-drawn pictogram (language-independent).
+
+    Pass ``text=...`` to get a wider pill button with the icon on the left
+    and a label on the right, like the design concept (open folder, refresh).
+    """
     def __init__(self, parent, kind, command=None, color="#4f8cff", hover_color="#6aa2ff",
-                 active_color="#3975e8", size=34, tip=None, fg="#ffffff", **kwargs):
-        super().__init__(parent, width=size, height=size, highlightthickness=0,
+                 active_color="#3975e8", size=34, tip=None, fg="#ffffff", text=None,
+                 font=None, **kwargs):
+        self._text = text
+        self._font = font or (THEME["font_family"], 9, "bold")
+        _w = size
+        if text:
+            import tkinter.font as _tkfont
+            try:
+                _tw = _tkfont.Font(font=self._font).measure(text)
+            except Exception:
+                _tw = len(text) * 8
+            _w = size + _tw + 22
+        super().__init__(parent, width=_w, height=size, highlightthickness=0,
                          bg=parent.cget("bg") if isinstance(parent, tk.Frame) else THEME["bg"],
                          cursor="hand2", **kwargs)
         self._color = color
@@ -2756,7 +2783,12 @@ class IconButton(tk.Canvas):
         self.create_rectangle(r, 0, w - r, h, fill=bg, outline="")
         self.create_rectangle(0, r, w, h - r, fill=bg, outline="")
         fg = self._fg if self._enabled else THEME["text_muted"]
-        self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
+        if self._text:
+            self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
+            self.create_text(w + 6, h / 2.0, text=self._text, anchor="w",
+                             font=self._font, fill=fg)
+        else:
+            self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
 
     def _icon(self, kind, cx, cy, u, fg):
         import math
@@ -2903,6 +2935,10 @@ class IconButton(tk.Canvas):
                                   fill=fg, outline="")
             self.create_line(cx - 3 * u, cy + 2 * u, cx + 3 * u, cy + 2 * u,
                              fill=fg, width=max(1, lw - 1))
+        elif kind == "dots":
+            for dy in (-5 * u, 0, 5 * u):
+                self.create_oval(cx - 2 * u, cy + dy - 2 * u, cx + 2 * u, cy + dy + 2 * u,
+                                 fill=fg, outline="")
         else:
             self.create_rectangle(cx - 5 * u, cy - 5 * u, cx + 5 * u, cy + 5 * u,
                                   outline=fg, width=lw, fill="")
@@ -2923,6 +2959,47 @@ class IconButton(tk.Canvas):
         if self._enabled and self._command:
             self._draw(self._hover_color)
             self._command()
+
+
+class ToggleSwitch(tk.Canvas):
+    """ON/OFF toggle switch from the design concept (dark track, accent when ON)."""
+    def __init__(self, parent, variable=None, command=None, width=46, height=24,
+                 tip=None, **kwargs):
+        super().__init__(parent, width=width, height=height, highlightthickness=0,
+                         bg=parent.cget("bg") if isinstance(parent, (tk.Frame, tk.Label)) else THEME["bg"],
+                         cursor="hand2", **kwargs)
+        self._var = variable if variable is not None else tk.BooleanVar(value=False)
+        self._command = command
+        self._tw = width
+        self._th = height
+        self.bind("<ButtonRelease-1>", self._toggle)
+        try:
+            self._var.trace_add("write", lambda *a: self._draw())
+        except Exception:
+            pass
+        self._draw()
+        if tip:
+            ToolTip(self, tip)
+
+    def _toggle(self, e=None):
+        try:
+            self._var.set(not bool(self._var.get()))
+        except Exception:
+            return
+        self._draw()
+        if self._command:
+            self._command()
+
+    def _draw(self):
+        self.delete("all")
+        w, h, r = self._tw, self._th, self._th // 2
+        on = bool(self._var.get())
+        track = THEME["accent"] if on else THEME["bg_input"]
+        self.create_arc(0, 0, 2 * r, h, start=90, extent=180, fill=track, outline="")
+        self.create_arc(w - 2 * r, 0, w, h, start=270, extent=180, fill=track, outline="")
+        self.create_rectangle(r, 0, w - r, h, fill=track, outline="")
+        kx = w - r - 2 if on else r + 2
+        self.create_oval(kx - r + 3, 3, kx + r - 3, h - 3, fill=THEME["white"], outline="")
 
 
 class OfficeTabs:
@@ -4112,11 +4189,12 @@ class App:
         native text/tree widget, its own class binding is allowed to handle the
         wheel.  Otherwise the visible page canvas receives the scroll event.
         """
-        def _native_scroll_widget(widget):
+        def _native_scroll_widget(widget, text_only=False):
             try:
+                kinds = (tk.Text,) if text_only else (tk.Text, ttk.Treeview, tk.Listbox)
                 w = widget
                 while w is not None and w is not self.root:
-                    if isinstance(w, (tk.Text, ttk.Treeview, tk.Listbox)):
+                    if isinstance(w, kinds):
                         return True
                     w = w.master
             except Exception:
@@ -4131,8 +4209,11 @@ class App:
             except Exception:
                 under = None
 
-            # Let Text/Treeview/Listbox widgets keep their native scrolling.
-            if under is not None and _native_scroll_widget(under):
+            # Only multi-line text keeps native scrolling.  Tables and lists
+            # hand the wheel to the page, exactly like the Settings screen:
+            # most tab content is Treeviews with a few rows where native
+            # row-scrolling would swallow the gesture and feel dead.
+            if under is not None and _native_scroll_widget(under, text_only=True):
                 return
 
             canvas = None
@@ -4323,6 +4404,13 @@ class App:
         port_text = f"PORT {CONFIG[port_map[attr]]}" if attr in port_map else "LOCAL SERVICE"
         tk.Label(name_box, text=port_text, bg=THEME["bg_card"], fg=THEME["text_muted"],
                  font=("Cascadia Code", 7, "bold")).pack(anchor="w", pady=(2,0))
+        try:
+            _desc = lang.t(f"svc_desc_{attr}")
+        except Exception:
+            _desc = ""
+        if _desc:
+            tk.Label(name_box, text=_desc, bg=THEME["bg_card"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 8), wraplength=230, justify="left").pack(anchor="w", pady=(3,0))
         status_lbl = tk.Label(top, text=lang.t("stopped"), bg=THEME["danger"], fg=THEME["white"],
                               font=(THEME["font_family"], 7, "bold"), padx=8, pady=3)
         status_lbl.pack(side="right", anchor="n")
@@ -4339,6 +4427,22 @@ class App:
                 hover_color=THEME["warning"], active_color="#ba5e17", size=30,
                 tip=lang.t("restart") + " — " + lang.t("tip_restart"))
             restart_btn.pack(side="left", padx=5); setattr(self, attr + "_restart", restart_btn)
+        dots_btn = IconButton(actions, "dots", None, color=THEME["bg_input"],
+            hover_color=THEME["border_light"], active_color=THEME["border"], size=30,
+            tip="•••")
+        dots_btn.pack(side="right")
+        def _svc_menu(e=None, _a=attr, _s=start_cmd, _t=stop_cmd, _r=restart_cmd, _b=dots_btn):
+            try:
+                m = tk.Menu(self.root, tearoff=0, bg=THEME["bg_elevated"], fg=THEME["text"],
+                            activebackground=THEME["accent"], activeforeground=THEME["white"])
+                m.add_command(label=lang.t("start"), command=_s)
+                m.add_command(label=lang.t("stop"), command=_t)
+                if _r:
+                    m.add_command(label=lang.t("restart"), command=_r)
+                m.tk_popup(_b.winfo_rootx(), _b.winfo_rooty() + _b.winfo_height() + 2)
+            except Exception:
+                pass
+        dots_btn.bind("<ButtonRelease-1>", _svc_menu, add="+")
 
 
     def _action_bar(self, parent):
@@ -4735,8 +4839,7 @@ class App:
             self._node_defs = json.loads(self._node_file.read_text(encoding="utf-8")).get("servers", [])
         except Exception:
             self._node_defs = []
-        form = tk.Frame(parent, bg=THEME["bg_elevated"])
-        form.pack(fill="x", padx=10, pady=5)
+        _, form = self._settings_card(parent, "Node.js " + lang.t("card_servers"), "", icon="⬢")
         self._node_name_var = tk.StringVar(value="myapp")
         self._node_dir_var = tk.StringVar(value=str(WWW / "myapp"))
         self._node_entry_var = tk.StringVar(value="server.js")
@@ -4771,8 +4874,8 @@ class App:
         self._node_ver = tk.Label(r2, text="Node.js: …", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                   font=("Cascadia Code", 9))
         self._node_ver.pack(side="left", padx=12)
-        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
-        btns.pack(fill="x", padx=10, pady=4)
+        btns = tk.Frame(form, bg=THEME["bg_card"])
+        btns.pack(fill="x", pady=4)
         IconButton(btns, "play", self._node_start_sel, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
                      size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
@@ -4789,8 +4892,8 @@ class App:
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         cols = ("server", "port", "pid", "started", "status")
-        self._node_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
-                                       style="Big.Treeview")
+        self._node_tree = ttk.Treeview(form, columns=cols, show="headings", height=8,
+                                        style="Big.Treeview")
         self._node_tree.heading("server", text=lang.t("col_server"))
         self._node_tree.heading("port", text=lang.t("col_port"))
         self._node_tree.heading("pid", text=lang.t("col_pid"))
@@ -4801,7 +4904,7 @@ class App:
         self._node_tree.column("pid", width=80)
         self._node_tree.column("started", width=130)
         self._node_tree.column("status", width=110)
-        self._node_tree.pack(fill="both", expand=True, padx=10, pady=4)
+        self._node_tree.pack(fill="x", pady=4)
         self._node_refresh_tree()
         threading.Thread(target=self._node_version, daemon=True).start()
         self._build_py(parent)
@@ -4961,11 +5064,7 @@ class App:
             self._py_defs = json.loads(self._py_file.read_text(encoding="utf-8")).get("servers", [])
         except Exception:
             self._py_defs = []
-        title = tk.Label(parent, text="Python", bg=THEME["bg_elevated"], fg=THEME["accent"],
-                         font=(THEME["font_family"], 10, "bold"), anchor="w")
-        title.pack(fill="x", padx=12, pady=(8, 2))
-        form = tk.Frame(parent, bg=THEME["bg_elevated"])
-        form.pack(fill="x", padx=10, pady=2)
+        _, form = self._settings_card(parent, "Python " + lang.t("card_servers"), "", icon="🐍")
         self._py_name_var = tk.StringVar(value="pyapp")
         self._py_dir_var = tk.StringVar(value=str(WWW / "pyapp"))
         self._py_entry_var = tk.StringVar(value="app.py")
@@ -5011,8 +5110,8 @@ class App:
                        font=(THEME["font_family"], 9), highlightthickness=0)
         _pym["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
         _pym.pack(side="left", padx=4)
-        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
-        btns.pack(fill="x", padx=10, pady=2)
+        btns = tk.Frame(form, bg=THEME["bg_card"])
+        btns.pack(fill="x", pady=2)
         IconButton(btns, "play", self._py_start_sel, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
                      size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
@@ -5028,7 +5127,7 @@ class App:
         IconButton(btns, "cross", self._py_remove_sel, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
-        self._py_tree = ttk.Treeview(parent, columns=("server", "port", "pid", "started", "status"),
+        self._py_tree = ttk.Treeview(form, columns=("server", "port", "pid", "started", "status"),
                                      show="headings", height=5, style="Big.Treeview")
         self._py_tree.heading("server", text=lang.t("col_server"))
         self._py_tree.heading("port", text=lang.t("col_port"))
@@ -5040,7 +5139,7 @@ class App:
         self._py_tree.column("pid", width=80)
         self._py_tree.column("started", width=130)
         self._py_tree.column("status", width=110)
-        self._py_tree.pack(fill="x", padx=10, pady=(2, 6))
+        self._py_tree.pack(fill="x", pady=(6, 2))
         self._py_refresh_tree()
 
     def _py_save_defs(self):
@@ -5396,8 +5495,7 @@ class App:
         self._perf_stop = threading.Event()
         self._perf_stats = None
         self._perf_summary = None
-        cfg = tk.Frame(parent, bg=THEME["bg_elevated"])
-        cfg.pack(fill="x", padx=10, pady=5)
+        _, cfg = self._settings_card(parent, "PerfLab", "", icon="⚡")
         r1 = tk.Frame(cfg, bg=THEME["bg_elevated"])
         r1.pack(fill="x", pady=2)
         tk.Label(r1, text=lang.t("perf_target"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -5454,8 +5552,9 @@ class App:
         self._perf_paths_txt.pack(fill="x", pady=(0, 2))
         self._perf_paths_txt.insert("1.0", "GET /")
 
-        res = tk.Frame(parent, bg=THEME["bg_elevated"])
-        res.pack(fill="x", padx=10, pady=4)
+        _, _rescard = self._settings_card(parent, lang.t("perf_results"), "", icon="📊")
+        res = tk.Frame(_rescard, bg=THEME["bg_card"])
+        res.pack(fill="x")
         self._perf_vars = {}
         for i, key in enumerate(("RPS", "OK %", "ERR", "Avg ms", "P50", "P95", "P99", "CPU %",
                                  "RAM GB", "Users", "MB/s", "Peak")):
@@ -5941,8 +6040,7 @@ class App:
 
     def _build_procs(self, parent):
         self._procs_rows = []
-        top = tk.Frame(parent, bg=THEME["bg_elevated"])
-        top.pack(fill="x", padx=10, pady=5)
+        _, top = self._settings_card(parent, lang.t("card_procs"), "", icon="◉")
         IconButton(top, "refresh", self._procs_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
@@ -5958,7 +6056,7 @@ class App:
         se.pack(side="left", padx=4)
         se.bind("<KeyRelease>", lambda e: self._procs_filter())
         cols = ("pid", "proc", "parent", "mem", "port")
-        self._procs_tree = ttk.Treeview(parent, columns=cols, show="headings", height=14,
+        self._procs_tree = ttk.Treeview(top, columns=cols, show="headings", height=14,
                                         style="Big.Treeview")
         self._procs_tree.heading("pid", text=lang.t("col_pid"))
         self._procs_tree.heading("proc", text=lang.t("col_proc"))
@@ -5970,10 +6068,10 @@ class App:
         self._procs_tree.column("parent", width=100)
         self._procs_tree.column("mem", width=100)
         self._procs_tree.column("port", width=140)
-        self._procs_tree.pack(fill="both", expand=True, padx=10, pady=4)
-        self._procs_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+        self._procs_tree.pack(fill="x", pady=(6, 4))
+        self._procs_status = tk.Label(top, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
                                       font=(THEME["font_family"], 8), anchor="w")
-        self._procs_status.pack(fill="x", padx=12, pady=(0, 6))
+        self._procs_status.pack(fill="x", pady=(0, 2))
         self._procs_refresh()
 
     def _procs_filter(self):
@@ -6020,8 +6118,7 @@ class App:
         self.root.after(1500, self._procs_refresh)
 
     def _build_docker(self, parent):
-        top = tk.Frame(parent, bg=THEME["bg_elevated"])
-        top.pack(fill="x", padx=10, pady=5)
+        _, top = self._settings_card(parent, lang.t("card_containers"), "", icon="🐳")
         IconButton(top, "refresh", self._dock_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
@@ -6038,8 +6135,8 @@ class App:
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         cols = ("name", "image", "status", "ports")
-        self._dock_tree = ttk.Treeview(parent, columns=cols, show="headings", height=6,
-                                       style="Big.Treeview")
+        self._dock_tree = ttk.Treeview(top, columns=cols, show="headings", height=6,
+                                        style="Big.Treeview")
         self._dock_tree.heading("name", text=lang.t("col_cont"))
         self._dock_tree.heading("image", text=lang.t("col_image"))
         self._dock_tree.heading("status", text=lang.t("col_dockstatus"))
@@ -6048,13 +6145,12 @@ class App:
         self._dock_tree.column("image", width=200)
         self._dock_tree.column("status", width=180)
         self._dock_tree.column("ports", width=200)
-        self._dock_tree.pack(fill="both", expand=True, padx=10, pady=4)
-        self._dock_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
-                                     font=(THEME["font_family"], 8), anchor="w")
-        self._dock_status.pack(fill="x", padx=12, pady=(0, 2))
+        self._dock_tree.pack(fill="x", pady=(6, 4))
+        self._dock_status = tk.Label(top, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
+                                      font=(THEME["font_family"], 8), anchor="w")
+        self._dock_status.pack(fill="x", pady=(0, 2))
 
-        comp = tk.Frame(parent, bg=THEME["bg_elevated"])
-        comp.pack(fill="x", padx=10, pady=4)
+        _, comp = self._settings_card(parent, "Docker Compose", lang.t("dock_file"), icon="📦")
         tk.Label(comp, text=lang.t("dock_file"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9, "bold")).pack(side="left")
         self._dock_compose_var = tk.StringVar(value=str(WWW / "docker-compose.yml"))
@@ -6083,17 +6179,16 @@ class App:
                      hover_color="#2e9bf5", active_color="#0769b5",
                      size=28, tip=lang.t("dock_logs")).pack(side="left", padx=2)
 
-        tk.Label(parent, text=lang.t("dock_images"), bg=THEME["bg_elevated"], fg=THEME["text"],
-                 font=(THEME["font_family"], 9, "bold"), anchor="w").pack(fill="x", padx=12, pady=(2, 0))
-        imgrow = tk.Frame(parent, bg=THEME["bg_elevated"])
-        imgrow.pack(fill="x", padx=10, pady=2)
+        _, _imgcard = self._settings_card(parent, lang.t("dock_images"), "", icon="💿")
+        imgrow = tk.Frame(_imgcard, bg=THEME["bg_card"])
+        imgrow.pack(fill="x", pady=2)
         IconButton(imgrow, "refresh", self._dock_images_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=28, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
         IconButton(imgrow, "cross", self._dock_image_remove, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      size=28, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
-        self._dock_img_tree = ttk.Treeview(parent, columns=("image", "tag", "size"), show="headings",
+        self._dock_img_tree = ttk.Treeview(_imgcard, columns=("image", "tag", "size"), show="headings",
                                            height=4, style="Big.Treeview")
         self._dock_img_tree.heading("image", text=lang.t("col_image"))
         self._dock_img_tree.heading("tag", text=lang.t("col_tag"))
@@ -6101,10 +6196,12 @@ class App:
         self._dock_img_tree.column("image", width=280)
         self._dock_img_tree.column("tag", width=120)
         self._dock_img_tree.column("size", width=100)
-        self._dock_img_tree.pack(fill="x", padx=10, pady=(0, 4))
+        self._dock_img_tree.pack(fill="x", pady=(6, 2))
 
-        nv = tk.Frame(parent, bg=THEME["bg_elevated"])
-        nv.pack(fill="x", padx=10, pady=(0, 6))
+        _, _nvcard = self._settings_card(
+            parent, f"{lang.t('dock_networks')} / {lang.t('dock_volumes')}", "", icon="🌐")
+        nv = tk.Frame(_nvcard, bg=THEME["bg_card"])
+        nv.pack(fill="x")
         left = tk.Frame(nv, bg=THEME["bg_elevated"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 5))
         tk.Label(left, text=lang.t("dock_networks"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -6346,13 +6443,9 @@ class App:
         return b
 
     def _build_db(self, parent):
-        md = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                      highlightthickness=1)
-        md.pack(fill="x", padx=10, pady=(8, 4))
-        tk.Label(md, text="MariaDB", bg=THEME["bg_elevated"], fg=THEME["accent"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        mg = tk.Frame(md, bg=THEME["bg_elevated"])
-        mg.pack(fill="x", padx=10, pady=(0, 8))
+        _, _mdcard = self._settings_card(parent, "MariaDB", "", icon="🗄")
+        mg = tk.Frame(_mdcard, bg=THEME["bg_card"])
+        mg.pack(fill="x", pady=(0, 2))
         self._maria_port_var = tk.StringVar(value=str(CONFIG["mariadb_port"]))
         self._db_static(mg, 0, 0, lang.t("db_host"), "127.0.0.1")
         self._db_entry(mg, 0, 2, lang.t("node_port"), self._maria_port_var, width=6)
@@ -6365,13 +6458,9 @@ class App:
         self._db_button(mg, 1, 4, "lock", lang.t("db_setpass"), self._maria_set_pass,
                         THEME["warning_dim"], THEME["warning"], "#ba5e17")
 
-        pg = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                      highlightthickness=1)
-        pg.pack(fill="x", padx=10, pady=(8, 4))
-        tk.Label(pg, text="PostgreSQL", bg=THEME["bg_elevated"], fg=THEME["accent"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        pgf = tk.Frame(pg, bg=THEME["bg_elevated"])
-        pgf.pack(fill="x", padx=10, pady=(0, 8))
+        _, _pgcard = self._settings_card(parent, "PostgreSQL", "", icon="🗄")
+        pgf = tk.Frame(_pgcard, bg=THEME["bg_card"])
+        pgf.pack(fill="x", pady=(0, 2))
         self._pg_port_var = tk.StringVar(value=str(CONFIG["postgresql_port"]))
         self._pg_user_var = tk.StringVar(value="postgres")
         self._pg_pass_var = tk.StringVar(value="")
@@ -6390,13 +6479,9 @@ class App:
         self._db_button(_pgbtns, 0, 2, "lock", lang.t("db_setpass"), self._pg_set_pass,
                         THEME["warning_dim"], THEME["warning"], "#ba5e17")
 
-        rd = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
-                      highlightthickness=1)
-        rd.pack(fill="x", padx=10, pady=4)
-        tk.Label(rd, text="Redis", bg=THEME["bg_elevated"], fg=THEME["accent"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
-        rg = tk.Frame(rd, bg=THEME["bg_elevated"])
-        rg.pack(fill="x", padx=10, pady=(0, 8))
+        _, _rdcard = self._settings_card(parent, "Redis", "", icon="🗄")
+        rg = tk.Frame(_rdcard, bg=THEME["bg_card"])
+        rg.pack(fill="x", pady=(0, 2))
         try:
             _rc = self.svc.redis_conf()
         except Exception:
@@ -6516,6 +6601,15 @@ class App:
         threading.Thread(target=w, daemon=True).start()
 
     def _status_bar(self, parent):
+        if not is_admin():
+            hint = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["warning_dim"],
+                            highlightthickness=1)
+            hint.pack(fill="x", side="bottom", padx=12, pady=(0, 6))
+            tk.Label(hint, text="⚠", bg=THEME["bg_card"], fg=THEME["warning"],
+                     font=("Segoe UI Emoji", 10)).pack(side="left", padx=(10, 4), pady=5)
+            tk.Label(hint, text=lang.t("admin_hint"), bg=THEME["bg_card"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 8), wraplength=900, justify="left").pack(
+                         side="left", fill="x", expand=True, pady=5)
         bar = tk.Frame(parent, bg=THEME["bg_card"], height=30, highlightbackground=THEME["border"], highlightthickness=1)
         bar.pack(fill="x", side="bottom"); bar.pack_propagate(False)
         self.status = tk.StringVar(value=lang.t("status_ready"))
@@ -7478,8 +7572,8 @@ class App:
         e.grid(row=1, column=0, sticky="ew", padx=5, pady=(0,5), ipady=7)
         actions = tk.Frame(body, bg=THEME["bg_card"]); actions.grid(row=1, column=1, padx=(5,0))
         IconButton(actions, "folder", self._set_browse_dl, color=THEME["accent"], hover_color=THEME["accent_hover"], active_color=THEME["accent_active"], size=30, tip=lang.t("first_run_browse")).pack(side="left", padx=2)
-        IconButton(actions, "folder", self._set_open_dl, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("set_open_folder")).pack(side="left", padx=2)
-        IconButton(actions, "refresh", self._set_refresh, color=THEME["info"], hover_color="#2e9bf5", active_color="#0769b5", size=30, tip=lang.t("set_rescan")).pack(side="left", padx=2)
+        IconButton(actions, "folder", self._set_open_dl, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("set_open_folder"), text=lang.t("set_open_folder")).pack(side="left", padx=2)
+        IconButton(actions, "refresh", self._set_refresh, color=THEME["info"], hover_color="#2e9bf5", active_color="#0769b5", size=30, tip=lang.t("set_rescan"), text=lang.t("set_rescan")).pack(side="left", padx=2)
 
         _, body = self._settings_card(left, lang.t("set_logs"), "Настройки отображения журнала", "≡")
         row = tk.Frame(body, bg=THEME["bg_card"]); row.pack(fill="x")
@@ -7518,8 +7612,10 @@ class App:
             tk.Entry(box, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"], font=("Cascadia Code",9), relief="flat", bd=0, width=10, highlightthickness=1, highlightbackground=THEME["border"], highlightcolor=THEME["accent"]).pack(fill="x", ipady=6, pady=(3,0))
         foot = tk.Frame(body, bg=THEME["bg_card"]); foot.pack(fill="x", pady=(8,0))
         self._autostart_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(foot, text=lang.t("set_autostart"), variable=self._autostart_var, command=self._autostart_toggle,
-                       bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"], activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).pack(side="left")
+        ToggleSwitch(foot, variable=self._autostart_var, command=self._autostart_toggle,
+                     tip=lang.t("set_autostart")).pack(side="left", padx=(2, 8))
+        tk.Label(foot, text=lang.t("set_autostart"), bg=THEME["bg_card"], fg=THEME["text"],
+                 font=(THEME["font_family"], 8)).pack(side="left")
         IconButton(foot, "check", self._ports_apply, color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"], size=30, tip=lang.t("db_apply")).pack(side="right")
         threading.Thread(target=self._autostart_refresh, daemon=True).start()
 
