@@ -217,6 +217,13 @@ LOCALES = {
     "tip_restart_all": {"ru": "Перезапустить все сервисы", "en": "Restart all services", "es": "Reiniciar todos los servicios", "de": "Alle Dienste neu starten", "fr": "Redémarrer tous les services", "zh": "重启所有服务"},
     "tip_start": {"ru": "Запустить / остановить сервис", "en": "Start / stop the service", "es": "Iniciar / detener el servicio", "de": "Dienst starten / stoppen", "fr": "Démarrer / arrêter le service", "zh": "启动 / 停止服务"},
     "tip_restart": {"ru": "Перезапустить сервис", "en": "Restart the service", "es": "Reiniciar el servicio", "de": "Dienst neu starten", "fr": "Redémarrer le service", "zh": "重启服务"},
+    "tip_add": {"ru": "Добавить", "en": "Add", "es": "Agregar", "de": "Hinzufügen", "fr": "Ajouter", "zh": "添加"},
+    "tip_remove": {"ru": "Удалить", "en": "Remove", "es": "Eliminar", "de": "Entfernen", "fr": "Supprimer", "zh": "删除"},
+    "tip_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
+    "tip_refresh": {"ru": "Обновить", "en": "Refresh", "es": "Actualizar", "de": "Aktualisieren", "fr": "Actualiser", "zh": "刷新"},
+    "tip_save": {"ru": "Сохранить", "en": "Save", "es": "Guardar", "de": "Speichern", "fr": "Enregistrer", "zh": "保存"},
+    "tip_run": {"ru": "Запустить", "en": "Run", "es": "Ejecutar", "de": "Ausführen", "fr": "Exécuter", "zh": "运行"},
+    "tip_browse": {"ru": "Выбрать папку или файл", "en": "Browse for folder or file", "es": "Examinar carpeta o archivo", "de": "Ordner oder Datei wählen", "fr": "Parcourir dossier ou fichier", "zh": "浏览文件夹或文件"},
     "tip_localhost": {"ru": "Открыть сайт в браузере", "en": "Open the site in a browser", "es": "Abrir el sitio en el navegador", "de": "Seite im Browser öffnen", "fr": "Ouvrir le site dans le navigateur", "zh": "在浏览器中打开站点"},
     "tip_pma": {"ru": "Открыть phpMyAdmin", "en": "Open phpMyAdmin", "es": "Abrir phpMyAdmin", "de": "phpMyAdmin öffnen", "fr": "Ouvrir phpMyAdmin", "zh": "打开 phpMyAdmin"},
     "tip_www": {"ru": "Открыть папку www", "en": "Open the www folder", "es": "Abrir la carpeta www", "de": "www-Ordner öffnen", "fr": "Ouvrir le dossier www", "zh": "打开 www 文件夹"},
@@ -2397,6 +2404,224 @@ class ToolTip:
         self._tip = tip
 
 
+class IconButton(tk.Canvas):
+    """Square button with a vector-drawn pictogram (language-independent)."""
+    def __init__(self, parent, kind, command=None, color="#4f8cff", hover_color="#6aa2ff",
+                 active_color="#3975e8", size=34, tip=None, fg="#ffffff", **kwargs):
+        super().__init__(parent, width=size, height=size, highlightthickness=0,
+                         bg=parent.cget("bg") if isinstance(parent, tk.Frame) else THEME["bg"],
+                         cursor="hand2", **kwargs)
+        self._color = color
+        self._hover_color = hover_color
+        self._active_color = active_color
+        self._command = command
+        self._size = size
+        self._kind = kind
+        self._fg = fg
+        self._enabled = True
+        self._draw(color)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+        if tip:
+            ToolTip(self, tip)
+
+    def set_kind(self, kind):
+        self._kind = kind
+        self._draw(self._color)
+
+    def set_colors(self, color, hover_color, active_color):
+        self._color = color
+        self._hover_color = hover_color
+        self._active_color = active_color
+        self._draw(color)
+
+    def set_state(self, state):
+        self._enabled = (state == "normal")
+        self.configure(cursor="hand2" if self._enabled else "arrow")
+        self._draw(self._color if self._enabled else THEME["bg_input"])
+
+    def _draw(self, bg):
+        self.delete("all")
+        w = h = self._size
+        r = max(6, w // 4)
+        self.create_arc(0, 0, 2 * r, 2 * r, start=90, extent=90, fill=bg, outline="")
+        self.create_arc(w - 2 * r, 0, w, 2 * r, start=0, extent=90, fill=bg, outline="")
+        self.create_arc(0, h - 2 * r, 2 * r, h, start=180, extent=90, fill=bg, outline="")
+        self.create_arc(w - 2 * r, h - 2 * r, w, h, start=270, extent=90, fill=bg, outline="")
+        self.create_rectangle(r, 0, w - r, h, fill=bg, outline="")
+        self.create_rectangle(0, r, w, h - r, fill=bg, outline="")
+        fg = self._fg if self._enabled else THEME["text_muted"]
+        self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
+
+    def _icon(self, kind, cx, cy, u, fg):
+        import math
+        lw = max(2, round(2 * u))
+        if kind == "play":
+            self.create_polygon(cx - 5 * u, cy - 7 * u, cx - 5 * u, cy + 7 * u,
+                                cx + 7 * u, cy, fill=fg, outline="")
+        elif kind == "stop":
+            self.create_rectangle(cx - 6 * u, cy - 6 * u, cx + 6 * u, cy + 6 * u,
+                                  fill=fg, outline="")
+        elif kind in ("restart", "refresh"):
+            self.create_arc(cx - 7 * u, cy - 7 * u, cx + 7 * u, cy + 7 * u,
+                            start=90, extent=270, style="arc", outline=fg, width=lw)
+            if kind == "restart":
+                tx, ty, dx, dy = cx + 7 * u, cy, 0, -1
+            else:
+                tx, ty, dx, dy = cx, cy - 7 * u, -1, 0
+            bx, by = tx - dx * 4.5 * u, ty - dy * 4.5 * u
+            px, py = -dy, dx
+            self.create_polygon(tx, ty, bx + px * 2.6 * u, by + py * 2.6 * u,
+                                bx - px * 2.6 * u, by - py * 2.6 * u, fill=fg, outline="")
+        elif kind == "plus":
+            self.create_rectangle(cx - 2 * u, cy - 7 * u, cx + 2 * u, cy + 7 * u,
+                                  fill=fg, outline="")
+            self.create_rectangle(cx - 7 * u, cy - 2 * u, cx + 7 * u, cy + 2 * u,
+                                  fill=fg, outline="")
+        elif kind == "cross":
+            self.create_line(cx - 5.5 * u, cy - 5.5 * u, cx + 5.5 * u, cy + 5.5 * u,
+                             fill=fg, width=lw + 1, capstyle="round")
+            self.create_line(cx - 5.5 * u, cy + 5.5 * u, cx + 5.5 * u, cy - 5.5 * u,
+                             fill=fg, width=lw + 1, capstyle="round")
+        elif kind in ("folder", "folder_plus"):
+            self.create_rectangle(cx - 8 * u, cy - 3 * u, cx + 8 * u, cy + 7 * u,
+                                  fill=fg, outline="")
+            self.create_polygon(cx - 8 * u, cy - 3 * u, cx - 8 * u, cy - 6 * u,
+                                cx - 3 * u, cy - 6 * u, cx - 1 * u, cy - 3 * u,
+                                fill=fg, outline="")
+            if kind == "folder_plus":
+                self.create_rectangle(cx + 3 * u, cy + 1 * u, cx + 5.4 * u, cy + 9 * u,
+                                      fill=self._color, outline="")
+                self.create_rectangle(cx + 1 * u, cy + 4 * u, cx + 9 * u, cy + 6 * u,
+                                      fill=self._color, outline="")
+        elif kind in ("doc", "doc_plus"):
+            self.create_polygon(cx - 5 * u, cy - 8 * u, cx + 2 * u, cy - 8 * u,
+                                cx + 6 * u, cy - 4 * u, cx + 6 * u, cy + 8 * u,
+                                cx - 5 * u, cy + 8 * u, fill=fg, outline="")
+            if kind == "doc_plus":
+                self.create_rectangle(cx + 2 * u, cy + 1 * u, cx + 4.4 * u, cy + 9 * u,
+                                      fill=self._color, outline="")
+                self.create_rectangle(cx - 1 * u, cy + 4 * u, cx + 7 * u, cy + 6.4 * u,
+                                      fill=self._color, outline="")
+        elif kind == "trash":
+            self.create_line(cx - 7 * u, cy - 5 * u, cx + 7 * u, cy - 5 * u,
+                             fill=fg, width=lw)
+            self.create_line(cx - 2 * u, cy - 8 * u, cx + 2 * u, cy - 8 * u,
+                             fill=fg, width=lw)
+            self.create_polygon(cx - 5.5 * u, cy - 3 * u, cx + 5.5 * u, cy - 3 * u,
+                                cx + 4 * u, cy + 8 * u, cx - 4 * u, cy + 8 * u,
+                                fill=fg, outline="")
+        elif kind == "save":
+            self.create_rectangle(cx - 7 * u, cy - 6 * u, cx + 7 * u, cy + 8 * u,
+                                  outline=fg, width=lw, fill="")
+            self.create_rectangle(cx - 3.5 * u, cy - 6 * u, cx + 3.5 * u, cy, outline=fg,
+                                  width=max(1, lw - 1), fill="")
+            self.create_rectangle(cx - 4.5 * u, cy + 2 * u, cx + 4.5 * u, cy + 8 * u,
+                                  outline=fg, width=max(1, lw - 1), fill="")
+        elif kind == "search":
+            self.create_oval(cx - 7 * u, cy - 7 * u, cx + 2 * u, cy + 2 * u,
+                             outline=fg, width=lw, fill="")
+            self.create_line(cx + 1 * u, cy + 1 * u, cx + 7 * u, cy + 7 * u,
+                             fill=fg, width=lw + 1, capstyle="round")
+        elif kind == "lock":
+            self.create_arc(cx - 4.5 * u, cy - 7 * u, cx + 4.5 * u, cy + 1 * u,
+                            start=0, extent=180, style="arc", outline=fg, width=lw)
+            self.create_rectangle(cx - 6 * u, cy - 1 * u, cx + 6 * u, cy + 8 * u,
+                                  fill=fg, outline="")
+        elif kind == "globe":
+            self.create_oval(cx - 7 * u, cy - 7 * u, cx + 7 * u, cy + 7 * u,
+                             outline=fg, width=lw, fill="")
+            self.create_line(cx, cy - 7 * u, cx, cy + 7 * u, fill=fg, width=max(1, lw - 1))
+            self.create_line(cx - 7 * u, cy, cx + 7 * u, cy, fill=fg, width=max(1, lw - 1))
+        elif kind == "cylinder":
+            self.create_oval(cx - 6 * u, cy - 7 * u, cx + 6 * u, cy - 2 * u,
+                             outline=fg, width=lw, fill="")
+            self.create_line(cx - 6 * u, cy - 4.5 * u, cx - 6 * u, cy + 4.5 * u,
+                             fill=fg, width=lw)
+            self.create_line(cx + 6 * u, cy - 4.5 * u, cx + 6 * u, cy + 4.5 * u,
+                             fill=fg, width=lw)
+            self.create_arc(cx - 6 * u, cy + 0 * u, cx + 6 * u, cy + 8 * u,
+                            start=180, extent=180, style="arc", outline=fg, width=lw)
+        elif kind == "check":
+            self.create_line(cx - 7 * u, cy + 0.5 * u, cx - 2 * u, cy + 5 * u,
+                             cx + 7 * u, cy - 5 * u, fill=fg, width=lw + 1,
+                             capstyle="round", joinstyle="round", smooth=False)
+        elif kind == "up":
+            self.create_line(cx, cy + 7 * u, cx, cy - 4 * u, fill=fg, width=lw + 1,
+                             capstyle="round")
+            self.create_polygon(cx, cy - 8 * u, cx - 3.5 * u, cy - 3 * u,
+                                cx + 3.5 * u, cy - 3 * u, fill=fg, outline="")
+        elif kind == "down":
+            self.create_line(cx, cy - 7 * u, cx, cy + 4 * u, fill=fg, width=lw + 1,
+                             capstyle="round")
+            self.create_polygon(cx, cy + 8 * u, cx - 3.5 * u, cy + 3 * u,
+                                cx + 3.5 * u, cy + 3 * u, fill=fg, outline="")
+        elif kind == "list":
+            for dy in (-5, 0, 5):
+                self.create_line(cx - 7 * u, cy + dy * u, cx + 7 * u, cy + dy * u,
+                                 fill=fg, width=lw + 1, capstyle="round")
+        elif kind == "person":
+            self.create_oval(cx - 3 * u, cy - 7 * u, cx + 3 * u, cy - 1 * u,
+                             fill=fg, outline="")
+            self.create_arc(cx - 7 * u, cy - 1 * u, cx + 7 * u, cy + 9 * u,
+                            start=0, extent=180, style="arc", outline=fg, width=lw + 1)
+        elif kind == "heart":
+            self.create_oval(cx - 6.5 * u, cy - 4.5 * u, cx + 0.5 * u, cy + 3 * u,
+                             fill=fg, outline="")
+            self.create_oval(cx - 0.5 * u, cy - 4.5 * u, cx + 6.5 * u, cy + 3 * u,
+                             fill=fg, outline="")
+            self.create_polygon(cx - 6 * u, cy, cx + 6 * u, cy, cx, cy + 8 * u,
+                                fill=fg, outline="")
+        elif kind == "bookmark":
+            self.create_polygon(cx - 5 * u, cy - 8 * u, cx + 5 * u, cy - 8 * u,
+                                cx + 5 * u, cy + 8 * u, cx, cy + 4 * u,
+                                cx - 5 * u, cy + 8 * u, fill=fg, outline="")
+        elif kind == "pencil":
+            self.create_line(cx - 4 * u, cy + 4 * u, cx + 3 * u, cy - 3 * u,
+                             fill=fg, width=max(3, int(4 * u)), capstyle="round")
+            self.create_polygon(cx - 4 * u, cy + 4 * u, cx - 6.5 * u, cy + 6.5 * u,
+                                cx - 2.5 * u, cy + 6 * u, fill=fg, outline="")
+            self.create_rectangle(cx + 1 * u, cy - 5 * u, cx + 5 * u, cy - 1 * u,
+                                  fill=fg, outline="")
+        elif kind == "help":
+            self.create_text(cx, cy, text="?", fill=fg,
+                             font=(THEME["font_family"], int(14 * u), "bold"))
+        elif kind == "copy":
+            self.create_rectangle(cx - 7 * u, cy - 3 * u, cx + 1 * u, cy + 7 * u,
+                                  outline=fg, width=lw, fill="")
+            self.create_rectangle(cx - 1 * u, cy - 7 * u, cx + 7 * u, cy + 3 * u,
+                                  outline=fg, width=lw, fill=self._color)
+        elif kind == "paste":
+            self.create_rectangle(cx - 6 * u, cy - 3 * u, cx + 6 * u, cy + 8 * u,
+                                  outline=fg, width=lw, fill="")
+            self.create_rectangle(cx - 2.5 * u, cy - 7 * u, cx + 2.5 * u, cy - 1 * u,
+                                  fill=fg, outline="")
+            self.create_line(cx - 3 * u, cy + 2 * u, cx + 3 * u, cy + 2 * u,
+                             fill=fg, width=max(1, lw - 1))
+        else:
+            self.create_rectangle(cx - 5 * u, cy - 5 * u, cx + 5 * u, cy + 5 * u,
+                                  outline=fg, width=lw, fill="")
+
+    def _on_enter(self, e):
+        if self._enabled:
+            self._draw(self._hover_color)
+
+    def _on_leave(self, e):
+        if self._enabled:
+            self._draw(self._color)
+
+    def _on_press(self, e):
+        if self._enabled:
+            self._draw(self._active_color)
+
+    def _on_release(self, e):
+        if self._enabled and self._command:
+            self._draw(self._hover_color)
+            self._command()
+
+
 class OfficeTabs:
     def __init__(self, parent, active_size=11, passive_size=9):
         self.header = tk.Frame(parent, bg=THEME["bg"])
@@ -3611,28 +3836,26 @@ class App:
                 highlightthickness=1 if c == lang.get() else 0))
             self._lang_buttons[code] = btn
 
-        _start_all_btn = StyledButton(controls, lang.t("start_all"), self.start_all,
+        _start_all_btn = IconButton(controls, "play", self.start_all,
             color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"],
-            width=112, height=34, font_size=8)
+            size=34, tip=lang.t("start_all") + " — " + lang.t("tip_start_all"))
         _start_all_btn.pack(side="right", padx=(10,0))
-        ToolTip(_start_all_btn, lang.t("tip_start_all"))
-        _stop_all_btn = StyledButton(controls, lang.t("stop_all"), self.stop_all,
+        _stop_all_btn = IconButton(controls, "stop", self.stop_all,
             color=THEME["danger"], hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-            width=112, height=34, font_size=8)
+            size=34, tip=lang.t("stop_all") + " — " + lang.t("tip_stop_all"))
         _stop_all_btn.pack(side="right", padx=4)
-        ToolTip(_stop_all_btn, lang.t("tip_stop_all"))
-        _restart_all_btn = StyledButton(controls, lang.t("restart_all"), self.restart_all, color=THEME["warning_dim"],
-            hover_color=THEME["warning"], active_color="#ba5e17", width=140, height=34, font_size=8)
+        _restart_all_btn = IconButton(controls, "restart", self.restart_all, color=THEME["warning_dim"],
+            hover_color=THEME["warning"], active_color="#ba5e17", size=34,
+            tip=lang.t("restart_all") + " — " + lang.t("tip_restart_all"))
         _restart_all_btn.pack(side="right", padx=4)
-        ToolTip(_restart_all_btn, lang.t("tip_restart_all"))
-        _help_btn = StyledButton(controls, lang.t("help_btn"), self._show_help, color=THEME["accent"],
-            hover_color=THEME["accent_hover"], active_color=THEME["accent_active"], width=70, height=34, font_size=8)
+        _help_btn = IconButton(controls, "help", self._show_help, color=THEME["accent"],
+            hover_color=THEME["accent_hover"], active_color=THEME["accent_active"], size=34,
+            tip=lang.t("help_btn") + " — " + lang.t("tip_help"))
         _help_btn.pack(side="right", padx=4)
-        ToolTip(_help_btn, lang.t("tip_help"))
-        _donate_btn = StyledButton(controls, lang.t("btn_donate"), self._show_donate, color="#e17055",
-            hover_color="#f0816e", active_color="#c0392b", width=104, height=34, font_size=8)
+        _donate_btn = IconButton(controls, "heart", self._show_donate, color="#e17055",
+            hover_color="#f0816e", active_color="#c0392b", size=34,
+            tip=lang.t("btn_donate") + " — " + lang.t("donate_title"))
         _donate_btn.pack(side="right", padx=4)
-        ToolTip(_donate_btn, lang.t("donate_title"))
 
         self._port_strip = tk.Frame(parent, bg=THEME["bg_card"])
         self._port_strip.pack(fill="x")
@@ -3696,42 +3919,45 @@ class App:
         setattr(self, attr + "_status", status_lbl)
 
         actions = tk.Frame(inner, bg=THEME["bg_card"]); actions.pack(fill="x", pady=(12,0))
-        toggle_btn = StyledButton(actions, lang.t("start"), lambda a=attr: self._toggle_svc(a),
+        toggle_btn = IconButton(actions, "play", lambda a=attr: self._toggle_svc(a),
             color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"],
-            width=78, height=27, font_size=7)
+            size=30, tip=lang.t("start") + " / " + lang.t("stop") + " — " + lang.t("tip_start"))
         toggle_btn.pack(side="left")
         setattr(self, attr + "_toggle", toggle_btn)
-        ToolTip(toggle_btn, lang.t("tip_start"))
         if restart_cmd:
-            restart_btn = StyledButton(actions, lang.t("restart"), restart_cmd, color=THEME["warning_dim"],
-                hover_color=THEME["warning"], active_color="#ba5e17", width=86, height=27, font_size=7)
+            restart_btn = IconButton(actions, "restart", restart_cmd, color=THEME["warning_dim"],
+                hover_color=THEME["warning"], active_color="#ba5e17", size=30,
+                tip=lang.t("restart") + " — " + lang.t("tip_restart"))
             restart_btn.pack(side="left", padx=5); setattr(self, attr + "_restart", restart_btn)
-            ToolTip(restart_btn, lang.t("tip_restart"))
 
 
     def _action_bar(self, parent):
         shell = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["border"], highlightthickness=1)
         shell.pack(fill="x", padx=12, pady=(10,14))
         left = tk.Frame(shell, bg=THEME["bg_card"]); left.pack(side="left", padx=10, pady=9)
-        for text, cmd, color, width, tip in [
-            (lang.t("open_localhost"), self.localhost, THEME["accent"], 116, lang.t("tip_localhost")),
-            (lang.t("phpmyadmin"), self.pma, THEME["info"], 104, lang.t("tip_pma")),
-            (lang.t("open_www"), lambda: os.startfile(str(WWW)), THEME["bg_input"], 94, lang.t("tip_www")),
-            (lang.t("setup_ssl"), self.setup_ssl_cmd, THEME["warning_dim"], 94, lang.t("tip_ssl")),
-            (lang.t("run_script"), self.run_script_cmd, THEME["bg_input"], 96, lang.t("tip_script"))]:
-            _ab = StyledButton(left, text, cmd, color=color, hover_color=THEME["border_light"],
-                               active_color=THEME["border"], width=width, height=30, font_size=7)
+        for kind, cmd, color, hover, active, tip in [
+            ("globe", self.localhost, THEME["accent"], THEME["accent_hover"],
+             THEME["accent_active"], lang.t("open_localhost") + " — " + lang.t("tip_localhost")),
+            ("cylinder", self.pma, "#1f6feb", "#4b9bff",
+             "#1a5fd0", "phpMyAdmin — " + lang.t("tip_pma")),
+            ("folder", lambda: os.startfile(str(WWW)), THEME["bg_input"], THEME["border_light"],
+             THEME["border"], lang.t("open_www") + " — " + lang.t("tip_www")),
+            ("lock", self.setup_ssl_cmd, THEME["warning_dim"], THEME["warning"],
+             "#ba5e17", lang.t("setup_ssl") + " — " + lang.t("tip_ssl")),
+            ("play", self.run_script_cmd, THEME["success"], "#55e39a",
+             THEME["success_dim"], lang.t("run_script") + " — " + lang.t("tip_script"))]:
+            _ab = IconButton(left, kind, cmd, color=color, hover_color=hover,
+                             active_color=active, size=32, tip=tip)
             _ab.pack(side="left", padx=2)
-            ToolTip(_ab, tip)
         right = tk.Frame(shell, bg=THEME["bg_card"]); right.pack(side="right", padx=10, pady=9)
         self._progress_label = tk.Label(right, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
                                          font=("Cascadia Code", 7)); self._progress_label.pack(side="right", padx=5)
         self._progress_bar = ttk.Progressbar(right, mode="determinate", length=130, style="Modern.Horizontal.TProgressbar")
         self._progress_bar.pack(side="right", padx=5)
-        _clear_btn = StyledButton(right, lang.t("clear_logs"), self.clear, color=THEME["bg_input"],
-                     hover_color=THEME["border_light"], active_color=THEME["border"], width=88, height=30, font_size=7)
+        _clear_btn = IconButton(right, "trash", self.clear, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"], size=32,
+                     tip=lang.t("clear_logs") + " — " + lang.t("tip_clear"))
         _clear_btn.pack(side="right", padx=2)
-        ToolTip(_clear_btn, lang.t("tip_clear"))
 
 
     def _log_tabs(self, parent):
@@ -3951,9 +4177,9 @@ class App:
         tk.Entry(r1, textvariable=self._node_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=4)
-        StyledButton(r1, lang.t("first_run_browse"), self._node_browse_dir, color=THEME["bg_input"],
+        IconButton(r1, "folder", self._node_browse_dir, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("first_run_browse") + " — " + lang.t("tip_browse")).pack(side="left", padx=2)
         r2 = tk.Frame(form, bg=THEME["bg_elevated"])
         r2.pack(fill="x", pady=2)
         tk.Label(r2, text=lang.t("node_entry"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -3971,21 +4197,21 @@ class App:
         self._node_ver.pack(side="left", padx=12)
         btns = tk.Frame(parent, bg=THEME["bg_elevated"])
         btns.pack(fill="x", padx=10, pady=4)
-        StyledButton(btns, lang.t("start"), self._node_start_sel, color=THEME["success"],
+        IconButton(btns, "play", self._node_start_sel, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=90, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("stop"), self._node_stop_sel, color=THEME["danger"],
+                     size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
+        IconButton(btns, "stop", self._node_stop_sel, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=90, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("restart"), self._node_restart_sel, color=THEME["warning_dim"],
+                     size=30, tip=lang.t("stop") + " — " + lang.t("tip_start")).pack(side="left", padx=2)
+        IconButton(btns, "restart", self._node_restart_sel, color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("btn_open_site"), self._node_open_sel, color=THEME["info"],
+                     size=30, tip=lang.t("restart") + " — " + lang.t("tip_restart")).pack(side="left", padx=2)
+        IconButton(btns, "globe", self._node_open_sel, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=110, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("btn_remove"), self._node_remove_sel, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_open_site") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
+        IconButton(btns, "cross", self._node_remove_sel, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         cols = ("server", "port", "pid", "started", "status")
         self._node_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
                                        style="Big.Treeview")
@@ -4186,9 +4412,9 @@ class App:
         tk.Entry(r1, textvariable=self._py_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=4)
-        StyledButton(r1, lang.t("first_run_browse"), self._py_browse_dir, color=THEME["bg_input"],
+        IconButton(r1, "folder", self._py_browse_dir, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("first_run_browse") + " — " + lang.t("tip_browse")).pack(side="left", padx=2)
         r2 = tk.Frame(form, bg=THEME["bg_elevated"])
         r2.pack(fill="x", pady=2)
         tk.Label(r2, text=lang.t("node_entry"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -4211,21 +4437,21 @@ class App:
         _pym.pack(side="left", padx=4)
         btns = tk.Frame(parent, bg=THEME["bg_elevated"])
         btns.pack(fill="x", padx=10, pady=2)
-        StyledButton(btns, lang.t("start"), self._py_start_sel, color=THEME["success"],
+        IconButton(btns, "play", self._py_start_sel, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=90, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("stop"), self._py_stop_sel, color=THEME["danger"],
+                     size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
+        IconButton(btns, "stop", self._py_stop_sel, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=90, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("restart"), self._py_restart_sel, color=THEME["warning_dim"],
+                     size=30, tip=lang.t("stop") + " — " + lang.t("tip_start")).pack(side="left", padx=2)
+        IconButton(btns, "restart", self._py_restart_sel, color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("btn_open_site"), self._py_open_sel, color=THEME["info"],
+                     size=30, tip=lang.t("restart") + " — " + lang.t("tip_restart")).pack(side="left", padx=2)
+        IconButton(btns, "globe", self._py_open_sel, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=110, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(btns, lang.t("btn_remove"), self._py_remove_sel, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_open_site") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
+        IconButton(btns, "cross", self._py_remove_sel, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         self._py_tree = ttk.Treeview(parent, columns=("server", "port", "pid", "started", "status"),
                                      show="headings", height=5, style="Big.Treeview")
         self._py_tree.heading("server", text=lang.t("col_server"))
@@ -4436,27 +4662,27 @@ class App:
                  font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
         ag = tk.Frame(acts, bg=THEME["bg_elevated"])
         ag.pack(fill="x", padx=10, pady=(0, 8))
-        StyledButton(ag, lang.t("db_list"), lambda: self._dbm_simple("list"), color=THEME["info"],
+        IconButton(ag, "cylinder", lambda: self._dbm_simple("list"), color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_create"), lambda: self._dbm_simple("create"), color=THEME["success"],
+                     size=30, tip=lang.t("db_list")).pack(side="left", padx=2)
+        IconButton(ag, "plus", lambda: self._dbm_simple("create"), color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_drop"), lambda: self._dbm_simple("drop"), color=THEME["danger"],
+                     size=30, tip=lang.t("db_create")).pack(side="left", padx=2)
+        IconButton(ag, "cross", lambda: self._dbm_simple("drop"), color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_users"), lambda: self._dbm_simple("users"), color=THEME["bg_input"],
+                     size=30, tip=lang.t("db_drop")).pack(side="left", padx=2)
+        IconButton(ag, "list", lambda: self._dbm_simple("users"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_mkuser"), self._dbm_mkuser, color=THEME["bg_input"],
+                     size=30, tip=lang.t("db_users")).pack(side="left", padx=2)
+        IconButton(ag, "person", self._dbm_mkuser, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=110, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_backup"), self._dbm_backup, color=THEME["warning_dim"],
+                     size=30, tip=lang.t("db_mkuser")).pack(side="left", padx=2)
+        IconButton(ag, "down", self._dbm_backup, color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(ag, lang.t("db_restore"), self._dbm_restore, color=THEME["warning_dim"],
+                     size=30, tip=lang.t("db_backup")).pack(side="left", padx=2)
+        IconButton(ag, "up", self._dbm_restore, color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=110, height=26, font_size=8).pack(side="left", padx=2)
+                     size=30, tip=lang.t("db_restore")).pack(side="left", padx=2)
 
         rbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                         highlightthickness=1)
@@ -4469,9 +4695,9 @@ class App:
                  font=(THEME["font_family"], 9)).pack(side="left")
         self._dbm_rpass = tk.StringVar(value="")
         self._std_entry(rrow, self._dbm_rpass, width=16, show="*").pack(side="left", padx=4)
-        StyledButton(rrow, lang.t("db_flush"), self._dbm_flush, color=THEME["danger"],
+        IconButton(rrow, "trash", self._dbm_flush, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=120, height=26, font_size=8).pack(side="left", padx=8)
+                     size=28, tip=lang.t("db_flush")).pack(side="left", padx=8)
 
         self._dbm_out = ScrolledText(parent, wrap="word", bg="#0d0f16", fg="#b8bdd0",
                                      insertbackground="white", font=("Cascadia Code", 9),
@@ -4628,20 +4854,20 @@ class App:
         tk.Entry(r2, textvariable=self._perf_dur_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0, width=8).pack(side="left", padx=4)
-        self._perf_toggle_btn = StyledButton(r2, lang.t("start"), self._perf_toggle,
+        self._perf_toggle_btn = IconButton(r2, "play", self._perf_toggle,
                                             color=THEME["success"],
                                             hover_color="#55e39a", active_color=THEME["success_dim"],
-                                            width=100, height=26, font_size=8)
+                                            size=30, tip=lang.t("start") + " / " + lang.t("stop"))
         self._perf_toggle_btn.pack(side="left", padx=(16, 2))
         StyledButton(r2, "Auto", self._perf_auto, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
                      width=80, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(r2, lang.t("perf_baseline"), self._perf_set_base, color=THEME["bg_input"],
+        IconButton(r2, "bookmark", self._perf_set_base, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(r2, lang.t("perf_save"), self._perf_save, color=THEME["bg_input"],
+                     size=30, tip=lang.t("perf_baseline")).pack(side="left", padx=2)
+        IconButton(r2, "save", self._perf_save, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=130, height=26, font_size=8).pack(side="left", padx=2)
+                     size=30, tip=lang.t("perf_save")).pack(side="left", padx=2)
         tk.Label(cfg, text=lang.t("perf_paths"), bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                  font=(THEME["font_family"], 8), anchor="w").pack(fill="x", pady=(4, 0))
         self._perf_paths_txt = ScrolledText(cfg, wrap="word", bg="#0d0f16", fg="#b8bdd0",
@@ -4694,16 +4920,11 @@ class App:
         try:
             btn = self._perf_toggle_btn
             if running:
-                btn._text = lang.t("stop")
-                btn._color = THEME["danger"]
-                btn._hover_color = "#ff6b5a"
-                btn._active_color = THEME["danger_dim"]
+                btn.set_kind("stop")
+                btn.set_colors(THEME["danger"], "#ff6b5a", THEME["danger_dim"])
             else:
-                btn._text = lang.t("start")
-                btn._color = THEME["success"]
-                btn._hover_color = "#55e39a"
-                btn._active_color = THEME["success_dim"]
-            btn._draw(btn._color)
+                btn.set_kind("play")
+                btn.set_colors(THEME["success"], "#55e39a", THEME["success_dim"])
         except Exception:
             pass
 
@@ -5084,12 +5305,12 @@ class App:
         self._procs_rows = []
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
         top.pack(fill="x", padx=10, pady=5)
-        StyledButton(top, lang.t("btn_refresh"), self._procs_refresh, color=THEME["bg_input"],
+        IconButton(top, "refresh", self._procs_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_delete"), self._procs_kill, color=THEME["danger"],
+                     size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
+        IconButton(top, "cross", self._procs_kill, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_delete") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         tk.Label(top, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._procs_search_var = tk.StringVar(value="")
@@ -5163,21 +5384,21 @@ class App:
     def _build_docker(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
         top.pack(fill="x", padx=10, pady=5)
-        StyledButton(top, lang.t("btn_refresh"), self._dock_refresh, color=THEME["bg_input"],
+        IconButton(top, "refresh", self._dock_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("start"), lambda: self._dock_ctl("start"), color=THEME["success"],
+                     size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
+        IconButton(top, "play", lambda: self._dock_ctl("start"), color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=90, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("stop"), lambda: self._dock_ctl("stop"), color=THEME["danger"],
+                     size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
+        IconButton(top, "stop", lambda: self._dock_ctl("stop"), color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=90, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("restart"), lambda: self._dock_ctl("restart"), color=THEME["warning_dim"],
+                     size=30, tip=lang.t("stop") + " — " + lang.t("tip_start")).pack(side="left", padx=2)
+        IconButton(top, "restart", lambda: self._dock_ctl("restart"), color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_remove"), lambda: self._dock_ctl("rm"), color=THEME["bg_input"],
+                     size=30, tip=lang.t("restart") + " — " + lang.t("tip_restart")).pack(side="left", padx=2)
+        IconButton(top, "cross", lambda: self._dock_ctl("rm"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         cols = ("name", "image", "status", "ports")
         self._dock_tree = ttk.Treeview(parent, columns=cols, show="headings", height=6,
                                        style="Big.Treeview")
@@ -5202,38 +5423,38 @@ class App:
         tk.Entry(comp, textvariable=self._dock_compose_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
-        StyledButton(comp, lang.t("first_run_browse"), self._dock_browse_compose, color=THEME["bg_input"],
+        IconButton(comp, "folder", self._dock_browse_compose, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("dock_up"), lambda: self._dock_compose("up"), color=THEME["success"],
+                     size=28, tip=lang.t("tip_browse")).pack(side="left", padx=2)
+        IconButton(comp, "up", lambda: self._dock_compose("up"), color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=70, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("dock_down"), lambda: self._dock_compose("down"), color=THEME["danger"],
+                     size=28, tip=lang.t("dock_up") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
+        IconButton(comp, "stop", lambda: self._dock_compose("down"), color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=70, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("restart"), lambda: self._dock_compose("restart"), color=THEME["warning_dim"],
+                     size=28, tip=lang.t("dock_down")).pack(side="left", padx=2)
+        IconButton(comp, "restart", lambda: self._dock_compose("restart"), color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
-                     width=90, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("dock_pull"), lambda: self._dock_compose("pull"), color=THEME["bg_input"],
+                     size=28, tip=lang.t("restart") + " — " + lang.t("tip_restart")).pack(side="left", padx=2)
+        IconButton(comp, "down", lambda: self._dock_compose("pull"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=60, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("dock_build"), lambda: self._dock_compose("build"), color=THEME["bg_input"],
+                     size=28, tip=lang.t("dock_pull")).pack(side="left", padx=2)
+        IconButton(comp, "plus", lambda: self._dock_compose("build"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=60, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(comp, lang.t("dock_logs"), self._dock_compose_logs, color=THEME["info"],
+                     size=28, tip=lang.t("dock_build")).pack(side="left", padx=2)
+        IconButton(comp, "list", self._dock_compose_logs, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=70, height=24, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("dock_logs")).pack(side="left", padx=2)
 
         tk.Label(parent, text=lang.t("dock_images"), bg=THEME["bg_elevated"], fg=THEME["text"],
                  font=(THEME["font_family"], 9, "bold"), anchor="w").pack(fill="x", padx=12, pady=(2, 0))
         imgrow = tk.Frame(parent, bg=THEME["bg_elevated"])
         imgrow.pack(fill="x", padx=10, pady=2)
-        StyledButton(imgrow, lang.t("btn_refresh"), self._dock_images_refresh, color=THEME["bg_input"],
+        IconButton(imgrow, "refresh", self._dock_images_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=90, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(imgrow, lang.t("btn_remove"), self._dock_image_remove, color=THEME["danger"],
+                     size=28, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
+        IconButton(imgrow, "cross", self._dock_image_remove, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=90, height=24, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         self._dock_img_tree = ttk.Treeview(parent, columns=("image", "tag", "size"), show="headings",
                                            height=4, style="Big.Treeview")
         self._dock_img_tree.heading("image", text=lang.t("col_image"))
@@ -5257,9 +5478,9 @@ class App:
         self._dock_net_tree.column("name", width=160)
         self._dock_net_tree.column("driver", width=100)
         self._dock_net_tree.pack(fill="x")
-        StyledButton(left, lang.t("btn_remove"), self._dock_net_remove, color=THEME["bg_input"],
+        IconButton(left, "cross", self._dock_net_remove, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=90, height=22, font_size=8).pack(anchor="w", pady=2)
+                     size=28, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(anchor="w", pady=2)
         right = tk.Frame(nv, bg=THEME["bg_elevated"])
         right.pack(side="left", fill="both", expand=True, padx=(5, 0))
         tk.Label(right, text=lang.t("dock_volumes"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -5271,9 +5492,9 @@ class App:
         self._dock_vol_tree.column("name", width=160)
         self._dock_vol_tree.column("driver", width=100)
         self._dock_vol_tree.pack(fill="x")
-        StyledButton(right, lang.t("btn_remove"), self._dock_vol_remove, color=THEME["bg_input"],
+        IconButton(right, "cross", self._dock_vol_remove, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=90, height=22, font_size=8).pack(anchor="w", pady=2)
+                     size=28, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(anchor="w", pady=2)
         self._dock_refresh()
         self._dock_images_refresh()
         self._dock_nets_vols_refresh()
@@ -5480,9 +5701,9 @@ class App:
                  highlightthickness=1, highlightbackground=THEME["border"]).grid(
                      row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=4)
 
-    def _db_button(self, parent, row, col, text, cmd, color, hover, active, width=110):
-        b = StyledButton(parent, text, cmd, color=color, hover_color=hover,
-                         active_color=active, width=width, height=26, font_size=8)
+    def _db_button(self, parent, row, col, kind, tip, cmd, color, hover, active):
+        b = IconButton(parent, kind, cmd, color=color, hover_color=hover,
+                       active_color=active, size=28, tip=tip)
         b.grid(row=row, column=col, sticky="w", padx=4, pady=4)
         return b
 
@@ -5497,14 +5718,14 @@ class App:
         self._maria_port_var = tk.StringVar(value=str(CONFIG["mariadb_port"]))
         self._db_static(mg, 0, 0, lang.t("db_host"), "127.0.0.1")
         self._db_entry(mg, 0, 2, lang.t("node_port"), self._maria_port_var, width=6)
-        self._db_button(mg, 0, 4, lang.t("db_apply"), self._maria_apply,
+        self._db_button(mg, 0, 4, "check", lang.t("db_apply"), self._maria_apply,
                         THEME["success"], "#55e39a", THEME["success_dim"])
         self._maria_cur_var = tk.StringVar(value="")
         self._maria_new_var = tk.StringVar(value="")
         self._db_entry(mg, 1, 0, lang.t("db_curpass"), self._maria_cur_var, width=14, show="*")
         self._db_entry(mg, 1, 2, lang.t("db_rootpass"), self._maria_new_var, width=14, show="*")
-        self._db_button(mg, 1, 4, lang.t("db_setpass"), self._maria_set_pass,
-                        THEME["warning_dim"], THEME["warning"], "#ba5e17", width=120)
+        self._db_button(mg, 1, 4, "lock", lang.t("db_setpass"), self._maria_set_pass,
+                        THEME["warning_dim"], THEME["warning"], "#ba5e17")
 
         pg = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
@@ -5524,12 +5745,12 @@ class App:
         self._db_entry(pgf, 1, 0, lang.t("db_name"), self._pg_db_var, width=16)
         _pgbtns = tk.Frame(pgf, bg=THEME["bg_elevated"])
         _pgbtns.grid(row=1, column=2, columnspan=7, sticky="w", padx=4, pady=4)
-        self._db_button(_pgbtns, 0, 0, lang.t("db_apply"), self._pg_apply,
+        self._db_button(_pgbtns, 0, 0, "check", lang.t("db_apply"), self._pg_apply,
                         THEME["success"], "#55e39a", THEME["success_dim"])
-        self._db_button(_pgbtns, 0, 1, lang.t("db_createdb"), self._pg_create_db,
+        self._db_button(_pgbtns, 0, 1, "plus", lang.t("db_createdb"), self._pg_create_db,
                         THEME["info"], "#2e9bf5", "#0769b5")
-        self._db_button(_pgbtns, 0, 2, lang.t("db_setpass"), self._pg_set_pass,
-                        THEME["warning_dim"], THEME["warning"], "#ba5e17", width=120)
+        self._db_button(_pgbtns, 0, 2, "lock", lang.t("db_setpass"), self._pg_set_pass,
+                        THEME["warning_dim"], THEME["warning"], "#ba5e17")
 
         rd = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                       highlightthickness=1)
@@ -5546,7 +5767,7 @@ class App:
         self._redis_pass_var = tk.StringVar(value=_rc.get("password") or "")
         self._db_entry(rg, 0, 0, lang.t("db_bind"), self._redis_bind_var, width=16)
         self._db_entry(rg, 0, 2, lang.t("db_pass"), self._redis_pass_var, width=20, show="*")
-        self._db_button(rg, 0, 4, lang.t("db_apply"), self._redis_apply,
+        self._db_button(rg, 0, 4, "check", lang.t("db_apply"), self._redis_apply,
                         THEME["success"], "#55e39a", THEME["success_dim"])
 
         self._db_status = tk.Label(parent, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
@@ -5732,31 +5953,27 @@ class App:
     def _build_file_manager(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
         top.pack(fill="x", padx=10, pady=5)
-        StyledButton(top, lang.t("btn_refresh"), self._fm_refresh, color=THEME["bg_input"],
+        IconButton(top, "refresh", self._fm_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_new_folder"), self._fm_mkdir, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
+        IconButton(top, "folder_plus", self._fm_mkdir, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=110, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_new_file"), self._fm_newfile, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_new_folder") + " — " + lang.t("tip_add")).pack(side="left", padx=2)
+        IconButton(top, "doc_plus", self._fm_newfile, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_edit"), self._fm_edit, color=THEME["info"],
+                     size=30, tip=lang.t("btn_new_file") + " — " + lang.t("tip_add")).pack(side="left", padx=2)
+        IconButton(top, "pencil", self._fm_edit, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=110, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_delete"), self._fm_delete, color=THEME["danger"],
+                     size=30, tip=lang.t("btn_edit")).pack(side="left", padx=2)
+        IconButton(top, "cross", self._fm_delete, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        _fm_copy_btn = StyledButton(top, "⧉", self._fm_copy, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_delete") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
+        IconButton(top, "copy", self._fm_copy, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=40, height=28, font_size=10)
-        _fm_copy_btn.pack(side="left", padx=2)
-        ToolTip(_fm_copy_btn, lang.t("donate_copy"))
-        _fm_paste_btn = StyledButton(top, "⎘", self._fm_paste, color=THEME["bg_input"],
+                     size=30, tip=lang.t("donate_copy")).pack(side="left", padx=2)
+        IconButton(top, "paste", self._fm_paste, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=40, height=28, font_size=10)
-        _fm_paste_btn.pack(side="left", padx=2)
-        ToolTip(_fm_paste_btn, lang.t("btn_paste"))
+                     size=30, tip=lang.t("btn_paste")).pack(side="left", padx=2)
         self._fm_path = tk.StringVar(value=str(WWW))
         self._fm_clip = {"op": None, "paths": []}
         path_entry = tk.Entry(top, textvariable=self._fm_path, bg=THEME["entry_bg"],
@@ -6056,12 +6273,13 @@ class App:
         btn_frame = tk.Frame(left, bg=THEME["bg"], height=34)
         btn_frame.pack(fill="x", pady=(6, 4))
         btn_frame.pack_propagate(False)
-        StyledButton(btn_frame, lang.t("btn_execute"), self._sql_execute, color=THEME["success"],
+        IconButton(btn_frame, "play", self._sql_execute, color=THEME["success"],
                      hover_color="#10d8a0", active_color=THEME["success_dim"],
-                     width=96, height=28, font_size=9).pack(side="left", padx=3)
-        StyledButton(btn_frame, lang.t("btn_clear"), lambda: self._sql_editor.delete("1.0", "end"),
+                     size=30, tip=lang.t("btn_execute") + " — " + lang.t("tip_run")).pack(side="left", padx=3)
+        IconButton(btn_frame, "trash", lambda: self._sql_editor.delete("1.0", "end"),
                      color=THEME["bg_input"], hover_color=THEME["border_light"],
-                     active_color=THEME["border"], width=78, height=28, font_size=9).pack(side="left", padx=3)
+                     active_color=THEME["border"], size=30,
+                     tip=lang.t("btn_clear") + " — " + lang.t("tip_clear")).pack(side="left", padx=3)
 
         lbl_right = tk.Label(right, text=lang.t("sql_results"), bg=THEME["bg"], fg=THEME["text_dim"],
                              font=(THEME["font_family"], 8, "bold"), anchor="w")
@@ -6139,18 +6357,18 @@ class App:
     def _build_sites_manager(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
         top.pack(fill="x", padx=10, pady=5)
-        StyledButton(top, lang.t("btn_add_site"), self._site_add, color=THEME["success"],
+        IconButton(top, "plus", self._site_add, color=THEME["success"],
                      hover_color="#10d8a0", active_color=THEME["success_dim"],
-                     width=120, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_open_site"), self._site_launch, color=THEME["info"],
+                     size=30, tip=lang.t("btn_add_site") + " — " + lang.t("tip_add")).pack(side="left", padx=2)
+        IconButton(top, "globe", self._site_launch, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=120, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_remove"), self._site_remove, color=THEME["danger"],
+                     size=30, tip=lang.t("btn_open_site") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
+        IconButton(top, "cross", self._site_remove, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=100, height=28, font_size=9).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_open_folder"), self._site_open, color=THEME["bg_input"],
+                     size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
+        IconButton(top, "folder", self._site_open, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=120, height=28, font_size=9).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_open_folder") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
         cols = ("name", "domain", "root", "port", "type", "https")
         self._site_tree = ttk.Treeview(parent, columns=cols, show="headings", height=10,
                                        style="Big.Treeview")
@@ -6350,15 +6568,15 @@ class App:
     def _build_task_scheduler(self, parent):
         top = tk.Frame(parent, bg=THEME["bg_elevated"])
         top.pack(fill="x", padx=10, pady=5)
-        StyledButton(top, lang.t("btn_add_task"), self._task_add, color=THEME["success"],
+        IconButton(top, "plus", self._task_add, color=THEME["success"],
                      hover_color="#10d8a0", active_color=THEME["success_dim"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_remove"), self._task_remove, color=THEME["danger"],
+                     size=30, tip=lang.t("btn_add_task") + " — " + lang.t("tip_add")).pack(side="left", padx=2)
+        IconButton(top, "cross", self._task_remove, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(top, lang.t("btn_run_now"), self._task_run, color=THEME["info"],
+                     size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
+        IconButton(top, "play", self._task_run, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+                     size=30, tip=lang.t("btn_run_now") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
         cols = ("name", "schedule", "command", "status")
         self._task_tree = ttk.Treeview(parent, columns=cols, show="headings", height=10,
                                         style="Big.Treeview")
@@ -6466,15 +6684,15 @@ class App:
         tk.Entry(dl, textvariable=self._set_dl_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                  relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=6)
-        StyledButton(dl, lang.t("first_run_browse"), self._set_browse_dl, color=THEME["accent"],
+        IconButton(dl, "folder", self._set_browse_dl, color=THEME["accent"],
                      hover_color=THEME["accent_hover"], active_color=THEME["accent_active"],
-                     width=80, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(dl, lang.t("set_open_folder"), self._set_open_dl, color=THEME["success"],
+                     size=28, tip=lang.t("first_run_browse") + " — " + lang.t("tip_browse")).pack(side="left", padx=2)
+        IconButton(dl, "folder", self._set_open_dl, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=90, height=24, font_size=8).pack(side="left", padx=2)
-        StyledButton(dl, lang.t("set_rescan"), self._set_refresh, color=THEME["info"],
+                     size=28, tip=lang.t("set_open_folder") + " — " + lang.t("tip_open")).pack(side="left", padx=2)
+        IconButton(dl, "refresh", self._set_refresh, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=100, height=24, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("set_rescan") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
 
         logf = tk.Frame(parent, bg=THEME["bg_elevated"])
         logf.pack(fill="x", padx=10, pady=4)
@@ -6557,9 +6775,9 @@ class App:
         self._env_php_cur = tk.Label(erow, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                      font=("Cascadia Code", 9))
         self._env_php_cur.pack(side="left", padx=4)
-        StyledButton(erow, lang.t("db_apply"), self._env_apply_php, color=THEME["success"],
+        IconButton(erow, "check", self._env_apply_php, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
+                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
         erow2 = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow2.pack(fill="x", padx=6, pady=2)
         tk.Label(erow2, text=lang.t("env_node"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -6574,9 +6792,9 @@ class App:
         self._env_node_cur = tk.Label(erow2, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                       font=("Cascadia Code", 9))
         self._env_node_cur.pack(side="left", padx=4)
-        StyledButton(erow2, lang.t("db_apply"), self._env_apply_node, color=THEME["success"],
+        IconButton(erow2, "check", self._env_apply_node, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
+                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
         erow_py = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow_py.pack(fill="x", padx=6, pady=2)
         tk.Label(erow_py, text="Python:", bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -6591,9 +6809,9 @@ class App:
         self._env_py_cur = tk.Label(erow_py, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
                                     font=("Cascadia Code", 9))
         self._env_py_cur.pack(side="left", padx=4)
-        StyledButton(erow_py, lang.t("db_apply"), self._env_apply_python, color=THEME["success"],
+        IconButton(erow_py, "check", self._env_apply_python, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
+                     size=28, tip=lang.t("db_apply")).pack(side="right", padx=(8, 2))
         erow3 = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow3.pack(fill="x", padx=6, pady=(2, 8))
         tk.Label(erow3, text=lang.t("env_tools"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -6625,12 +6843,12 @@ class App:
             cb.grid(row=idx // 4, column=idx % 4, sticky="w", padx=8, pady=2)
         inst_row = tk.Frame(select_box, bg=THEME["bg_elevated"])
         inst_row.pack(fill="x", padx=6, pady=(0, 8))
-        StyledButton(inst_row, lang.t("set_install_sel"), self._set_install_selected, color=THEME["success"],
+        IconButton(inst_row, "down", self._set_install_selected, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
-                     width=150, height=26, font_size=8).pack(side="left", padx=2)
-        StyledButton(inst_row, lang.t("set_install_missing"), self._set_install_missing, color=THEME["info"],
+                     size=28, tip=lang.t("set_install_sel")).pack(side="left", padx=2)
+        IconButton(inst_row, "down", self._set_install_missing, color=THEME["info"],
                      hover_color="#2e9bf5", active_color="#0769b5",
-                     width=170, height=26, font_size=8).pack(side="left", padx=2)
+                     size=28, tip=lang.t("set_install_missing")).pack(side="left", padx=2)
 
         cols = ("component", "state", "archive", "expected")
         self._set_tree = ttk.Treeview(parent, columns=cols, show="headings", height=8,
@@ -6886,16 +7104,11 @@ class App:
     def _update_toggle_btn(self, attr, running):
         btn = getattr(self, attr + "_toggle")
         if running:
-            btn._text = lang.t("stop")
-            btn._color = THEME["danger"]
-            btn._hover_color = "#ff6b5a"
-            btn._active_color = THEME["danger_dim"]
+            btn.set_kind("stop")
+            btn.set_colors(THEME["danger"], "#ff6b5a", THEME["danger_dim"])
         else:
-            btn._text = lang.t("start")
-            btn._color = THEME["success"]
-            btn._hover_color = "#10d8a0"
-            btn._active_color = THEME["success_dim"]
-        btn._draw(btn._color)
+            btn.set_kind("play")
+            btn.set_colors(THEME["success"], "#55e39a", THEME["success_dim"])
 
     def _docker_poll(self):
         while not self.closing:
@@ -7978,9 +8191,9 @@ class App:
             d = filedialog.askdirectory(initialdir=download_dir_var.get())
             if d:
                 download_dir_var.set(d)
-        StyledButton(dir_inner, lang.t("first_run_browse"), browse_dir, color=THEME["bg_input"],
+        IconButton(dir_inner, "folder", browse_dir, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
-                     width=80, height=26, font_size=8).pack(side="right", padx=(8, 0))
+                     size=28, tip=lang.t("first_run_browse") + " — " + lang.t("tip_browse")).pack(side="right", padx=(8, 0))
 
         btn_frame = tk.Frame(win, bg=THEME["bg"])
         btn_frame.pack(fill="x", padx=20, pady=10)
