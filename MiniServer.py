@@ -329,6 +329,10 @@ LOCALES = {
     "set_ports": {"ru": "Порты", "en": "Ports", "es": "Puertos", "de": "Ports", "fr": "Ports", "zh": "端口"},
     "set_autostart": {"ru": "Автозапуск с Windows", "en": "Start with Windows", "es": "Iniciar con Windows", "de": "Mit Windows starten", "fr": "Démarrer avec Windows", "zh": "随 Windows 启动"},
     "perf_chart_tab": {"ru": "Нагрузка: график", "en": "Load: chart", "es": "Carga: gráfico", "de": "Last: Chart", "fr": "Charge : graphique", "zh": "负载：图表"},
+    "set_snapshot": {"ru": "Снапшот", "en": "Snapshot", "es": "Instantánea", "de": "Snapshot", "fr": "Instantané", "zh": "快照"},
+    "set_restore": {"ru": "Восстановить", "en": "Restore", "es": "Restaurar", "de": "Wiederherst.", "fr": "Restaurer", "zh": "恢复"},
+    "site_phpver": {"ru": "Версия PHP (пусто — по умолчанию):", "en": "PHP version (empty — default):", "es": "Versión de PHP (vacío — predeterminada):", "de": "PHP-Version (leer — Standard):", "fr": "Version de PHP (vide — défaut) :", "zh": "PHP 版本（留空为默认）:"},
+    "update_avail": {"ru": "Доступно обновление {ver} (у вас {cur}) — скачайте с GitHub", "en": "Update available {ver} (you have {cur}) — download from GitHub", "es": "Actualización disponible {ver} (tienes {cur}) — descarga de GitHub", "de": "Update verfügbar {ver} (installiert {cur}) — von GitHub laden", "fr": "Mise à jour {ver} disponible (vous avez {cur}) — voir GitHub", "zh": "有可用更新 {ver}（当前 {cur}）——请从 GitHub 下载"},
     "btn_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
     "btn_cut": {"ru": "Вырезать", "en": "Cut", "es": "Cortar", "de": "Ausschneiden", "fr": "Couper", "zh": "剪切"},
     "btn_paste": {"ru": "Вставить", "en": "Paste", "es": "Pegar", "de": "Einfügen", "fr": "Coller", "zh": "粘贴"},
@@ -374,6 +378,7 @@ class LangManager:
 lang = LangManager()
 
 APP_NAME = "Faraja WebServer"
+APP_VERSION = "15.2"
 for _entry in LOCALES.values():
     for _code, _text in _entry.items():
         if "MiniServer" in _text:
@@ -785,6 +790,12 @@ def install_component(name,log,progress,item=None,prearchive=None):
         target=RUNTIME/"Nodejs"
         shutil.rmtree(target,ignore_errors=True)
         shutil.move(str(source),str(target))
+    elif name in ("php82", "php83", "php84"):
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/("php"+name.replace("php", ""))
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
     elif name.startswith("python3"):
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
@@ -818,7 +829,7 @@ def install_component(name,log,progress,item=None,prearchive=None):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={}
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={};self.php_extra={}
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -1008,6 +1019,74 @@ class Services:
         if not re.fullmatch(r"[A-Za-z0-9]([A-Za-z0-9.-]{0,61}[A-Za-z0-9])?", domain or ""):
             raise RuntimeError(f"Bad domain name: {domain}")
         return domain
+    PHP_EXTRA_PORTS = {"8.2": 9174, "8.4": 9274}
+
+    def default_php_ver(self):
+        try:
+            return self.env_active()[0] or "8.3"
+        except Exception:
+            return "8.3"
+
+    def ensure_all_site_php(self):
+        for s in getattr(self, "sites_cache", []):
+            if s.get("type", "php") not in ("php", "static"):
+                continue
+            ver = (s.get("phpver") or "").strip()
+            if not ver or ver == self.default_php_ver():
+                continue
+            try:
+                self.ensure_site_php(ver)
+            except Exception as e:
+                self.log(f"Site PHP {ver} ERROR: {e}")
+
+    def ensure_site_php(self, ver):
+        """Make sure a side PHP runtime + persistent CGI exist for a site. Returns version dir or None for default."""
+        if not ver or ver == self.default_php_ver():
+            return None
+        tag = "php" + ver.replace(".", "")
+        if tag not in ("php82", "php83", "php84"):
+            raise RuntimeError(f"Unsupported site PHP version: {ver} (use 8.2/8.3/8.4)")
+        vdir = RUNTIME / ("php" + ver.replace(".", ""))
+        if not (vdir / "php-cgi.exe").exists():
+            info = comps().get("php_versions", {}).get(ver)
+            if not info:
+                raise RuntimeError(f"Unknown PHP version: {ver}")
+            arc = DOWNLOADS / info["archive"]
+            if not (arc.is_file() and zipfile.is_zipfile(arc)):
+                self.log(f"Downloading PHP {ver} for site...")
+                download(info["url"], arc,
+                         lambda g, t, s: (self.ui_progress and self.ui_progress(f"php {ver}", g, t)),
+                         self.log)
+            install_component(tag, self.log,
+                              lambda g, t, s: (self.ui_progress and self.ui_progress(f"php {ver}", g, t)),
+                              prearchive=arc)
+        main_ini = self.pd / "php.ini"
+        vini = vdir / "php.ini"
+        if main_ini.is_file() and not vini.is_file():
+            try:
+                shutil.copy2(str(main_ini), str(vini))
+            except OSError:
+                pass
+        port = self.PHP_EXTRA_PORTS.get(ver)
+        if port is None:
+            raise RuntimeError(f"No CGI port mapped for PHP {ver}")
+        proc = self.php_extra.get(ver)
+        try:
+            alive = proc is not None and proc.poll() is None
+        except Exception:
+            alive = False
+        if not alive:
+            f = self.logfile("php-process.log")
+            proc = subprocess.Popen(
+                [str(vdir / "php-cgi.exe"), "-b", f"127.0.0.1:{port}", "-c", str(vini if vini.is_file() else vdir)],
+                cwd=vdir, stdout=f, stderr=f,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self.php_extra[ver] = proc
+            if not wait_port(port, 15):
+                raise RuntimeError(f"PHP {ver} CGI did not start on port {port}")
+            self.log(f"PHP {ver} CGI ready on port {port} for sites")
+        return vdir
+
     def write_apache_vhosts(self):
         vdir = self.ad / "conf" / "vhosts"
         vdir.mkdir(parents=True, exist_ok=True)
@@ -1043,6 +1122,18 @@ class Services:
                 self.log(f"Site '{s.get('name', domain)}': root folder is missing, vhost skipped")
                 continue
             root = root_p.resolve().as_posix()
+            site_php = (s.get("phpver") or "").strip()
+            handler = ""
+            if site_php and site_php != self.default_php_ver():
+                tag = "php" + site_php.replace(".", "")
+                vphp = (RUNTIME / ("php" + site_php.replace(".", ""))).resolve().as_posix()
+                handler = (
+                    f'    ScriptAlias /php-cgi-bin-{tag}/ "{vphp}/"\n'
+                    f'    Action {tag}-handler /php-cgi-bin-{tag}/php-cgi.exe virtual\n'
+                    f'    <FilesMatch "\\.php$">\n'
+                    f'        SetHandler {tag}-handler\n'
+                    f'    </FilesMatch>\n'
+                )
             (vdir / f"{domain}.conf").write_text(
                 f'<VirtualHost 127.0.0.1:{a_port}>\n'
                 f'    ServerName {domain}\n'
@@ -1053,7 +1144,7 @@ class Services:
                 f'        Options {listing} +FollowSymLinks\n'
                 f'        DirectoryIndex index.html index.php index.htm\n'
                 f'    </Directory>\n'
-                f'</VirtualHost>\n', encoding="utf-8")
+                f'{handler}</VirtualHost>\n', encoding="utf-8")
     def mkcert_domain(self, domain):
         self.check_domain(domain)
         mkcert = RUNTIME / "mkcert" / "mkcert.exe"
@@ -2081,6 +2172,89 @@ http {{
         if r.returncode != 0:
             raise RuntimeError(((r.stderr or r.stdout) or "").strip()[:300] or "restore failed")
         self.log(f"Restored from: {filepath}")
+    @staticmethod
+    def _ver_tuple(v):
+        try:
+            return tuple(int(x) for x in str(v).lstrip("vV").split(".")[:3])
+        except Exception:
+            return (0,)
+
+    def latest_release(self):
+        r = requests.get("https://api.github.com/repos/nsmykh70-creator/FarajaWebServer/releases/latest",
+                         timeout=10, headers={"User-Agent": "FarajaWebServer"})
+        r.raise_for_status()
+        return (r.json().get("tag_name", "") or "").strip()
+
+    def snapshot_create(self):
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        snap_dir = APP_ROOT / "backups"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        out = snap_dir / f"faraja-snap-{ts}.zip"
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            for p in WWW.rglob("*"):
+                if p.is_file():
+                    z.write(p, Path("www") / p.relative_to(WWW))
+            for cfg in ("server.json", "sites.json", "tasks.json", "settings.json",
+                        "node.json", "python.json", "env.json", "lang.json"):
+                p = APP_ROOT / "config" / cfg
+                if p.is_file():
+                    z.write(p, Path("config") / cfg)
+        dumps = []
+        try:
+            tool = self.md / "bin" / "mysqldump.exe"
+            if tool.exists() and self.drun():
+                dump = snap_dir / f"mariadb-{ts}.sql"
+                r = subprocess.run([str(tool), "-u", "root", "--port", str(CONFIG["mariadb_port"]),
+                                    "--all-databases", f"--result-file={dump}"],
+                                   capture_output=True, text=True, timeout=300,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                if r.returncode == 0:
+                    dumps.append(str(dump))
+                else:
+                    self.log("Snapshot: mysqldump skipped (check root access)")
+        except Exception as e:
+            self.log(f"Snapshot: mysqldump skipped ({e})")
+        try:
+            tool = self.pgd / "bin" / "pg_dumpall.exe"
+            if tool.exists() and self.pgrun():
+                dump = snap_dir / f"postgres-{ts}.sql"
+                env = os.environ.copy()
+                r = subprocess.run([str(tool), "-U", "postgres", "-h", "127.0.0.1",
+                                    "-p", str(CONFIG["postgresql_port"]), "-f", str(dump)],
+                                   capture_output=True, text=True, timeout=300, env=env,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                if r.returncode == 0:
+                    dumps.append(str(dump))
+                else:
+                    self.log("Snapshot: pg_dumpall skipped (check postgres access)")
+        except Exception as e:
+            self.log(f"Snapshot: pg_dumpall skipped ({e})")
+        self.log(f"Snapshot saved: {out.name}" + (f" + {len(dumps)} dumps" if dumps else ""))
+        return out
+
+    def snapshot_restore(self, snap_path):
+        snap = Path(snap_path)
+        if not snap.is_file() or not zipfile.is_zipfile(snap):
+            raise RuntimeError(f"Bad snapshot file: {snap_path}")
+        with zipfile.ZipFile(snap) as z:
+            names = z.namelist()
+            if not any(n.startswith("www/") for n in names):
+                raise RuntimeError("Not a Faraja snapshot (no www/ inside)")
+            for n in names:
+                parts = Path(n).parts
+                if not parts or Path(n).is_absolute() or ".." in parts:
+                    continue
+                if not (n.startswith("www/") or n.startswith("config/")):
+                    continue
+                target = APP_ROOT.joinpath(*parts)
+                if n.endswith("/"):
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(n) as src, open(target, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+        self.log(f"Snapshot restored from: {snap.name} (restart services to apply)")
+
     def redis_flush(self, password):
         cli = self.rdd / "redis-cli.exe"
         if not cli.exists():
@@ -2409,6 +2583,13 @@ http {{
                 self.py_server_stop(name, quiet=True)
             except Exception:
                 pass
+        for ver, proc in list(self.php_extra.items()):
+            try:
+                if proc is not None and proc.poll() is None:
+                    kill_pid_tree(proc.pid)
+            except Exception:
+                pass
+        self.php_extra.clear()
         for pid, info in list(self.node_processes.items()):
             try:
                 proc = info.get("proc")
@@ -3883,6 +4064,7 @@ class App:
         if not is_admin():
             self.log(lang.t("admin_hint"))
         threading.Thread(target=self._docker_poll, daemon=True).start()
+        threading.Thread(target=self._startup_site_php, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW",self.hide)
         self.root.bind("<Unmap>",self.unmap)
         self.root.after(500,self.refresh)
@@ -4320,10 +4502,21 @@ class App:
             if kind == "bool":
                 var = tk.BooleanVar(value=cur.lower() in ("1", "on", "true", "yes"))
                 tk.Checkbutton(row, variable=var, bg=THEME["bg_elevated"],
-                               selectcolor=THEME["bg_input"],
+                               selectcolor=THEME["entry_bg"],
                                activebackground=THEME["bg_elevated"],
-                               highlightthickness=0, bd=0,
-                               command=self._phpini_schedule).pack(side="left")
+                               highlightthickness=0, bd=0).pack(side="left")
+                st = tk.StringVar(value="On" if var.get() else "Off")
+                st_lbl = tk.Label(row, textvariable=st, bg=THEME["bg_elevated"],
+                                  fg=THEME["success"] if var.get() else THEME["text_muted"],
+                                  font=("Cascadia Code", 9), width=4, anchor="w")
+                st_lbl.pack(side="left", padx=2)
+
+                def _upd(*a, _v=var, _s=st, _l=st_lbl):
+                    on = bool(_v.get())
+                    _s.set("On" if on else "Off")
+                    _l.configure(fg=THEME["success"] if on else THEME["text_muted"])
+                    self._phpini_schedule()
+                var.trace_add("write", _upd)
             else:
                 var = tk.StringVar(value=cur)
                 e = tk.Entry(row, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
@@ -4331,8 +4524,7 @@ class App:
                              relief="flat", bd=0, width=30, highlightthickness=1,
                              highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
                 e.pack(side="left", fill="x", expand=True)
-                e.bind("<KeyRelease>", lambda e: self._phpini_schedule())
-            var.trace_add("write", lambda *a: self._phpini_schedule())
+                var.trace_add("write", lambda *a: self._phpini_schedule())
             self._phpini_vars[key.lower()] = (kind, var)
             self._phpini_rows.append((key.lower(), key, row))
 
@@ -4348,7 +4540,7 @@ class App:
         for idx, dll in enumerate(avail):
             var = tk.BooleanVar(value=dll in enabled)
             cb = tk.Checkbutton(eg, text=dll, variable=var, bg=THEME["bg_elevated"],
-                                fg=THEME["text"], selectcolor=THEME["bg_input"],
+                                fg=THEME["text"], selectcolor=THEME["entry_bg"],
                                 activebackground=THEME["bg_elevated"],
                                 activeforeground=THEME["text"],
                                 font=("Cascadia Code", 8),
@@ -6784,6 +6976,20 @@ class App:
             if pyver is None:
                 return
             pyver = (pyver.strip() or default_py)
+        phpver = ""
+        if typ == "php":
+            try:
+                default_php = self.svc.default_php_ver()
+            except Exception:
+                default_php = "8.3"
+            phpver = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_phpver"),
+                                           initial="")
+            if phpver is None:
+                return
+            phpver = phpver.strip()
+            if phpver and phpver != default_php and phpver not in ("8.2", "8.3", "8.4"):
+                messagebox.showerror(lang.t("error"), phpver)
+                return
         https = DarkPrompt.ask_yes_no(self.root, lang.t("btn_add_site"), lang.t("site_https_q"))
         port = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_port"))
         if port is None:
@@ -6794,7 +7000,8 @@ class App:
         if not index.exists():
             index.write_text(f"<html><body><h1>{name}</h1></body></html>", encoding="utf-8")
         self._sites.append({"name": name, "domain": domain, "root": str(site_root),
-                            "port": port, "type": typ, "https": https, "pyver": pyver})
+                            "port": port, "type": typ, "https": https, "pyver": pyver,
+                            "phpver": phpver})
         self._sites_file.write_text(json.dumps(self._sites, indent=2), encoding="utf-8")
         self.svc.set_sites(self._sites)
         self._load_sites()
@@ -6815,6 +7022,11 @@ class App:
                             self.root.after(0, self._load_sites)
                         except Exception:
                             pass
+                if typ == "php" and phpver:
+                    try:
+                        self.svc.ensure_site_php(phpver)
+                    except Exception as e:
+                        self.log(f"Site PHP {phpver} ERROR: {e}")
                 self.svc.write_configs()
                 self.svc._write_nginx_conf()
                 try:
@@ -7118,6 +7330,26 @@ class App:
                        highlightthickness=0, bd=0).grid(row=1, column=6, sticky="w",
                                                         padx=8, pady=3)
         threading.Thread(target=self._autostart_refresh, daemon=True).start()
+
+        snapbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                           highlightthickness=1)
+        snapbox.pack(fill="x", padx=10, pady=4)
+        IconButton(snapbox, "save", self._snapshot_make, color=THEME["success"],
+                   hover_color="#55e39a", active_color=THEME["success_dim"],
+                   size=28, tip=lang.t("set_snapshot")).pack(side="left", padx=(10, 2), pady=8)
+        tk.Label(snapbox, text=lang.t("set_snapshot"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=2, pady=8)
+        IconButton(snapbox, "up", self._snapshot_restore, color=THEME["warning_dim"],
+                   hover_color=THEME["warning"], active_color="#ba5e17",
+                   size=28, tip=lang.t("set_restore")).pack(side="left", padx=(14, 2), pady=8)
+        tk.Label(snapbox, text=lang.t("set_restore"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=2, pady=8)
+        self._update_label = tk.Label(snapbox, text="", bg=THEME["bg_elevated"],
+                                      fg=THEME["warning"],
+                                      font=(THEME["font_family"], 8))
+        self._update_label.pack(side="right", padx=10, pady=8)
+        threading.Thread(target=self._update_check, daemon=True).start()
+
         envbox = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                         highlightthickness=1)
         envbox.pack(side="left", fill="both", expand=True, padx=(0, 5))
@@ -7400,6 +7632,45 @@ class App:
             self.root.after(0, lambda: self._autostart_var.set(not on))
             messagebox.showerror(lang.t("error"), str(e))
 
+    def _snapshot_make(self):
+        def w():
+            try:
+                out = self.svc.snapshot_create()
+                self.root.after(0, lambda: messagebox.showinfo(APP_NAME, str(out.name)))
+            except Exception as e:
+                self.log("Snapshot ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _snapshot_restore(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Faraja snapshot",
+            filetypes=[("Faraja snapshot", "faraja-snap-*.zip"), ("ZIP", "*.zip")],
+            initialdir=str(APP_ROOT / "backups"))
+        if not path:
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("set_restore"), Path(path).name + "?"):
+            return
+        def w():
+            try:
+                self.svc.snapshot_restore(path)
+                self.root.after(0, self._set_refresh)
+            except Exception as e:
+                self.log("Restore ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _update_check(self):
+        try:
+            tag = self.svc.latest_release()
+            if tag and self.svc._ver_tuple(tag) > self.svc._ver_tuple(APP_VERSION):
+                msg = lang.t("update_avail", ver=tag, cur="v" + APP_VERSION)
+                self.log(msg)
+                self.root.after(0, lambda: self._update_label.configure(text=msg[:100]))
+        except Exception as e:
+            self.log(f"Update check skipped ({e})")
+
     def _on_log_font_change(self):
         self._settings["log_font"] = self._log_font_var.get()
         try:
@@ -7563,6 +7834,12 @@ class App:
         else:
             btn.set_kind("play")
             btn.set_colors(THEME["success"], "#55e39a", THEME["success_dim"])
+
+    def _startup_site_php(self):
+        try:
+            self.svc.ensure_all_site_php()
+        except Exception as e:
+            self.log(f"Site PHP warmup: {e}")
 
     def _docker_poll(self):
         while not self.closing:
