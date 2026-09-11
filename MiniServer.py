@@ -320,6 +320,14 @@ LOCALES = {
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
     "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
     "dbm_conn": {"ru": "Подключение", "en": "Connection", "es": "Conexión", "de": "Verbindung", "fr": "Connexion", "zh": "连接"},
+    "tab_phpini": {"ru": "PHP.ini", "en": "PHP.ini", "es": "PHP.ini", "de": "PHP.ini", "fr": "PHP.ini", "zh": "PHP.ini"},
+    "phpini_search": {"ru": "Поиск:", "en": "Search:", "es": "Buscar:", "de": "Suchen:", "fr": "Rechercher :", "zh": "搜索："},
+    "phpini_directives": {"ru": "Директивы", "en": "Directives", "es": "Directivas", "de": "Direktiven", "fr": "Directives", "zh": "指令"},
+    "phpini_ext": {"ru": "Расширения", "en": "Extensions", "es": "Extensiones", "de": "Erweiterungen", "fr": "Extensions", "zh": "扩展"},
+    "phpini_save": {"ru": "Сохранить", "en": "Save", "es": "Guardar", "de": "Speichern", "fr": "Enregistrer", "zh": "保存"},
+    "phpini_restart": {"ru": "Рестарт PHP", "en": "Restart PHP", "es": "Reiniciar PHP", "de": "PHP neu starten", "fr": "Redémarrer PHP", "zh": "重启 PHP"},
+    "set_ports": {"ru": "Порты", "en": "Ports", "es": "Puertos", "de": "Ports", "fr": "Ports", "zh": "端口"},
+    "set_autostart": {"ru": "Автозапуск с Windows", "en": "Start with Windows", "es": "Iniciar con Windows", "de": "Mit Windows starten", "fr": "Démarrer avec Windows", "zh": "随 Windows 启动"},
     "perf_chart_tab": {"ru": "Нагрузка: график", "en": "Load: chart", "es": "Carga: gráfico", "de": "Last: Chart", "fr": "Charge : graphique", "zh": "负载：图表"},
     "btn_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
     "btn_cut": {"ru": "Вырезать", "en": "Cut", "es": "Cortar", "de": "Ausschneiden", "fr": "Couper", "zh": "剪切"},
@@ -882,6 +890,105 @@ class Services:
             if (mods_dir / so_file).exists():
                 lines.append(f"LoadModule {mod_name} modules/{so_file}")
         return "\n".join(lines)
+    PHP_INI_MANAGED = [
+        ("display_errors", "bool"), ("display_startup_errors", "bool"),
+        ("log_errors", "bool"), ("error_reporting", "text"),
+        ("memory_limit", "text"), ("max_execution_time", "text"),
+        ("max_input_time", "text"), ("upload_max_filesize", "text"),
+        ("post_max_size", "text"), ("max_file_uploads", "text"),
+        ("max_input_vars", "text"), ("default_charset", "text"),
+        ("date.timezone", "text"), ("expose_php", "bool"),
+        ("short_open_tag", "bool"), ("allow_url_fopen", "bool"),
+        ("allow_url_include", "bool"), ("cgi.fix_pathinfo", "text"),
+        ("opcache.enable", "bool"), ("opcache.memory_consumption", "text"),
+        ("opcache.max_accelerated_files", "text"), ("opcache.validate_timestamps", "bool"),
+        ("session.save_path", "text"), ("session.gc_maxlifetime", "text"),
+        ("realpath_cache_size", "text"), ("sys_temp_dir", "text"),
+    ]
+
+    def php_ini_file(self):
+        return self.pd / "php.ini"
+
+    def php_ini_parse(self):
+        """Returns (values dict, ext_enabled set, lines list). Missing file -> RuntimeError."""
+        p = self.php_ini_file()
+        if not p.is_file():
+            raise RuntimeError("php.ini not found — is PHP installed?")
+        values, exts, lines = {}, set(), []
+        for raw in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            s = raw.strip()
+            if not s or s.startswith(";") or s.startswith("#") or "=" not in s:
+                lines.append((raw, None, None))
+                continue
+            key, val = s.split("=", 1)
+            key, val = key.strip(), val.strip().strip("\"'")
+            lines.append((raw, key, val))
+            kl = key.lower()
+            if kl in ("extension", "zend_extension"):
+                exts.add(val.lower())
+            else:
+                values[kl] = val
+        return values, exts, lines
+
+    def php_ini_extensions(self):
+        """Returns (available list, enabled set)."""
+        ext_dir = self.pd / "ext"
+        avail = set()
+        try:
+            if ext_dir.is_dir():
+                for f in ext_dir.iterdir():
+                    if f.suffix.lower() == ".dll" and f.is_file():
+                        avail.add(f.name.lower())
+        except OSError:
+            pass
+        try:
+            _, enabled, _ = self.php_ini_parse()
+        except RuntimeError:
+            enabled = set()
+        known = {"php_mysqli.dll", "php_pdo_mysql.dll", "php_mbstring.dll", "php_curl.dll",
+                 "php_openssl.dll", "php_fileinfo.dll", "php_gd.dll", "php_intl.dll",
+                 "php_zip.dll", "php_bz2.dll", "php_ftp.dll", "php_sockets.dll",
+                 "php_opcache.dll", "php_pdo_sqlite.dll", "php_sqlite3.dll", "php_xml.dll",
+                 "php_exif.dll", "php_gettext.dll"}
+        return sorted(avail | (known & enabled) | (known & avail)), enabled
+
+    def php_ini_save(self, values, extensions):
+        p = self.php_ini_file()
+        if not p.is_file():
+            raise RuntimeError("php.ini not found — is PHP installed?")
+        try:
+            bak = p.with_suffix(".ini.bak")
+            shutil.copy2(str(p), str(bak))
+        except OSError:
+            pass
+        _, _, lines = self.php_ini_parse()
+        managed = {k.lower() for k, _ in self.PHP_INI_MANAGED}
+        out, written = [], set()
+        for raw, key, _val in lines:
+            if key is None:
+                out.append(raw)
+                continue
+            kl = key.lower()
+            if kl in ("extension", "zend_extension"):
+                continue
+            if kl in managed and kl in values:
+                out.append(f"{key}={values[kl]}")
+                written.add(kl)
+            else:
+                out.append(raw)
+        for k, _ in self.PHP_INI_MANAGED:
+            if k not in written and k in values:
+                out.append(f"{k}={values[k]}")
+        if extensions:
+            out.append("; Extensions enabled via Faraja WebServer")
+            for ext in sorted(extensions):
+                if "opcache" in ext or "xdebug" in ext:
+                    out.append(f"zend_extension={ext}")
+                else:
+                    out.append(f"extension={ext}")
+        p.write_text("\n".join(out) + "\n", encoding="utf-8")
+        self.log("php.ini saved (backup: php.ini.bak)")
+
     def app_settings(self):
         try:
             return json.loads((APP_ROOT/"config"/"settings.json").read_text(encoding="utf-8"))
@@ -4146,6 +4253,10 @@ class App:
         nb.add(node_frame, lang.t('tab_node'))
         self._build_node(self._scrollable(node_frame))
 
+        phpini_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(phpini_frame, lang.t('tab_phpini'))
+        self._build_phpini(self._scrollable(phpini_frame))
+
     def _monitor_tabs(self, parent):
         nb = OfficeTabs(parent, active_size=11, passive_size=9)
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
@@ -4159,6 +4270,161 @@ class App:
         perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(perf_frame, lang.t('tab_perf'))
         self._build_perf(self._scrollable(perf_frame))
+
+    def _build_phpini(self, parent):
+        try:
+            values, _en0, _ln = self.svc.php_ini_parse()
+            avail, enabled = self.svc.php_ini_extensions()
+        except RuntimeError as e:
+            tk.Label(parent, text=str(e), bg=THEME["bg_elevated"], fg=THEME["danger"],
+                     font=(THEME["font_family"], 10)).pack(padx=12, pady=12, anchor="w")
+            return
+        self._phpini_vars = {}
+        self._phpini_ext_vars = {}
+        self._phpini_rows = []
+        self._phpini_after = None
+        top = tk.Frame(parent, bg=THEME["bg_elevated"])
+        top.pack(fill="x", padx=10, pady=5)
+        tk.Label(top, text=lang.t("phpini_search"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._phpini_search = tk.StringVar(value="")
+        se = tk.Entry(top, textvariable=self._phpini_search, bg=THEME["entry_bg"],
+                      fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"],
+                      font=("Cascadia Code", 9), relief="flat", bd=0, width=24)
+        se.pack(side="left", padx=4)
+        se.bind("<KeyRelease>", lambda e: self._phpini_filter())
+        IconButton(top, "check", self._phpini_save_manual, color=THEME["success"],
+                   hover_color="#55e39a", active_color=THEME["success_dim"],
+                   size=28, tip=lang.t("phpini_save")).pack(side="left", padx=6)
+        IconButton(top, "restart", self._phpini_restart, color=THEME["warning_dim"],
+                   hover_color=THEME["warning"], active_color="#ba5e17",
+                   size=28, tip=lang.t("phpini_restart")).pack(side="left", padx=2)
+        self._phpini_status = tk.Label(top, text="", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                       font=(THEME["font_family"], 8))
+        self._phpini_status.pack(side="left", padx=10)
+
+        dbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
+        dbox.pack(fill="x", padx=10, pady=4)
+        tk.Label(dbox, text=lang.t("phpini_directives"), bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=(THEME["font_family"], 10, "bold")).pack(
+                     anchor="w", padx=10, pady=(8, 2))
+        dg = tk.Frame(dbox, bg=THEME["bg_elevated"])
+        dg.pack(fill="x", padx=10, pady=(0, 8))
+        for key, kind in self.svc.PHP_INI_MANAGED:
+            row = tk.Frame(dg, bg=THEME["bg_elevated"])
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=key, bg=THEME["bg_elevated"], fg=THEME["text"],
+                     font=("Cascadia Code", 9), width=28, anchor="w").pack(side="left")
+            cur = values.get(key.lower(), "")
+            if kind == "bool":
+                var = tk.BooleanVar(value=cur.lower() in ("1", "on", "true", "yes"))
+                tk.Checkbutton(row, variable=var, bg=THEME["bg_elevated"],
+                               selectcolor=THEME["bg_input"],
+                               activebackground=THEME["bg_elevated"],
+                               highlightthickness=0, bd=0,
+                               command=self._phpini_schedule).pack(side="left")
+            else:
+                var = tk.StringVar(value=cur)
+                e = tk.Entry(row, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                             insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                             relief="flat", bd=0, width=30, highlightthickness=1,
+                             highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
+                e.pack(side="left", fill="x", expand=True)
+                e.bind("<KeyRelease>", lambda e: self._phpini_schedule())
+            var.trace_add("write", lambda *a: self._phpini_schedule())
+            self._phpini_vars[key.lower()] = (kind, var)
+            self._phpini_rows.append((key.lower(), key, row))
+
+        ebox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
+        ebox.pack(fill="x", padx=10, pady=4)
+        tk.Label(ebox, text=lang.t("phpini_ext"), bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=(THEME["font_family"], 10, "bold")).pack(
+                     anchor="w", padx=10, pady=(8, 2))
+        eg = tk.Frame(ebox, bg=THEME["bg_elevated"])
+        eg.pack(fill="x", padx=10, pady=(0, 8))
+        self._phpini_ext_rows = []
+        for idx, dll in enumerate(avail):
+            var = tk.BooleanVar(value=dll in enabled)
+            cb = tk.Checkbutton(eg, text=dll, variable=var, bg=THEME["bg_elevated"],
+                                fg=THEME["text"], selectcolor=THEME["bg_input"],
+                                activebackground=THEME["bg_elevated"],
+                                activeforeground=THEME["text"],
+                                font=("Cascadia Code", 8),
+                                highlightthickness=0, bd=0,
+                                command=self._phpini_schedule)
+            cb.grid(row=idx // 3, column=idx % 3, sticky="w", padx=8, pady=1)
+            self._phpini_ext_vars[dll] = var
+            self._phpini_ext_rows.append((dll, cb))
+
+    def _phpini_filter(self):
+        q = self._phpini_search.get().strip().lower()
+        for _key, _label, row in getattr(self, "_phpini_rows", []):
+            if q and q not in _key:
+                row.pack_forget()
+            else:
+                row.pack(fill="x", pady=1)
+        for dll, cb in getattr(self, "_phpini_ext_rows", []):
+            if q and q not in dll:
+                cb.grid_remove()
+            else:
+                cb.grid()
+
+    def _phpini_collect(self):
+        values = {}
+        for key, (kind, var) in self._phpini_vars.items():
+            values[key] = "On" if (kind == "bool" and var.get()) else (
+                var.get() if kind != "bool" else "Off")
+        exts = {dll for dll, var in self._phpini_ext_vars.items() if var.get()}
+        return values, exts
+
+    def _phpini_schedule(self):
+        try:
+            if self._phpini_after is not None:
+                self.root.after_cancel(self._phpini_after)
+        except Exception:
+            pass
+        try:
+            self._phpini_after = self.root.after(800, self._phpini_autosave)
+        except Exception:
+            pass
+
+    def _phpini_autosave(self):
+        self._phpini_after = None
+        try:
+            values, exts = self._phpini_collect()
+            self.svc.php_ini_save(values, exts)
+            self._phpini_status.configure(
+                text=time.strftime("%H:%M:%S") + " ✓")
+        except Exception as e:
+            self._phpini_status.configure(text=str(e)[:120])
+
+    def _phpini_save_manual(self):
+        try:
+            if self._phpini_after is not None:
+                self.root.after_cancel(self._phpini_after)
+                self._phpini_after = None
+        except Exception:
+            pass
+        try:
+            values, exts = self._phpini_collect()
+            self.svc.php_ini_save(values, exts)
+            self.log("php.ini saved")
+            self._phpini_status.configure(text=time.strftime("%H:%M:%S") + " ✓")
+        except Exception as e:
+            messagebox.showerror(lang.t("error"), str(e))
+
+    def _phpini_restart(self):
+        def w():
+            try:
+                if self.svc.prun():
+                    self.svc.stop_php()
+                self.svc.start_php()
+            except Exception as e:
+                self.log("PHP restart ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
 
     def _build_node(self, parent):
         self._node_file = APP_ROOT / "config" / "node.json"
@@ -6817,6 +7083,41 @@ class App:
 
         envsel = tk.Frame(parent, bg=THEME["bg_elevated"])
         envsel.pack(fill="x", padx=10, pady=4)
+
+        portbox = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                           highlightthickness=1)
+        portbox.pack(fill="x", padx=10, pady=4)
+        tk.Label(portbox, text=lang.t("set_ports"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        pg = tk.Frame(portbox, bg=THEME["bg_elevated"])
+        pg.pack(fill="x", padx=10, pady=(0, 4))
+        self._port_vars = {}
+        _pdefs = (("Apache", "apache_port"), ("MariaDB", "mariadb_port"), ("PHP", "php_cgi_port"),
+                  ("PostgreSQL", "postgresql_port"), ("Redis", "redis_port"), ("Nginx", "nginx_port"))
+        for idx, (label, key) in enumerate(_pdefs):
+            tk.Label(pg, text=f"{label}:", bg=THEME["bg_elevated"], fg=THEME["text"],
+                     font=(THEME["font_family"], 9)).grid(row=idx // 3, column=(idx % 3) * 2,
+                                                          sticky="w", padx=(0, 4), pady=3)
+            var = tk.StringVar(value=str(CONFIG.get(key, "")))
+            e = tk.Entry(pg, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                         insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                         relief="flat", bd=0, width=7, highlightthickness=1,
+                         highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
+            e.grid(row=idx // 3, column=(idx % 3) * 2 + 1, sticky="w", padx=(0, 12), pady=3)
+            self._port_vars[key] = var
+        IconButton(pg, "check", self._ports_apply, color=THEME["success"],
+                   hover_color="#55e39a", active_color=THEME["success_dim"],
+                   size=28, tip=lang.t("db_apply")).grid(row=0, column=6, rowspan=2,
+                                                         padx=8, pady=3, sticky="ns")
+        self._autostart_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(pg, text=lang.t("set_autostart"), variable=self._autostart_var,
+                       command=self._autostart_toggle,
+                       bg=THEME["bg_elevated"], fg=THEME["text"],
+                       selectcolor=THEME["bg_input"], activebackground=THEME["bg_elevated"],
+                       activeforeground=THEME["text"], font=(THEME["font_family"], 9),
+                       highlightthickness=0, bd=0).grid(row=1, column=6, sticky="w",
+                                                        padx=8, pady=3)
+        threading.Thread(target=self._autostart_refresh, daemon=True).start()
         envbox = tk.Frame(envsel, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
                         highlightthickness=1)
         envbox.pack(side="left", fill="both", expand=True, padx=(0, 5))
@@ -7014,6 +7315,90 @@ class App:
                 self.log("Python version ERROR: " + str(e))
                 self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
         threading.Thread(target=w, daemon=True).start()
+
+    def _ports_apply(self):
+        try:
+            new_ports = {}
+            for key, var in self._port_vars.items():
+                p = int(var.get().strip())
+                if not 1 <= p <= 65535:
+                    raise ValueError(key)
+                new_ports[key] = p
+        except ValueError:
+            messagebox.showerror(lang.t("error"), "ports 1-65535")
+            return
+        def w():
+            try:
+                CONFIG.update(new_ports)
+                try:
+                    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    CONFIG_FILE.write_text(json.dumps(CONFIG, indent=2), encoding="utf-8")
+                except Exception as e:
+                    self.log(f"server.json save warning: {e}")
+                self.svc.write_configs()
+                self.svc._write_nginx_conf()
+                self.root.after(0, self._refresh_port_label)
+                restarts = [("apache", self.svc.arun, self.svc.stop_apache, self.svc.start_apache),
+                            ("db", self.svc.drun, self.svc.stop_db, self.svc.start_db),
+                            ("php", self.svc.prun, self.svc.stop_php, self.svc.start_php),
+                            ("pg", self.svc.pgrun, self.svc.stop_pg, self.svc.start_pg),
+                            ("redis", self.svc.redisrun, self.svc.stop_redis, self.svc.start_redis),
+                            ("nginx", self.svc.nginxrun, self.svc.stop_nginx, self.svc.start_nginx)]
+                for _name, is_run, do_stop, do_start in restarts:
+                    try:
+                        if is_run():
+                            do_stop()
+                            do_start()
+                    except Exception as e:
+                        self.log(f"Restart ERROR: {e}")
+                self.log("Ports applied: " + ", ".join(f"{k}={v}" for k, v in new_ports.items()))
+            except Exception as e:
+                self.log("Ports ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _autostart_target(self):
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}"'
+        return f'"{sys.executable}" "{Path(__file__).resolve()}"'
+
+    def _autostart_refresh(self):
+        try:
+            r = subprocess.run(["reg", "query",
+                                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                                "/v", "FarajaWebServer"],
+                               capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            on = r.returncode == 0 and ".exe" in (r.stdout or "") or ".py" in (r.stdout or "")
+            self.root.after(0, lambda: self._autostart_var.set(bool(on)))
+        except Exception:
+            pass
+
+    def _autostart_toggle(self):
+        on = bool(self._autostart_var.get())
+        try:
+            if on:
+                r = subprocess.run(["reg", "add",
+                                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                                    "/v", "FarajaWebServer", "/t", "REG_SZ",
+                                    "/d", self._autostart_target(), "/f"],
+                                   capture_output=True, text=True, timeout=10,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                if r.returncode != 0:
+                    raise RuntimeError((r.stderr or r.stdout or "").strip()[:200])
+                self.log("Autostart enabled")
+            else:
+                r = subprocess.run(["reg", "delete",
+                                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                                    "/v", "FarajaWebServer", "/f"],
+                                   capture_output=True, text=True, timeout=10,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                if r.returncode != 0:
+                    raise RuntimeError((r.stderr or r.stdout or "").strip()[:200])
+                self.log("Autostart disabled")
+        except Exception as e:
+            self.root.after(0, lambda: self._autostart_var.set(not on))
+            messagebox.showerror(lang.t("error"), str(e))
 
     def _on_log_font_change(self):
         self._settings["log_font"] = self._log_font_var.get()
