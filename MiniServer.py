@@ -1379,6 +1379,7 @@ port={CONFIG["mariadb_port"]}
         www_path = WWW.resolve().as_posix()
         a_port = CONFIG["apache_port"]
         n_port = CONFIG["nginx_port"]
+        log_path = LOGS.resolve().as_posix()
         ssl_dir = APP_ROOT / "ssl"
         ssl_cert = ssl_dir / "localhost.pem"
         ssl_key = ssl_dir / "localhost-key.pem"
@@ -1481,6 +1482,7 @@ events {{ worker_connections 1024; }}
 http {{
     include mime.types;
     default_type application/octet-stream;
+    error_log "{log_path}/nginx-error.log" warn;
     sendfile on;
     etag on;
     keepalive_timeout 65;
@@ -1496,6 +1498,7 @@ http {{
     server {{
         listen {n_port};
         server_name localhost;{node_blocks}
+        access_log "{log_path}/nginx-access.log" combined;
         location / {{
             proxy_pass http://127.0.0.1:{a_port};
             proxy_set_header Host $host;
@@ -2233,8 +2236,9 @@ http {{
         exe = self.get_python_exe(pyver)
         env = os.environ.copy()
         env["PORT"] = str(port)
+        env["PYTHONUNBUFFERED"] = "1"
         f = self.logfile("python-process.log")
-        proc = subprocess.Popen([exe, str(entry_path.resolve())],
+        proc = subprocess.Popen([exe, "-u", str(entry_path.resolve())],
                                 cwd=str(Path(directory).resolve()), stdout=f, stderr=f,
                                 env=env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.py_servers[name] = {"proc": proc, "dir": str(directory), "entry": entry,
@@ -4005,10 +4009,11 @@ class App:
             ("apache_err", lang.t("tab_apache_err"), LOGS / "apache-error.log"),
             ("php_err", lang.t("tab_php_err"), LOGS / "php-error.log"),
             ("mariadb_err", lang.t("tab_mariadb_err"), LOGS / "mariadb-error.log"),
-            ("nginx_log", "Nginx", LOGS / "nginx-process.log"),
             ("pg_log", "PostgreSQL", LOGS / "postgresql-process.log"),
             ("redis_log", "Redis", LOGS / "redis-process.log"),
             ("node_log", lang.t("tab_node"), LOGS / "node-process.log"),
+            ("nginx_log", "Nginx", LOGS / "nginx-error.log"),
+            ("py_log", "Python", LOGS / "python-process.log"),
             ("proc", lang.t("tab_process"), None),
         ]
 
@@ -7260,7 +7265,8 @@ class App:
             parts = []
             changed = False
             for name in ("apache-process.log", "php-process.log", "mariadb-process.log", "mariadb-init.log",
-                          "postgresql-process.log", "postgresql-init.log", "redis-process.log", "nginx-process.log"):
+                          "postgresql-process.log", "postgresql-init.log", "redis-process.log", "nginx-process.log",
+                          "node-process.log", "python-process.log"):
                 p = LOGS / name
                 if not p.exists():
                     continue
