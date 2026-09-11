@@ -608,6 +608,30 @@ def stop_proc(p,timeout=3):
         except Exception:
             pass
 
+def unify_entries(root):
+    """Bring every text field under root to the Settings standard: flat dark
+    field with an accent focus border and the same height (ipady=6)."""
+    def walk(w):
+        try:
+            children = w.winfo_children()
+        except Exception:
+            return
+        for c in children:
+            try:
+                if isinstance(c, tk.Entry):
+                    c.configure(relief="flat", bd=0, highlightthickness=1,
+                                highlightbackground=THEME["border"],
+                                highlightcolor=THEME["accent"])
+                    try:
+                        if c.pack_info():
+                            c.pack_configure(ipady=6)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            walk(c)
+    walk(root)
+
 def emergency_kill():
     CF = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     apache_bin = RUNTIME / "Apache24" / "bin" / "httpd.exe"
@@ -1890,11 +1914,64 @@ http {{
         self.log("Docker not found. Please install Docker Desktop from https://docker.com/products/docker-desktop")
         raise RuntimeError(lang.t("docker_not_found"))
     def start_docker(self):
-        if not self.docker_check():
+        if self.docker_check():
+            self.log("Docker is available")
+            return
+        launched = False
+        try:
+            _pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+            _exe = Path(_pf) / "Docker" / "Docker" / "Docker Desktop.exe"
+            if _exe.exists():
+                subprocess.Popen([str(_exe)], stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                launched = True
+                self.log(f"Launching {str(_exe)} ...")
+        except Exception as e:
+            self.log(f"Docker Desktop launch failed: {e}")
+        if not launched:
+            # Fallback: the Start Menu shortcut (works when installed per-user).
+            _lnk = (Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows"
+                    / "Start Menu" / "Programs" / "Docker Desktop.lnk")
+            if _lnk.exists():
+                try:
+                    os.startfile(str(_lnk))
+                    launched = True
+                    self.log(f"Launching {str(_lnk)} ...")
+                except Exception as e:
+                    self.log(f"Shortcut launch failed: {e}")
+        if not launched:
             self.docker_install()
-        self.log("Docker is available")
+        self.log("Waiting for the Docker daemon (up to 120 s) ...")
+        for _ in range(60):
+            time.sleep(2)
+            if self.docker_check():
+                self.log("Docker is available")
+                return
+        raise RuntimeError("Docker Desktop started but the daemon is not ready (timeout 120 s)")
     def stop_docker(self):
-        self.log("Docker containers can be stopped with: docker stop <container>")
+        if not self.docker_check():
+            self.log("Docker daemon is not running")
+            return
+        try:
+            subprocess.run(["taskkill", "/IM", "Docker Desktop.exe"], capture_output=True,
+                           text=True, timeout=15,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except Exception as e:
+            self.log(f"Docker stop failed: {e}")
+            return
+        for _ in range(15):
+            time.sleep(2)
+            if not self.docker_check():
+                self.log("Docker Desktop stopped")
+                return
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", "Docker Desktop.exe"], capture_output=True,
+                           text=True, timeout=15,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self.log("Docker Desktop stopped (forced)")
+        except Exception as e:
+            self.log(f"Docker stop failed: {e}")
     def dockerun(self):
         return self.docker_check()
     def docker_ps(self):
@@ -2478,7 +2555,29 @@ http {{
         self.install_tsx()
         self.log(f"Node.js {ver} ready (tsx available)")
     def stop_node(self):
-        self.log("Node.js has no background daemon; nothing to stop")
+        killed = 0
+        for name in list(getattr(self, "node_servers", {}).keys()):
+            try:
+                proc = (self.node_servers.get(name) or {}).get("proc")
+            except Exception:
+                proc = None
+            if proc is not None:
+                try:
+                    if proc.poll() is None:
+                        stop_proc(proc)
+                        killed += 1
+                except Exception:
+                    pass
+        try:
+            self.node_servers = {n: i for n, i in self.node_servers.items()
+                                 if (i or {}).get("proc") is not None
+                                 and (i["proc"].poll() is None)}
+        except Exception:
+            pass
+        if killed:
+            self.log(f"Node.js servers stopped: {killed}")
+        else:
+            self.log("Node.js has no running servers; nothing to stop")
     def noderun(self):
         return self.node_installed()
     def py_dir(self, ver=None):
@@ -3101,6 +3200,10 @@ class DarkPrompt:
                          insertbackground=THEME["entry_fg"], font=("Cascadia Code", 10),
                          relief="flat", bd=0)
         entry.pack(fill="x", padx=18, pady=4)
+        try:
+            unify_entries(win)
+        except Exception:
+            pass
         entry.focus_set()
         entry.select_range(0, "end")
         result = {"value": None}
@@ -3813,6 +3916,10 @@ class CodeEditor:
                               insertbackground="white", font=("Consolas", 10),
                               relief="flat", bd=0)
             rentry.pack(fill="x", padx=12, pady=4)
+        try:
+            unify_entries(win)
+        except Exception:
+            pass
         case_var = tk.BooleanVar(value=False)
         tk.Checkbutton(win, text="Match case", variable=case_var, bg="#2d2d2d", fg="#cccccc",
                        selectcolor="#3c3c3c", activebackground="#2d2d2d",
@@ -4717,8 +4824,9 @@ class App:
             if kind == "bool":
                 var = tk.BooleanVar(value=cur.lower() in ("1", "on", "true", "yes"))
                 tk.Checkbutton(row, variable=var, bg=THEME["bg_elevated"],
-                               selectcolor=THEME["entry_bg"],
+                               fg=THEME["text"], selectcolor=THEME["entry_bg"],
                                activebackground=THEME["bg_elevated"],
+                               activeforeground=THEME["text"],
                                highlightthickness=0, bd=0).pack(side="left")
                 st = tk.StringVar(value="On" if var.get() else "Off")
                 st_lbl = tk.Label(row, textvariable=st, bg=THEME["bg_elevated"],
@@ -6802,6 +6910,10 @@ class App:
         self._status_bar(self.root)
         self.svc.ui_progress = self._install_progress
         self._sidebar_active = 0
+        self._unify_entries(self.root)
+
+    def _unify_entries(self, root):
+        unify_entries(root)
 
 
     def context(self, t):
@@ -8228,7 +8340,14 @@ class App:
     def setup_ssl_cmd(self): self.worker(self.svc.setup_ssl, "Setting up SSL")
 
     def start_node_ui(self): self.worker(self.svc.start_node, "Starting Node.js")
-    def stop_node_ui(self): self.worker(self.svc.stop_node, "Stopping Node.js")
+    def stop_node_ui(self):
+        def run():
+            self.svc.stop_node()
+            try:
+                self.root.after(0, self._node_refresh_tree)
+            except Exception:
+                pass
+        self.worker(run, "Stopping Node.js")
     def _install_progress(self, name, got, total, speed=0):
         def ui():
             bars = []
@@ -8308,38 +8427,21 @@ class App:
 
     def start_all(self):
         def run():
-            # Start independent services independently: a missing PHP package
-            # must not prevent MariaDB/PostgreSQL/Redis from starting.
+            # Start every service independently: a missing/broken package
+            # must not prevent the rest from starting.  Apache (:8080) and
+            # Nginx (:80, proxies to Apache) run side by side.
             for label, fn in [
                 ("PHP", self.svc.start_php),
                 ("MariaDB", self.svc.start_db),
                 ("PostgreSQL", self.svc.start_pg),
                 ("Redis", self.svc.start_redis),
+                ("Apache", self.svc.start_apache),
+                ("Nginx", self.svc.start_nginx),
             ]:
                 try:
                     fn()
                 except Exception as e:
                     self.log(f"{label} start skipped: {e}")
-
-            apache_running=web_server_running("apache") or self.svc.arun()
-            nginx_running=web_server_running("nginx") or self.svc.nginxrun()
-            if apache_running and nginx_running:
-                self.log("Both web servers detected; stopping Nginx. Apache is kept active.")
-                try:
-                    self.svc.stop_nginx()
-                    nginx_running=False
-                except Exception as e:
-                    self.log("Nginx cleanup failed: " + str(e))
-            if nginx_running:
-                self.log("Nginx is active; Apache remains stopped.")
-            elif not apache_running:
-                try:
-                    self.svc.start_apache()
-                    self.log("Apache started; Nginx remains stopped.")
-                except Exception as e:
-                    self.log("Apache start skipped: " + str(e))
-            else:
-                self.log("Apache is active; Nginx remains stopped.")
         self.worker(run,"Starting All")
 
     def stop_all(self):
@@ -8362,8 +8464,6 @@ class App:
 
     def restart_all(self):
         def run():
-            was_nginx=web_server_running("nginx") or self.svc.nginxrun()
-            was_apache=web_server_running("apache") or self.svc.arun()
             for label, fn in [
                 ("Nginx", self.svc.stop_nginx), ("Apache", self.svc.stop_apache),
                 ("PHP", self.svc.stop_php), ("MariaDB", self.svc.stop_db),
@@ -8372,17 +8472,10 @@ class App:
                 except Exception as e: self.log(f"{label} stop warning: {e}")
             for label, fn in [
                 ("PHP", self.svc.start_php), ("MariaDB", self.svc.start_db),
-                ("PostgreSQL", self.svc.start_pg), ("Redis", self.svc.start_redis)]:
+                ("PostgreSQL", self.svc.start_pg), ("Redis", self.svc.start_redis),
+                ("Apache", self.svc.start_apache), ("Nginx", self.svc.start_nginx)]:
                 try: fn()
                 except Exception as e: self.log(f"{label} start skipped: {e}")
-            try:
-                if was_nginx and not was_apache:
-                    self.svc.start_nginx()
-                else:
-                    self.svc.start_apache()
-                    self.log("Apache started; Nginx remains stopped.")
-            except Exception as e:
-                self.log("Web server restart skipped: " + str(e))
         self.worker(run,"Restarting All")
 
     def localhost(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/')
@@ -9166,6 +9259,10 @@ class App:
         tk.Entry(dir_inner, textvariable=download_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                  insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9), relief="flat", bd=0).pack(
                      side="left", fill="x", expand=True)
+        try:
+            unify_entries(win)
+        except Exception:
+            pass
         def browse_dir():
             from tkinter import filedialog
             d = filedialog.askdirectory(initialdir=download_dir_var.get())
