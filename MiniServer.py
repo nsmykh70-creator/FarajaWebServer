@@ -7714,7 +7714,11 @@ class App:
     def _show_help(self):
         win = tk.Toplevel(self.root)
         win.title(lang.t("doc_title"))
-        win.geometry("1000x640")
+        try:
+            app_w = max(1000, self.root.winfo_width())
+        except Exception:
+            app_w = 1000
+        win.geometry(f"{app_w}x640")
         win.configure(bg=THEME["bg"])
         try:
             win.iconbitmap(str(ICON))
