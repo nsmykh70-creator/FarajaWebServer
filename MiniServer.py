@@ -312,6 +312,10 @@ LOCALES = {
     "env_node": {"ru": "Node.js:", "en": "Node.js:", "es": "Node.js:", "de": "Node.js:", "fr": "Node.js :", "zh": "Node.js："},
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
     "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
+    "dbm_conn": {"ru": "Подключение", "en": "Connection", "es": "Conexión", "de": "Verbindung", "fr": "Connexion", "zh": "连接"},
+    "dbm_actions": {"ru": "Действия", "en": "Actions", "es": "Acciones", "de": "Aktionen", "fr": "Actions", "zh": "操作"},
+    "admin_hint": {"ru": "Совет: запустите от имени администратора — иначе недоступны запись hosts и HTTPS-домены", "en": "Tip: run as administrator — otherwise hosts editing and HTTPS domains are unavailable", "es": "Consejo: ejecute como administrador — sin esto no hay hosts ni dominios HTTPS", "de": "Tipp: als Administrator starten — sonst keine Hosts- und HTTPS-Domains", "fr": "Astuce : lancer en administrateur — sinon pas de hosts ni domaines HTTPS", "zh": "提示：请以管理员身份运行，否则无法使用 hosts 和 HTTPS 域名"},
+    "site_no_hosts": {"ru": "Домен {domain} не резолвится — нет записи hosts (нужен администратор). Открываю через localhost.", "en": "Domain {domain} does not resolve — no hosts entry (administrator needed). Opening via localhost.", "es": "El dominio {domain} no resuelve — sin entrada hosts (se necesita administrador). Abriendo vía localhost.", "de": "Domain {domain} löst nicht auf — kein Hosts-Eintrag (Administrator nötig). Öffne via localhost.", "fr": "Le domaine {domain} ne résout pas — pas d'entrée hosts (administrateur requis). Ouverture via localhost.", "zh": "域名 {domain} 无法解析——缺少 hosts 条目（需要管理员权限）。改用 localhost 打开。"},
 }
 
 LANG_FILE = APP_ROOT / "config" / "lang.json"
@@ -498,6 +502,13 @@ def wait_port_closed(port, timeout=12):
         time.sleep(.2)
     return not port_open(port)
 
+
+def is_admin():
+    try:
+        import ctypes as _ct
+        return bool(_ct.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
 
 def hosts_path():
     return Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
@@ -3046,6 +3057,8 @@ class App:
         self._pulse = 0
         self._docker_ok = False
         self.build()
+        if not is_admin():
+            self.log(lang.t("admin_hint"))
         threading.Thread(target=self._docker_poll, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW",self.hide)
         self.root.bind("<Unmap>",self.unmap)
@@ -5612,7 +5625,16 @@ class App:
                     try:
                         self.svc.mkcert_domain(domain)
                     except Exception as e:
-                        self.log(f"SSL {domain} ERROR: {e}")
+                        self.log(f"SSL {domain} ERROR: {e} — HTTPS disabled for this site")
+                        for s in self._sites:
+                            if s.get("name") == name:
+                                s["https"] = False
+                        try:
+                            self._sites_file.write_text(json.dumps(self._sites, indent=2), encoding="utf-8")
+                            self.svc.set_sites(self._sites)
+                            self.root.after(0, self._load_sites)
+                        except Exception:
+                            pass
                 self.svc.write_configs()
                 self.svc._write_nginx_conf()
                 try:
@@ -5672,12 +5694,19 @@ class App:
         vals = self._site_tree.item(sel[0], "values")
         name, domain, port = vals[0], vals[1], vals[3]
         https = len(vals) > 5 and vals[5] not in ("", "—")
+        fallback = (f"http://127.0.0.1:{port}/" if port
+                    else f"http://127.0.0.1:{CONFIG['apache_port']}/{name}/")
         if https and domain and "." in domain:
-            url = f"https://{domain}/"
-        elif port:
-            url = f"http://127.0.0.1:{port}/"
+            try:
+                if socket.gethostbyname(domain) in ("127.0.0.1", "::1"):
+                    url = f"https://{domain}/"
+                else:
+                    raise OSError("no hosts entry")
+            except Exception:
+                self.log(lang.t("site_no_hosts", domain=domain))
+                url = fallback
         else:
-            url = f"http://127.0.0.1:{CONFIG['apache_port']}/{name}/"
+            url = fallback
         self.log(f"Opening site: {url}")
         webbrowser.open(url)
 
