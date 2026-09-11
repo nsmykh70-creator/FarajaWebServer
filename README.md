@@ -252,6 +252,19 @@ docs/              — лендинг проекта (публикуется ч�
 
 Спасибо!
 
+## PRO-версия
+
+**[⬇ Скачать FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)**
+— расширенное издание со всеми возможностями ниже.
+
+- **VHost-менеджер** — сайт создаётся одной кнопкой: Nginx-блок + Apache VirtualHost + запись в hosts + SSL-сертификат на домен (`https://myproject.local` без ручных правок, типы php/node/python/static).
+- **Node.js и Python серверы** — запуск проектов с выбором порта, роуты Nginx (`/node/3000/`, `/py/5000/`), WebSocket-прокси, трекинг процессов, всё убивается при выходе.
+- **Окружение** — версии PHP 8.2/8.3/8.4, Node.js 20/22/24, Python 3.11/3.12/3.13 с установкой и переключением на лету; режимы PHP Development/Safe.
+- **Менеджер БД** — базы и пользователи MariaDB/PostgreSQL, бэкап/ресторт через mysqldump/pg_dump, очистка Redis.
+- **Docker** — контейнеры, Compose (up/down/build/pull/logs), образы, сети, тома.
+- **Performance Lab** — генератор нагрузки **отдельным процессом**, профили Quick/Normal/Stress/Spike/Soak/Endurance, Auto Benchmark с поиском предела, A/B-базлайн, живые RPS/P50/P95/P99/CPU/RAM и график, отчёты .txt.
+- **Архитектура** — Apache слушает только 127.0.0.1 (наружу — лишь Nginx :80/:443), HTTP/2, условные HTTP/3 и Brotli, листинг каталогов выключен по умолчанию.
+
 ## Лицензия
 
 Apache License 2.0 — см. [LICENSE](LICENSE).
