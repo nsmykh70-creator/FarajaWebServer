@@ -320,6 +320,7 @@ LOCALES = {
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
     "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
     "dbm_conn": {"ru": "Подключение", "en": "Connection", "es": "Conexión", "de": "Verbindung", "fr": "Connexion", "zh": "连接"},
+    "perf_chart_tab": {"ru": "Нагрузка: график", "en": "Load: chart", "es": "Carga: gráfico", "de": "Last: Chart", "fr": "Charge : graphique", "zh": "负载：图表"},
     "btn_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
     "btn_cut": {"ru": "Вырезать", "en": "Cut", "es": "Cortar", "de": "Ausschneiden", "fr": "Couper", "zh": "剪切"},
     "btn_paste": {"ru": "Вставить", "en": "Paste", "es": "Pegar", "de": "Einfügen", "fr": "Coller", "zh": "粘贴"},
@@ -3715,7 +3716,8 @@ def run_perf_child(cfg_path):
 
     t0 = time.monotonic()
     deadline = t0 + dur
-    ex = ThreadPoolExecutor(max_workers=users)
+    threads = max(1, min(users, 2000))
+    ex = ThreadPoolExecutor(max_workers=threads)
     try:
         futs = [ex.submit(worker, deadline) for _ in range(users)]
         with open(out_path, "w", encoding="utf-8") as f:
@@ -4952,7 +4954,7 @@ class App:
         if not base.startswith(("http://", "https://")):
             base = "http://" + base
         try:
-            users = max(1, min(500, int(self._perf_users_var.get())))
+            users = max(1, min(10000, int(self._perf_users_var.get())))
             dur = max(5, min(86400, int(self._perf_dur_var.get())))
         except ValueError:
             messagebox.showerror(lang.t("error"), "users/duration")
@@ -4986,7 +4988,8 @@ class App:
         weights = [x[2] for x in paths]
         stats = {"n": 0, "err": 0, "lat": [], "bytes": 0, "active": 0, "max_active": 0,
                  "lock": threading.Lock(), "t0": time.monotonic(),
-                 "users": users, "dur": dur, "base": base}
+                 "users": users, "dur": dur, "base": base,
+                 "profile": self._perf_profile_var.get(), "threads": min(users, 2000)}
         self._perf_stats = stats
         self._perf_stop = threading.Event()
         self._perf_running = True
@@ -4996,6 +4999,7 @@ class App:
         self._perf_tick_n = 0
         self._perf_last = (0, time.monotonic())
         self._perf_summary = None
+        self._perf_timeline = []
         for v in self._perf_vars.values():
             v.set("—")
         stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -5076,7 +5080,7 @@ class App:
         self._perf_toggle_visual(True)
         threading.Thread(target=tail, daemon=True).start()
         self.log(f"Load test started in separate process (PID {child.pid}): "
-                 f"{users} users, {dur}s -> {base}")
+                 f"{users} users, {dur}s -> {base} ({min(users, 2000)} OS threads)")
 
     def _perf_tick(self):
         st = getattr(self, "_perf_stats", None)
@@ -5116,12 +5120,26 @@ class App:
         self._perf_vars["Users"].set(str(active))
         self._perf_vars["MB/s"].set(f"{mb_s:.2f}")
         self._perf_vars["Peak"].set(f"{max(self._perf_rps_hist) if self._perf_rps_hist else 0.0:.0f}")
+        try:
+            cpu_v = self._perf_vars["CPU %"].get()
+            ram_v = self._perf_vars["RAM GB"].get()
+        except Exception:
+            cpu_v, ram_v = "—", "—"
         self._perf_summary = {"n": n, "err": err, "ok_pct": ok_pct, "avg": avg,
                               "p50": p50, "p95": p95, "p99": p99, "rps": rps,
                               "rps_peak": max(self._perf_rps_hist) if self._perf_rps_hist else 0.0,
                               "users": st["users"], "dur": st["dur"], "base": st["base"],
+                              "profile": st.get("profile", "Custom"),
+                              "threads": st.get("threads", st["users"]),
                               "mb": total_bytes / 1048576.0, "mb_s": mb_s,
                               "max_active": max_active}
+        try:
+            self._perf_timeline.append(
+                (round(now - st["t0"]), round(rps, 1), round(ok_pct, 2), err,
+                 round(avg, 1), round(p50, 1), round(p95, 1), round(p99, 1),
+                 cpu_v, ram_v, active))
+        except Exception:
+            pass
         base_sm = getattr(self, "_perf_base", None)
         if base_sm:
             try:
@@ -5135,6 +5153,9 @@ class App:
         self._perf_tick_n = getattr(self, "_perf_tick_n", 0) + 1
         if self._perf_tick_n % 3 == 0:
             threading.Thread(target=self._perf_sysstat, daemon=True).start()
+        if self._perf_tick_n % 10 == 0:
+            self.log(f"[{int(now - st['t0'])}s] {rps:.0f} rps, OK {ok_pct:.2f}%, "
+                     f"p95 {p95:.0f} ms, err {err}")
         self._perf_draw()
 
     def _perf_sysstat(self):
@@ -5194,8 +5215,16 @@ class App:
         self._perf_running = False
         self._perf_tick()
         sm = self._perf_summary or {}
-        self.log(f"Load test finished: {sm.get('n', 0)} req, "
-                 f"{sm.get('ok_pct', 100.0):.2f}% OK, p95 {sm.get('p95', 0):.0f} ms")
+        self.log(f"Load test finished: {sm.get('base', '')} "
+                 f"[{sm.get('profile', 'Custom')}, {sm.get('users', 0)} users, "
+                 f"{sm.get('dur', 0)}s, {sm.get('threads', 0)} OS threads]")
+        self.log(f"  requests: {sm.get('n', 0)} | OK: {sm.get('ok_pct', 100.0):.2f}% | "
+                 f"errors: {sm.get('err', 0)} | transferred: {sm.get('mb', 0):.2f} MB")
+        self.log(f"  avg {sm.get('avg', 0):.1f} ms | p50 {sm.get('p50', 0):.1f} ms | "
+                 f"p95 {sm.get('p95', 0):.1f} ms | p99 {sm.get('p99', 0):.1f} ms | "
+                 f"peak {sm.get('rps_peak', 0):.0f} rps | max active {sm.get('max_active', 0)}")
+        if self._perf_cpu_hist:
+            self.log(f"  CPU max: {max(self._perf_cpu_hist):.0f}%")
         cb = getattr(self, "_perf_on_done", None)
         self._perf_on_done = None
         if cb:
@@ -5284,17 +5313,52 @@ class App:
             return
         lines = [
             f"Faraja WebServer — load test report ({time.strftime('%Y-%m-%d %H:%M:%S')})",
-            f"Target: {sm['base']} | users: {sm['users']} | duration: {sm['dur']}s",
+            "",
+            "== Test setup ==",
+            f"Target: {sm['base']}",
+            f"Profile: {sm.get('profile', 'Custom')} | virtual users: {sm['users']} | "
+            f"duration: {sm['dur']}s | OS threads in generator process: {sm.get('threads', sm['users'])}",
+            "Note: the generator runs in a separate process, so the app UI stays responsive",
+            "and does not steal CPU from the tested server (except for the system-wide CPU/RAM readout).",
+            "",
+            "== Summary ==",
             f"Requests: {sm['n']} | OK: {sm['ok_pct']:.2f}% | errors: {sm['err']}",
             f"Avg: {sm['avg']:.1f} ms | P50: {sm['p50']:.1f} ms | "
             f"P95: {sm['p95']:.1f} ms | P99: {sm['p99']:.1f} ms",
-            f"Peak RPS: {sm['rps_peak']:.0f} | transferred: {sm['mb']:.2f} MB",
+            f"Peak RPS: {sm['rps_peak']:.0f} | transferred: {sm['mb']:.2f} MB "
+            f"({sm.get('mb_s', 0):.2f} MB/s) | max active users: {sm.get('max_active', 0)}",
         ]
         if self._perf_cpu_hist:
-            lines.append(f"CPU max: {max(self._perf_cpu_hist):.0f}%")
+            lines.append(f"CPU max (whole system): {max(self._perf_cpu_hist):.0f}%")
         for u, d, sm in getattr(self, "_perf_auto_rows", []):
             lines.append(f"auto {u}u/{d}s: peak {sm.get('rps_peak', 0):.0f} rps, "
                          f"p95 {sm.get('p95', 0):.0f} ms, err {sm.get('err', 0)}")
+        lines += [
+            "",
+            "== Metrics glossary ==",
+            "RPS — completed HTTP requests per second (green line on the chart).",
+            "OK % — share of responses with HTTP status < 400.",
+            "ERR — failed requests (HTTP 4xx/5xx, timeouts, connection errors).",
+            "Avg — arithmetic mean response time over the whole test.",
+            "P50/P95/P99 — latency percentiles: 50/95/99% of requests were faster than this.",
+            "CPU % / RAM GB — whole-system load sampled every ~3s (includes the generator process).",
+            "Users — currently active virtual users. MB/s — response throughput. Peak — best 1-second RPS.",
+            "",
+            "== How to read the chart ==",
+            "Green line = RPS per second. Orange line = P95 latency per second (own scale).",
+            "Both lines are jagged by design: every point is a real 1-second sample,",
+            "and localhost latency naturally jitters (GC pauses, scheduler, TCP).",
+            "An UP spike on green = burst of completions (e.g. recovery after a stall).",
+            "A DOWN spike on green = requests stalled that second (server saturated, timeouts queueing).",
+            "An UP spike on orange = momentary latency degradation — correlate it with the same",
+            "second on green and with CPU: if both spike, the server (or the machine) hit a limit.",
+            "A flat orange line near zero with falling green = mass timeouts (10s cap each).",
+            "",
+            "== Per-second timeline ==",
+            "sec | RPS | OK% | ERR | Avg | P50 | P95 | P99 | CPU | RAM | Users",
+        ]
+        for row in getattr(self, "_perf_timeline", []):
+            lines.append(" | ".join(str(x) for x in row))
         try:
             Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
             self.log(f"Report saved: {path}")
@@ -7778,6 +7842,29 @@ class App:
                     "плюс «Stable max». Кнопка «В эталон» фиксирует результат для сравнения A/B:\n"
                     "поменяли конфиг — прогнали — видите ΔRPS/ΔP95. «Сохранить отчёт» пишет .txt.\n"
                     "Защита: нелокальные адреса требуют подтверждения.",
+                "perf_chart": "ГРАФИК И МЕТРИКИ — КАК ЧИТАТЬ:\n\n"
+                    "Зелёная линия — RPS (запросов в секунду, левая шкала).\n"
+                    "Оранжевая линия — P95 задержек в мс (своя шкала).\n"
+                    "Ломаная линия — это нормально: каждая точка = реальная 1-секундная выборка,\n"
+                    "а локальные задержки естественно дрожат (GC, планировщик, TCP).\n"
+                    "Зубец ВВЕРХ на зелёной — всплеск завершений (например, выход из просадки).\n"
+                    "Зубец ВНИЗ на зелёной — просадка: запросы встали (сервер насыщен, таймауты в очереди).\n"
+                    "Зубец ВВЕРХ на оранжевой — мгновенная деградация задержек; смотрите ту же секунду\n"
+                    "на зелёной и CPU: если дёрнулись обе — упёрлись в предел сервера или машины.\n"
+                    "Плоская оранжевая около нуля при падающей зелёной — массовые таймауты (лимит 10с).\n\n"
+                    "MЕТРИКИ:\n"
+                    "RPS — выполненных запросов в секунду. OK % — доля ответов со статусом < 400.\n"
+                    "ERR — ошибки (4xx/5xx, таймауты, обрывы). Avg — средняя задержка за весь тест.\n"
+                    "P50/P95/P99 — 50/95/99% запросов были быстрее этого значения.\n"
+                    "CPU % / RAM GB — нагрузка ВСЕЙ системы (включая процесс генератора), опрос ~раз в 3с.\n"
+                    "Users — активные виртуальные пользователи. MB/s — пропускная способность.\n"
+                    "Peak — лучший секундный RPS за сессию.\n\n"
+                    "ПРОФИЛИ: Quick 10/15с, Normal 50/60с, Stress 200/180с, Spike 300/60с (резкий наплыв),\n"
+                    "Soak 50/1800с (утечки на дистанции), Endurance 100/7200с, Custom — свои значения.\n"
+                    "Лимит — 10 000 пользователей, но ОС-потоков не более 2000 (предел указан в логе).\n"
+                    "В лог каждые 10 секунд пишется строка прогресса, в конце — детальная сводка.\n"
+                    "Кнопка «Сохранить отчёт» пишет .txt: конфиг, сводку, глоссарий, таблицу Auto-стадий\n"
+                    "и ПОЛНЫЙ посекундный таймлайн теста с пояснениями.",
                 "env": "ОКРУЖЕНИЕ И ВИРТУАЛЬНЫЕ ХОСТЫ:\n\n"
                     "Версии: в Настройках секция «Окружение» — PHP 8.2/8.3/8.4 и Node.js 20/22/24.\n"
                     "«Применить» скачивает сборку, ставит поверх runtime, запоминает выбор и рестартует PHP.\n"
@@ -7899,6 +7986,27 @@ class App:
                     "Step 5. 'Auto' runs stages 10→25→50→100→200 and prints the limits table plus\n"
                     "'Stable max'. 'Set baseline' pins a result for A/B comparison: change config,\n"
                     "re-run, see ΔRPS/ΔP95. 'Save report' writes a .txt. Non-local targets need confirmation.",
+                "perf_chart": "CHART AND METRICS — HOW TO READ:\n\n"
+                    "Green line — RPS (requests per second). Orange line — P95 latency in ms (own scale).\n"
+                    "A jagged line is normal: every point is a real 1-second sample, and localhost\n"
+                    "latency naturally jitters (GC, scheduler, TCP).\n"
+                    "UP spike on green — burst of completions (e.g. recovery after a stall).\n"
+                    "DOWN spike on green — stall: requests queued (server saturated, timeouts piling up).\n"
+                    "UP spike on orange — momentary latency degradation; check the same second on green\n"
+                    "and CPU: if both spiked, the server (or the machine) hit a limit.\n"
+                    "Flat orange near zero with falling green — mass timeouts (10s cap each).\n\n"
+                    "METRICS:\n"
+                    "RPS — completed requests per second. OK % — share of responses with status < 400.\n"
+                    "ERR — failures (4xx/5xx, timeouts, broken connections). Avg — mean latency.\n"
+                    "P50/P95/P99 — 50/95/99% of requests were faster than this.\n"
+                    "CPU % / RAM GB — WHOLE system load incl. the generator process, sampled ~every 3s.\n"
+                    "Users — active virtual users. MB/s — throughput. Peak — best 1-second RPS.\n\n"
+                    "PROFILES: Quick 10/15s, Normal 50/60s, Stress 200/180s, Spike 300/60s,\n"
+                    "Soak 50/1800s, Endurance 100/7200s, Custom — your values.\n"
+                    "Limit — 10,000 users, max 2,000 OS threads (stated in the log).\n"
+                    "A progress line is logged every 10 seconds, plus a detailed summary at the end.\n"
+                    "'Save report' writes a .txt: setup, summary, glossary, Auto stages table\n"
+                    "and the FULL per-second timeline with explanations.",
                 "env": "ENVIRONMENT AND VIRTUAL HOSTS:\n\n"
                     "Versions: Settings → 'Environment' — PHP 8.2/8.3/8.4 and Node.js 20/22/24.\n"
                     "'Apply' downloads the build, installs over runtime/, remembers the choice and restarts PHP.\n"
@@ -8115,6 +8223,7 @@ class App:
             (lang.t("tab_sql"), "sql"),
             (lang.t("tab_node"), "node"),
             (lang.t("tab_perf"), "perf"),
+            (lang.t("perf_chart_tab"), "perf_chart"),
             (lang.t("tab_settings"), "env"),
             (lang.t("setup_ssl"), "ssl"),
             (lang.t("docker"), "docker"),
