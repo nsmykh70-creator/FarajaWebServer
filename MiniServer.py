@@ -243,7 +243,8 @@ LOCALES = {
     "php_dev": {"ru": "Разработка", "en": "Development", "es": "Desarrollo", "de": "Entwicklung", "fr": "Développement", "zh": "开发"},
     "php_safe": {"ru": "Безопасный", "en": "Safe", "es": "Seguro", "de": "Sicher", "fr": "Sûr", "zh": "安全"},
     "set_dirlist": {"ru": "Листинг каталогов", "en": "Directory listing", "es": "Listado de directorios", "de": "Verzeichnisauflistung", "fr": "Liste des répertoires", "zh": "目录列表"},
-    "tab_node": {"ru": "Node.js", "en": "Node.js", "es": "Node.js", "de": "Node.js", "fr": "Node.js", "zh": "Node.js"},
+    "tab_node": {"ru": "Node.js / Python", "en": "Node.js / Python", "es": "Node.js / Python", "de": "Node.js / Python", "fr": "Node.js / Python", "zh": "Node.js / Python"},
+    "site_pyver": {"ru": "Версия Python:", "en": "Python version:", "es": "Versión de Python:", "de": "Python-Version:", "fr": "Version de Python :", "zh": "Python 版本："},
     "node_project": {"ru": "Проект:", "en": "Project:", "es": "Proyecto:", "de": "Projekt:", "fr": "Projet :", "zh": "项目："},
     "node_entry": {"ru": "Файл:", "en": "Entry:", "es": "Archivo:", "de": "Datei:", "fr": "Fichier :", "zh": "入口："},
     "node_port": {"ru": "Порт:", "en": "Port:", "es": "Puerto:", "de": "Port:", "fr": "Port :", "zh": "端口："},
@@ -269,7 +270,7 @@ LOCALES = {
     "col_tag": {"ru": "Тег", "en": "Tag", "es": "Etiqueta", "de": "Tag", "fr": "Tag", "zh": "标签"},
     "col_type": {"ru": "Тип", "en": "Type", "es": "Tipo", "de": "Typ", "fr": "Type", "zh": "类型"},
     "col_https": {"ru": "HTTPS", "en": "HTTPS", "es": "HTTPS", "de": "HTTPS", "fr": "HTTPS", "zh": "HTTPS"},
-    "site_type": {"ru": "Тип (php/node/static):", "en": "Type (php/node/static):", "es": "Tipo (php/node/static):", "de": "Typ (php/node/static):", "fr": "Type (php/node/static) :", "zh": "类型 (php/node/static)："},
+    "site_type": {"ru": "Тип (php/node/python/static):", "en": "Type (php/node/python/static):", "es": "Tipo (php/node/python/static):", "de": "Typ (php/node/python/static):", "fr": "Type (php/node/python/static) :", "zh": "类型 (php/node/python/static)："},
     "site_https_q": {"ru": "Включить HTTPS (нужен mkcert)?", "en": "Enable HTTPS (needs mkcert)?", "es": "¿Activar HTTPS (requiere mkcert)?", "de": "HTTPS aktivieren (braucht mkcert)?", "fr": "Activer HTTPS (nécessite mkcert) ?", "zh": "启用 HTTPS（需要 mkcert）？"},
     "site_hosts_admin": {"ru": "Нет прав на запись hosts — запустите от имени администратора", "en": "No permission to write hosts — run as administrator", "es": "Sin permiso para escribir hosts — ejecute como administrador", "de": "Keine hosts-Schreibrechte — als Administrator starten", "fr": "Permission hosts refusée — lancer en administrateur", "zh": "无权写入 hosts——请以管理员身份运行"},
     "tab_procs": {"ru": "Процессы", "en": "Processes", "es": "Procesos", "de": "Prozesse", "fr": "Processus", "zh": "进程"},
@@ -753,6 +754,12 @@ def install_component(name,log,progress,item=None,prearchive=None):
         target=RUNTIME/"Nodejs"
         shutil.rmtree(target,ignore_errors=True)
         shutil.move(str(source),str(target))
+    elif name.startswith("python3"):
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/("Python"+name.replace("python", ""))
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
     else:
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
@@ -780,7 +787,7 @@ def install_component(name,log,progress,item=None,prearchive=None):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[]
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={}
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -882,7 +889,7 @@ class Services:
         a_port = CONFIG["apache_port"]
         listing = "+Indexes" if self.dir_listing() else "-Indexes"
         for s in getattr(self, "sites_cache", []):
-            if s.get("type", "php") == "node":
+            if s.get("type", "php") in ("node", "python"):
                 continue
             try:
                 domain = self.check_domain(s.get("domain", ""))
@@ -1369,6 +1376,16 @@ port={CONFIG["mariadb_port"]}
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
         }}'''
+        for pport in sorted(self.py_routes):
+            node_blocks += f'''
+        location /py/{pport}/ {{
+            proxy_pass http://127.0.0.1:{pport}/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }}'''
         site_blocks = ""
         for s in getattr(self, "sites_cache", []):
             try:
@@ -1386,7 +1403,7 @@ port={CONFIG["mariadb_port"]}
                     ssl_lines = (f'\n        ssl_certificate "{cert.resolve().as_posix()}";'
                                  f'\n        ssl_certificate_key "{key.resolve().as_posix()}";'
                                  '\n        ssl_protocols TLSv1.2 TLSv1.3;')
-            if typ == "node":
+            if typ in ("node", "python"):
                 try:
                     sport = int(s.get("port") or 3000)
                 except (TypeError, ValueError):
@@ -1990,10 +2007,22 @@ http {{
         try:
             d = json.loads((APP_ROOT/"config"/"env.json").read_text(encoding="utf-8"))
             if isinstance(d, dict):
-                return d.get("php", ""), d.get("node", "")
+                return d.get("php", ""), d.get("node", ""), d.get("python", "")
         except Exception:
             pass
-        return "", ""
+        return "", "", ""
+
+    def env_save(self, **kv):
+        d = {}
+        try:
+            d = json.loads((APP_ROOT/"config"/"env.json").read_text(encoding="utf-8"))
+            if not isinstance(d, dict):
+                d = {}
+        except Exception:
+            pass
+        d.update(kv)
+        (APP_ROOT/"config").mkdir(parents=True, exist_ok=True)
+        (APP_ROOT/"config"/"env.json").write_text(json.dumps(d, indent=2), encoding="utf-8")
 
     def resolve_node_url(self, major):
         self.log(f"Resolving Node.js {major} download link...")
@@ -2008,8 +2037,8 @@ http {{
         raise RuntimeError(f"No Node.js {major} release found")
 
     def install_runtime_version(self, kind, ver, progress):
-        name = "php" if kind == "php" else "nodejs"
         if kind == "php":
+            name = "php"
             info = comps().get("php_versions", {}).get(ver)
             if not info:
                 raise RuntimeError(f"Unknown PHP version: {ver}")
@@ -2018,18 +2047,27 @@ http {{
                 self.log(f"Downloading PHP {ver}...")
                 download(info["url"], arc, progress, self.log)
             install_component(name, self.log, progress, prearchive=arc)
-        else:
+        elif kind == "node":
+            name = "nodejs"
             url, archive = self.resolve_node_url(ver)
             arc = DOWNLOADS / archive
             if not (arc.is_file() and zipfile.is_zipfile(arc)):
                 self.log(f"Downloading Node.js {ver}...")
                 download(url, arc, progress, self.log)
             install_component(name, self.log, progress, prearchive=arc)
-        php, node = self.env_active()
-        (APP_ROOT/"config").mkdir(parents=True, exist_ok=True)
-        (APP_ROOT/"config"/"env.json").write_text(
-            json.dumps({"php": ver if kind == "php" else php,
-                        "node": ver if kind == "node" else node}, indent=2), encoding="utf-8")
+        elif kind == "python":
+            name = "python" + ver.replace(".", "")
+            info = comps().get("python_versions", {}).get(ver)
+            if not info:
+                raise RuntimeError(f"Unknown Python version: {ver}")
+            arc = DOWNLOADS / info["archive"]
+            if not (arc.is_file() and zipfile.is_zipfile(arc)):
+                self.log(f"Downloading Python {ver}...")
+                download(info["url"], arc, progress, self.log)
+            install_component(name, self.log, progress, prearchive=arc)
+        else:
+            raise RuntimeError(f"Unknown runtime: {kind}")
+        self.env_save(**{kind: ver})
         self.log(f"{kind} {ver} installed and activated")
 
     def php_version_detect(self):
@@ -2096,6 +2134,102 @@ http {{
         self.log("Node.js has no background daemon; nothing to stop")
     def noderun(self):
         return self.node_installed()
+    def py_dir(self, ver=None):
+        if ver is None:
+            try:
+                ver = self.env_active()[2] or "3.12"
+            except Exception:
+                ver = "3.12"
+        cand = RUNTIME / f"Python{ver.replace('.', '')}"
+        if (cand / "python.exe").exists():
+            return cand
+        import shutil as _shp
+        for d in sorted(RUNTIME.glob("Python*")):
+            if (d / "python.exe").exists():
+                return d
+        sys_py = _shp.which("python") or _shp.which("python3")
+        if sys_py:
+            return Path(sys_py).parent
+        return cand
+    def get_python_exe(self, ver=None):
+        exe = self.py_dir(ver) / "python.exe"
+        if exe.exists():
+            return str(exe)
+        import shutil as _shp
+        sys_py = _shp.which("python") or _shp.which("python3")
+        if sys_py:
+            return sys_py
+        raise RuntimeError("Python is not installed (see Environment settings)")
+    def python_version_detect(self):
+        try:
+            exe = self.get_python_exe()
+        except Exception:
+            return "?"
+        try:
+            r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            m = re.search(r"Python\s+(\d+\.\d+\.\d+)", (r.stdout or "") + (r.stderr or ""))
+            return m.group(1) if m else "?"
+        except Exception:
+            return "?"
+    def py_server_running(self, name):
+        info = self.py_servers.get(name)
+        try:
+            return info is not None and info["proc"].poll() is None
+        except Exception:
+            return False
+    def py_server_start(self, name, directory, entry, port, pyver=None):
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Bad Python port: {port}")
+        self.py_server_stop(name, quiet=True)
+        entry_path = Path(directory) / entry
+        if not entry_path.exists():
+            raise RuntimeError(f"Entry not found: {entry_path}")
+        if entry_path.suffix.lower() != ".py":
+            raise RuntimeError(f"Unsupported entry type: {entry_path.suffix} (use .py)")
+        exe = self.get_python_exe(pyver)
+        env = os.environ.copy()
+        env["PORT"] = str(port)
+        f = self.logfile("python-process.log")
+        proc = subprocess.Popen([exe, str(entry_path.resolve())],
+                                cwd=str(Path(directory).resolve()), stdout=f, stderr=f,
+                                env=env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.py_servers[name] = {"proc": proc, "dir": str(directory), "entry": entry,
+                                 "port": port, "pyver": pyver or "",
+                                 "started": time.strftime("%Y-%m-%d %H:%M:%S")}
+        self.node_processes[proc.pid] = {"script": f"{name}: {entry}", "path": str(entry_path.resolve()),
+                                         "started": self.py_servers[name]["started"], "proc": proc}
+        self.py_routes[port] = name
+        self._write_nginx_conf()
+        if not wait_port(port, 15):
+            raise RuntimeError(f"Python server '{name}' did not open port {port}; see Process / Init log")
+        self.log(f"Python server '{name}' started on port {port} (PID {proc.pid}); route: /py/{port}/")
+        return proc
+    def py_server_stop(self, name, quiet=False):
+        info = self.py_servers.pop(name, None)
+        if info is None:
+            if not quiet:
+                self.log(f"Python server '{name}' is not running")
+            return
+        try:
+            kill_pid_tree(info["proc"].pid)
+        except Exception:
+            pass
+        self.node_processes.pop(info["proc"].pid, None)
+        self.py_routes.pop(info["port"], None)
+        self._write_nginx_conf()
+        wait_port_closed(info["port"], 8)
+        if not quiet:
+            self.log(f"Python server '{name}' stopped")
+    def py_servers_stop_all(self):
+        for name in list(self.py_servers.keys()):
+            try:
+                self.py_server_stop(name, quiet=True)
+            except Exception:
+                pass
+        self.log("All Python servers stopped")
     def shutdown(self):
         # Stop all MiniServer-managed services concurrently so one slow server
         # cannot hold up the shutdown of every other service. Console windows are
@@ -2111,11 +2245,16 @@ http {{
         for t in workers:
             remaining = max(0.05, deadline - time.monotonic())
             t.join(remaining)
-        # Kill every tracked Node.js process tree (servers + one-off scripts),
+        # Kill every tracked Node.js / Python process tree (servers + one-off scripts),
         # so nothing survives the application exit.
         for name in list(self.node_servers.keys()):
             try:
                 self.node_server_stop(name, quiet=True)
+            except Exception:
+                pass
+        for name in list(self.py_servers.keys()):
+            try:
+                self.py_server_stop(name, quiet=True)
             except Exception:
                 pass
         for pid, info in list(self.node_processes.items()):
@@ -2799,6 +2938,87 @@ class CodeEditor:
             messagebox.showerror("Save Error", str(e))
 
 
+def run_perf_child(cfg_path):
+    import random as _r
+    import threading as _th
+    from concurrent.futures import ThreadPoolExecutor
+    cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
+    base, users, dur = cfg["base"], int(cfg["users"]), int(cfg["dur"])
+    paths = [(m, p, int(w)) for m, p, w in cfg["paths"]]
+    weights = [x[2] for x in paths]
+    out_path = cfg["out"]
+    stop = _th.Event()
+    lock = _th.Lock()
+    tot = {"n": 0, "err": 0, "bytes": 0, "active": 0}
+    sec = {"n": 0, "err": 0, "bytes": 0, "lat": []}
+    local = _th.local()
+
+    def get_session():
+        s = getattr(local, "s", None)
+        if s is None:
+            s = requests.Session()
+            s.trust_env = False
+            local.s = s
+        return s
+
+    def worker(deadline):
+        with lock:
+            tot["active"] += 1
+        try:
+            while not stop.is_set() and time.monotonic() < deadline:
+                m, p, _w = _r.choices(paths, weights=weights)[0]
+                url = base + (p if p.startswith("/") else "/" + p)
+                data = b"perf=1" if m in ("POST", "PUT", "PATCH") else None
+                t1 = time.monotonic()
+                try:
+                    r = get_session().request(m, url, data=data, timeout=10)
+                    dt = (time.monotonic() - t1) * 1000.0
+                    ok = r.status_code < 400
+                    ln = len(r.content or b"")
+                except Exception:
+                    dt = (time.monotonic() - t1) * 1000.0
+                    ok = False
+                    ln = 0
+                with lock:
+                    tot["n"] += 1
+                    sec["n"] += 1
+                    if not ok:
+                        tot["err"] += 1
+                        sec["err"] += 1
+                    tot["bytes"] += ln
+                    sec["bytes"] += ln
+                    sec["lat"].append(dt)
+        finally:
+            with lock:
+                tot["active"] -= 1
+
+    t0 = time.monotonic()
+    deadline = t0 + dur
+    ex = ThreadPoolExecutor(max_workers=users)
+    try:
+        futs = [ex.submit(worker, deadline) for _ in range(users)]
+        with open(out_path, "w", encoding="utf-8") as f:
+            while time.monotonic() < deadline + 2 and not stop.is_set():
+                time.sleep(1.0)
+                with lock:
+                    line = json.dumps({"t": round(time.monotonic() - t0, 1),
+                                       "n": tot["n"], "err": tot["err"],
+                                       "bytes": tot["bytes"], "active": tot["active"],
+                                       "lat": sec["lat"]})
+                    sec["n"] = 0
+                    sec["err"] = 0
+                    sec["bytes"] = 0
+                    sec["lat"] = []
+                f.write(line + "\n")
+                f.flush()
+            with lock:
+                f.write(json.dumps({"done": True, "n": tot["n"], "err": tot["err"]}) + "\n")
+                f.flush()
+    finally:
+        stop.set()
+        ex.shutdown(wait=True)
+
+
 class App:
     def __init__(self):
         self.root=tk.Tk()
@@ -2806,8 +3026,22 @@ class App:
         self.root.geometry("1280x860")
         self.root.minsize(1120,750)
         self.root.configure(bg=THEME["bg"])
-        try:self.root.iconbitmap(str(ICON))
-        except Exception:pass
+        try:
+            import ctypes as _ct
+            _ct.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Faraja.WebServer.PRO")
+        except Exception:
+            pass
+        try:
+            if LOGO_PNG.exists():
+                self._app_icon_img = ImageTk.PhotoImage(Image.open(str(LOGO_PNG)).resize((32, 32), Image.LANCZOS))
+                self.root.iconphoto(True, self._app_icon_img)
+            else:
+                self.root.iconbitmap(str(ICON))
+        except Exception:
+            try:
+                self.root.iconbitmap(str(ICON))
+            except Exception:
+                pass
         self.lines=[];self.svc=Services(self.log);self.tray=None;self.closing=False
         self._pulse = 0
         self._docker_ok = False
@@ -3256,6 +3490,7 @@ class App:
         self._node_tree.pack(fill="both", expand=True, padx=10, pady=4)
         self._node_refresh_tree()
         threading.Thread(target=self._node_version, daemon=True).start()
+        self._build_py(parent)
 
     def _node_save_defs(self):
         try:
@@ -3404,6 +3639,236 @@ class App:
         port = port or self._node_port_var.get().strip() or "3000"
         url = f"http://127.0.0.1:{port}/"
         self.log(f"Opening Node.js app: {url}")
+        webbrowser.open(url)
+
+    def _build_py(self, parent):
+        self._py_file = APP_ROOT / "config" / "python.json"
+        try:
+            self._py_defs = json.loads(self._py_file.read_text(encoding="utf-8")).get("servers", [])
+        except Exception:
+            self._py_defs = []
+        title = tk.Label(parent, text="Python", bg=THEME["bg_elevated"], fg=THEME["accent"],
+                         font=(THEME["font_family"], 10, "bold"), anchor="w")
+        title.pack(fill="x", padx=12, pady=(8, 2))
+        form = tk.Frame(parent, bg=THEME["bg_elevated"])
+        form.pack(fill="x", padx=10, pady=2)
+        self._py_name_var = tk.StringVar(value="pyapp")
+        self._py_dir_var = tk.StringVar(value=str(WWW / "pyapp"))
+        self._py_entry_var = tk.StringVar(value="app.py")
+        self._py_port_var = tk.StringVar(value="5000")
+        try:
+            _py_vers = list(comps().get("python_versions", {}).keys()) or ["3.11", "3.12", "3.13"]
+            _cur = self.svc.env_active()[2]
+        except Exception:
+            _py_vers, _cur = ["3.11", "3.12", "3.13"], ""
+        self._py_ver_var = tk.StringVar(value=_cur if _cur in _py_vers else _py_vers[-1])
+        r1 = tk.Frame(form, bg=THEME["bg_elevated"])
+        r1.pack(fill="x", pady=2)
+        tk.Label(r1, text=lang.t("col_server"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Entry(r1, textvariable=self._py_name_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=16).pack(side="left", padx=4)
+        tk.Label(r1, text=lang.t("node_project"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        tk.Entry(r1, textvariable=self._py_dir_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0).pack(side="left", fill="x", expand=True, padx=4)
+        StyledButton(r1, lang.t("first_run_browse"), self._py_browse_dir, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=80, height=24, font_size=8).pack(side="left", padx=2)
+        r2 = tk.Frame(form, bg=THEME["bg_elevated"])
+        r2.pack(fill="x", pady=2)
+        tk.Label(r2, text=lang.t("node_entry"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        tk.Entry(r2, textvariable=self._py_entry_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=24).pack(side="left", padx=4)
+        tk.Label(r2, text=lang.t("node_port"), bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        tk.Entry(r2, textvariable=self._py_port_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+                 insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
+                 relief="flat", bd=0, width=6).pack(side="left", padx=4)
+        tk.Label(r2, text="Python:", bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
+        _pym = tk.OptionMenu(r2, self._py_ver_var, *_py_vers)
+        _pym.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
+                       activebackground=THEME["accent"], activeforeground=THEME["white"],
+                       font=(THEME["font_family"], 9), highlightthickness=0)
+        _pym["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        _pym.pack(side="left", padx=4)
+        btns = tk.Frame(parent, bg=THEME["bg_elevated"])
+        btns.pack(fill="x", padx=10, pady=2)
+        StyledButton(btns, lang.t("start"), self._py_start_sel, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("stop"), self._py_stop_sel, color=THEME["danger"],
+                     hover_color="#ff6b5a", active_color=THEME["danger_dim"],
+                     width=90, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("restart"), self._py_restart_sel, color=THEME["warning_dim"],
+                     hover_color=THEME["warning"], active_color="#ba5e17",
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("btn_open_site"), self._py_open_sel, color=THEME["info"],
+                     hover_color="#2e9bf5", active_color="#0769b5",
+                     width=110, height=26, font_size=8).pack(side="left", padx=2)
+        StyledButton(btns, lang.t("btn_remove"), self._py_remove_sel, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=100, height=26, font_size=8).pack(side="left", padx=2)
+        self._py_tree = ttk.Treeview(parent, columns=("server", "port", "pid", "started", "status"),
+                                     show="headings", height=5, style="Big.Treeview")
+        self._py_tree.heading("server", text=lang.t("col_server"))
+        self._py_tree.heading("port", text=lang.t("col_port"))
+        self._py_tree.heading("pid", text=lang.t("col_pid"))
+        self._py_tree.heading("started", text=lang.t("col_started"))
+        self._py_tree.heading("status", text=lang.t("col_status"))
+        self._py_tree.column("server", width=140)
+        self._py_tree.column("port", width=70)
+        self._py_tree.column("pid", width=80)
+        self._py_tree.column("started", width=130)
+        self._py_tree.column("status", width=110)
+        self._py_tree.pack(fill="x", padx=10, pady=(2, 6))
+        self._py_refresh_tree()
+
+    def _py_save_defs(self):
+        try:
+            (APP_ROOT / "config").mkdir(parents=True, exist_ok=True)
+            self._py_file.write_text(json.dumps({"servers": self._py_defs}, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _py_current_def(self):
+        return {"name": self._py_name_var.get().strip() or "pyapp",
+                "dir": self._py_dir_var.get().strip(),
+                "entry": self._py_entry_var.get().strip() or "app.py",
+                "port": self._py_port_var.get().strip() or "5000",
+                "pyver": self._py_ver_var.get().strip()}
+
+    def _py_upsert_def(self, d):
+        self._py_defs = [s for s in self._py_defs if s.get("name") != d["name"]]
+        self._py_defs.append(d)
+        self._py_save_defs()
+
+    def _py_refresh_tree(self):
+        if not hasattr(self, "_py_tree"):
+            return
+        for item in self._py_tree.get_children():
+            self._py_tree.delete(item)
+        live = {}
+        for name, info in self.svc.py_servers.items():
+            try:
+                alive = info["proc"].poll() is None
+            except Exception:
+                alive = False
+            live[name] = (info, alive)
+        for d in self._py_defs:
+            name = d.get("name", "")
+            if name in live:
+                info, alive = live[name]
+                pid = info["proc"].pid if alive else "—"
+                self._py_tree.insert("", "end", iid=name,
+                                     values=(name, info["port"], pid, info["started"],
+                                             lang.t("running") if alive else lang.t("stopped")))
+        for name, (info, alive) in live.items():
+            if name not in [d.get("name") for d in self._py_defs]:
+                self._py_tree.insert("", "end", iid=name,
+                                     values=(name, info["port"], info["proc"].pid, info["started"],
+                                             lang.t("running")))
+
+    def _py_browse_dir(self):
+        from tkinter import filedialog
+        d = filedialog.askdirectory(initialdir=self._py_dir_var.get() or str(WWW))
+        if d:
+            self._py_dir_var.set(d)
+
+    def _py_fill_from_sel(self):
+        sel = list(self._py_tree.selection())
+        if not sel:
+            return None
+        d = next((s for s in self._py_defs if s.get("name") == sel[0]), None)
+        if d:
+            self._py_name_var.set(d["name"])
+            self._py_dir_var.set(d.get("dir", ""))
+            self._py_entry_var.set(d.get("entry", "app.py"))
+            self._py_port_var.set(str(d.get("port", "5000")))
+            if d.get("pyver"):
+                self._py_ver_var.set(d["pyver"])
+        return d
+
+    def _py_start_sel(self):
+        self._py_fill_from_sel()
+        d = self._py_current_def()
+        if not Path(d["dir"]).is_dir():
+            messagebox.showerror(lang.t("error"), d["dir"])
+            return
+        def w():
+            try:
+                self.svc.py_server_start(d["name"], d["dir"], d["entry"], d["port"],
+                                         d.get("pyver") or None)
+                self._py_upsert_def(d)
+                self.root.after(0, self._py_refresh_tree)
+            except Exception as e:
+                self.log(f"Python ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _py_stop_sel(self):
+        sel = list(self._py_tree.selection())
+        names = sel or ([self._py_name_var.get().strip()] if self._py_name_var.get().strip() else [])
+        def w():
+            for name in names:
+                try:
+                    self.svc.py_server_stop(name)
+                except Exception as e:
+                    self.log(f"Python ERROR: {e}")
+            self.root.after(0, self._py_refresh_tree)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _py_restart_sel(self):
+        self._py_fill_from_sel()
+        d = self._py_current_def()
+        def w():
+            try:
+                self.svc.py_server_stop(d["name"], quiet=True)
+                self.svc.py_server_start(d["name"], d["dir"], d["entry"], d["port"],
+                                         d.get("pyver") or None)
+                self._py_upsert_def(d)
+                self.root.after(0, self._py_refresh_tree)
+            except Exception as e:
+                self.log(f"Python ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _py_remove_sel(self):
+        sel = list(self._py_tree.selection())
+        if not sel:
+            messagebox.showinfo(APP_NAME, lang.t("set_no_selection"))
+            return
+        if not DarkPrompt.ask_yes_no(self.root, lang.t("btn_remove"),
+                                     f"{lang.t('confirm_delete')} {sel[0]}?"):
+            return
+        def w():
+            try:
+                self.svc.py_server_stop(sel[0], quiet=True)
+            except Exception:
+                pass
+            self._py_defs = [s for s in self._py_defs if s.get("name") != sel[0]]
+            self._py_save_defs()
+            self.root.after(0, self._py_refresh_tree)
+        threading.Thread(target=w, daemon=True).start()
+
+    def _py_open_sel(self):
+        sel = list(self._py_tree.selection())
+        port = None
+        if sel:
+            d = next((s for s in self._py_defs if s.get("name") == sel[0]), None)
+            if d:
+                port = d.get("port")
+            info = self.svc.py_servers.get(sel[0])
+            if info:
+                port = info["port"]
+        port = port or self._py_port_var.get().strip() or "5000"
+        url = f"http://127.0.0.1:{port}/"
+        self.log(f"Opening Python app: {url}")
         webbrowser.open(url)
 
     def _std_entry(self, parent, var, width=14, show=None):
@@ -3735,6 +4200,12 @@ class App:
             self._perf_on_done = None
             self._perf_auto_rows = []
             self._perf_stop.set()
+            try:
+                ch = getattr(self, "_perf_child", None)
+                if ch is not None and ch.poll() is None:
+                    kill_pid_tree(ch.pid)
+            except Exception:
+                pass
         else:
             self._perf_start()
 
@@ -3794,54 +4265,74 @@ class App:
         self._perf_summary = None
         for v in self._perf_vars.values():
             v.set("—")
-        local = threading.local()
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        try:
+            (APP_ROOT / "tmp").mkdir(parents=True, exist_ok=True)
+            cfg_path = APP_ROOT / "tmp" / f"perftest-{stamp}.json"
+            out_path = APP_ROOT / "tmp" / f"perftest-{stamp}.out"
+            cfg_path.write_text(json.dumps({"base": base, "users": users, "dur": dur,
+                                            "paths": paths, "out": str(out_path)}),
+                                encoding="utf-8")
+            out_path.write_text("", encoding="utf-8")
+        except Exception as e:
+            messagebox.showerror(lang.t("error"), str(e))
+            return
+        try:
+            if getattr(sys, "frozen", False):
+                cmd = [sys.executable, "--perf-child", str(cfg_path)]
+            else:
+                cmd = [sys.executable, str(Path(__file__).resolve()), "--perf-child", str(cfg_path)]
+            child = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except Exception as e:
+            messagebox.showerror(lang.t("error"), str(e))
+            return
+        self._perf_child = child
+        self._perf_out_path = str(out_path)
 
-        def get_session():
-            s = getattr(local, "s", None)
-            if s is None:
-                s = requests.Session()
-                s.trust_env = False
-                local.s = s
-            return s
-
-        def worker():
-            deadline = stats["t0"] + dur
-            with stats["lock"]:
-                stats["active"] += 1
-                stats["max_active"] = max(stats["max_active"], stats["active"])
-            try:
-                while not self._perf_stop.is_set() and time.monotonic() < deadline:
-                    m, p, _w = random.choices(paths, weights=weights)[0]
-                    url = base + (p if p.startswith("/") else "/" + p)
-                    data = None
-                    if m in ("POST", "PUT", "PATCH"):
-                        data = b"perf=1"
-                    t1 = time.monotonic()
-                    try:
-                        r = get_session().request(m, url, data=data, timeout=10)
-                        dt = (time.monotonic() - t1) * 1000.0
-                        ok = r.status_code < 400
-                        ln = len(r.content or b"")
-                    except Exception:
-                        dt = (time.monotonic() - t1) * 1000.0
-                        ok = False
-                        ln = 0
-                    with stats["lock"]:
-                        stats["n"] += 1
-                        if not ok:
-                            stats["err"] += 1
-                        stats["bytes"] += ln
-                        if len(stats["lat"]) < 500000:
-                            stats["lat"].append(dt)
-            finally:
-                with stats["lock"]:
-                    stats["active"] -= 1
-
-        def monitor():
-            while not self._perf_stop.is_set():
-                time.sleep(1.0)
+        def tail():
+            pos, idle = 0, 0
+            while True:
                 try:
-                    self.root.after(0, self._perf_tick)
+                    with open(str(out_path), "r", encoding="utf-8", errors="replace") as f:
+                        f.seek(pos)
+                        chunk = f.read()
+                        pos = f.tell()
+                except Exception:
+                    chunk = ""
+                if chunk:
+                    idle = 0
+                    for line in chunk.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            b = json.loads(line)
+                        except Exception:
+                            continue
+                        if b.get("done"):
+                            continue
+                        with stats["lock"]:
+                            stats["n"] = b.get("n", stats["n"])
+                            stats["err"] = b.get("err", stats["err"])
+                            stats["bytes"] = b.get("bytes", stats["bytes"])
+                            stats["active"] = b.get("active", 0)
+                            stats["max_active"] = max(stats["max_active"], b.get("active", 0))
+                            for v in b.get("lat", []):
+                                if len(stats["lat"]) < 500000:
+                                    stats["lat"].append(v)
+                    try:
+                        self.root.after(0, self._perf_tick)
+                    except Exception:
+                        pass
+                else:
+                    idle += 1
+                if child.poll() is not None and idle >= 2:
+                    break
+                time.sleep(0.5)
+            for tmpf in (str(cfg_path), str(out_path)):
+                try:
+                    Path(tmpf).unlink(missing_ok=True)
                 except Exception:
                     pass
             try:
@@ -3849,23 +4340,10 @@ class App:
             except Exception:
                 pass
 
-        def supervisor():
-            ex = ThreadPoolExecutor(max_workers=users)
-            try:
-                for _ in range(users):
-                    ex.submit(worker)
-                mt = threading.Thread(target=monitor, daemon=True)
-                mt.start()
-                endt = stats["t0"] + dur
-                while time.monotonic() < endt and not self._perf_stop.is_set():
-                    time.sleep(0.5)
-            finally:
-                self._perf_stop.set()
-                ex.shutdown(wait=True)
-
         self._perf_toggle_visual(True)
-        threading.Thread(target=supervisor, daemon=True).start()
-        self.log(f"Load test started: {users} users, {dur}s -> {base}")
+        threading.Thread(target=tail, daemon=True).start()
+        self.log(f"Load test started in separate process (PID {child.pid}): "
+                 f"{users} users, {dur}s -> {base}")
 
     def _perf_tick(self):
         st = getattr(self, "_perf_stats", None)
@@ -3969,6 +4447,13 @@ class App:
                 cv.create_line(*pts_p, fill=THEME["warning"], width=2)
             cv.create_text(8, 8, anchor="w", text=f"max {rmax:.0f} rps",
                            fill=THEME["text_dim"], font=("Cascadia Code", 8))
+            lx = W - 8
+            cv.create_text(lx, 8, anchor="e", text="P95 ms", fill=THEME["warning"],
+                           font=("Cascadia Code", 8, "bold"))
+            cv.create_line(lx - 62, 8, lx - 46, 8, fill=THEME["warning"], width=3)
+            cv.create_text(lx - 70, 8, anchor="e", text="RPS", fill=THEME["success"],
+                           font=("Cascadia Code", 8, "bold"))
+            cv.create_line(lx - 116, 8, lx - 100, 8, fill=THEME["success"], width=3)
         except Exception:
             pass
 
@@ -5093,8 +5578,19 @@ class App:
         if typ is None:
             return
         typ = (typ.strip().lower() or "php")
-        if typ not in ("php", "node", "static"):
+        if typ not in ("php", "node", "python", "static"):
             typ = "php"
+        pyver = ""
+        if typ == "python":
+            try:
+                default_py = self.svc.env_active()[2] or "3.12"
+            except Exception:
+                default_py = "3.12"
+            pyver = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_pyver"),
+                                          initial=default_py)
+            if pyver is None:
+                return
+            pyver = (pyver.strip() or default_py)
         https = DarkPrompt.ask_yes_no(self.root, lang.t("btn_add_site"), lang.t("site_https_q"))
         port = DarkPrompt.ask_string(self.root, lang.t("btn_add_site"), lang.t("site_port"))
         if port is None:
@@ -5105,7 +5601,7 @@ class App:
         if not index.exists():
             index.write_text(f"<html><body><h1>{name}</h1></body></html>", encoding="utf-8")
         self._sites.append({"name": name, "domain": domain, "root": str(site_root),
-                            "port": port, "type": typ, "https": https})
+                            "port": port, "type": typ, "https": https, "pyver": pyver})
         self._sites_file.write_text(json.dumps(self._sites, indent=2), encoding="utf-8")
         self.svc.set_sites(self._sites)
         self._load_sites()
@@ -5376,9 +5872,11 @@ class App:
         try:
             _php_vers = list(comps().get("php_versions", {}).keys()) or ["8.2", "8.3", "8.4"]
             _node_vers = list(comps().get("node_versions", {}).keys()) or ["20", "22", "24"]
-            _cur_php, _cur_node = self.svc.env_active()
+            _py_vers = list(comps().get("python_versions", {}).keys()) or ["3.11", "3.12", "3.13"]
+            _cur_php, _cur_node, _cur_py = self.svc.env_active()
         except Exception:
-            _php_vers, _node_vers, _cur_php, _cur_node = ["8.2", "8.3", "8.4"], ["20", "22", "24"], "", ""
+            _php_vers, _node_vers, _py_vers = ["8.2", "8.3", "8.4"], ["20", "22", "24"], ["3.11", "3.12", "3.13"]
+            _cur_php, _cur_node, _cur_py = "", "", ""
         erow = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow.pack(fill="x", padx=6, pady=2)
         tk.Label(erow, text=lang.t("env_php"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -5413,6 +5911,23 @@ class App:
         StyledButton(erow2, lang.t("db_apply"), self._env_apply_node, color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
                      width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
+        erow_py = tk.Frame(envbox, bg=THEME["bg_elevated"])
+        erow_py.pack(fill="x", padx=6, pady=2)
+        tk.Label(erow_py, text="Python:", bg=THEME["bg_elevated"], fg=THEME["text"],
+                 font=(THEME["font_family"], 9)).pack(side="left")
+        self._env_py_var = tk.StringVar(value=_cur_py if _cur_py in _py_vers else _py_vers[-1])
+        _py_menu = tk.OptionMenu(erow_py, self._env_py_var, *_py_vers)
+        _py_menu.configure(bg=THEME["entry_bg"], fg=THEME["entry_fg"], relief="flat",
+                           activebackground=THEME["accent"], activeforeground=THEME["white"],
+                           font=(THEME["font_family"], 9), highlightthickness=0)
+        _py_menu["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"])
+        _py_menu.pack(side="left", padx=4)
+        self._env_py_cur = tk.Label(erow_py, text="…", bg=THEME["bg_elevated"], fg=THEME["text_dim"],
+                                    font=("Cascadia Code", 9))
+        self._env_py_cur.pack(side="left", padx=4)
+        StyledButton(erow_py, lang.t("db_apply"), self._env_apply_python, color=THEME["success"],
+                     hover_color="#55e39a", active_color=THEME["success_dim"],
+                     width=110, height=26, font_size=8).pack(side="right", padx=(8, 2))
         erow3 = tk.Frame(envbox, bg=THEME["bg_elevated"])
         erow3.pack(fill="x", padx=6, pady=(2, 8))
         tk.Label(erow3, text=lang.t("env_tools"), bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -5430,7 +5945,7 @@ class App:
         cb_grid = tk.Frame(select_box, bg=THEME["bg_elevated"])
         cb_grid.pack(fill="x", padx=6, pady=(0, 6))
         try:
-            manifest_names = list(comps().keys())
+            manifest_names = [n for n, i in comps().items() if is_component(i)]
         except Exception:
             manifest_names = ["apache", "php", "mariadb", "postgresql", "redis", "nginx", "nodejs", "phpmyadmin"]
         for idx, name in enumerate(manifest_names):
@@ -5481,12 +5996,14 @@ class App:
             try:
                 php = self.svc.php_version_detect()
                 node = self.svc.node_version_detect()
+                py = self.svc.python_version_detect()
                 tools = self.svc.tools_versions()
                 ttxt = "  ·  ".join(f"{k}: {v}" for k, v in tools.items())
                 def ui():
                     try:
                         self._env_php_cur.configure(text=php)
                         self._env_node_cur.configure(text=node)
+                        self._env_py_cur.configure(text=py)
                         self._env_tools_var.set(ttxt)
                     except Exception:
                         pass
@@ -5526,6 +6043,22 @@ class App:
                 self.root.after(0, self._env_refresh_versions)
             except Exception as e:
                 self.log("Node.js version ERROR: " + str(e))
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _env_apply_python(self):
+        ver = self._env_py_var.get()
+        def w():
+            try:
+                self.svc.install_runtime_version(
+                    "python", ver,
+                    lambda g, t, s: self._install_progress(f"python {ver}", g, t, s))
+                self._install_progress("", 0, 0)
+                if self.svc.py_servers:
+                    self.log("Restart your Python servers to use the new version")
+                self.root.after(0, self._env_refresh_versions)
+            except Exception as e:
+                self.log("Python version ERROR: " + str(e))
                 self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
         threading.Thread(target=w, daemon=True).start()
 
@@ -6827,4 +7360,8 @@ class App:
         self.root.mainloop()
 
 if __name__ == "__main__":
-    App().run()
+    if "--perf-child" in sys.argv:
+        _idx = sys.argv.index("--perf-child")
+        run_perf_child(sys.argv[_idx + 1] if _idx + 1 < len(sys.argv) else "")
+    else:
+        App().run()
