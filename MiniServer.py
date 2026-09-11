@@ -313,6 +313,10 @@ LOCALES = {
     "env_tools": {"ru": "Инструменты:", "en": "Tools:", "es": "Herramientas:", "de": "Werkzeuge:", "fr": "Outils :", "zh": "工具："},
     "dock_build": {"ru": "Build", "en": "Build", "es": "Build", "de": "Build", "fr": "Build", "zh": "构建"},
     "dbm_conn": {"ru": "Подключение", "en": "Connection", "es": "Conexión", "de": "Verbindung", "fr": "Connexion", "zh": "连接"},
+    "btn_open": {"ru": "Открыть", "en": "Open", "es": "Abrir", "de": "Öffnen", "fr": "Ouvrir", "zh": "打开"},
+    "btn_cut": {"ru": "Вырезать", "en": "Cut", "es": "Cortar", "de": "Ausschneiden", "fr": "Couper", "zh": "剪切"},
+    "btn_paste": {"ru": "Вставить", "en": "Paste", "es": "Pegar", "de": "Einfügen", "fr": "Coller", "zh": "粘贴"},
+    "btn_rename": {"ru": "Переименовать", "en": "Rename", "es": "Renombrar", "de": "Umbenennen", "fr": "Renommer", "zh": "重命名"},
     "dbm_actions": {"ru": "Действия", "en": "Actions", "es": "Acciones", "de": "Aktionen", "fr": "Actions", "zh": "操作"},
     "admin_hint": {"ru": "Совет: запустите от имени администратора — иначе недоступны запись hosts и HTTPS-домены", "en": "Tip: run as administrator — otherwise hosts editing and HTTPS domains are unavailable", "es": "Consejo: ejecute como administrador — sin esto no hay hosts ni dominios HTTPS", "de": "Tipp: als Administrator starten — sonst keine Hosts- und HTTPS-Domains", "fr": "Astuce : lancer en administrateur — sinon pas de hosts ni domaines HTTPS", "zh": "提示：请以管理员身份运行，否则无法使用 hosts 和 HTTPS 域名"},
     "site_no_hosts": {"ru": "Домен {domain} не резолвится — нет записи hosts (нужен администратор). Открываю через localhost.", "en": "Domain {domain} does not resolve — no hosts entry (administrator needed). Opening via localhost.", "es": "El dominio {domain} no resuelve — sin entrada hosts (se necesita administrador). Abriendo vía localhost.", "de": "Domain {domain} löst nicht auf — kein Hosts-Eintrag (Administrator nötig). Öffne via localhost.", "fr": "Le domaine {domain} ne résout pas — pas d'entrée hosts (administrateur requis). Ouverture via localhost.", "zh": "域名 {domain} 无法解析——缺少 hosts 条目（需要管理员权限）。改用 localhost 打开。"},
@@ -2838,7 +2842,32 @@ class CodeEditor:
         self._text.bind("<KeyPress>", self._auto_pair)
         self._text.bind("<Tab>", self._handle_tab)
         self._text.bind("<Shift-Tab>", lambda e: self._unindent())
+        self._text.bind("<Button-3>", self._context_menu)
         self._find_last = ""
+
+    def _context_menu(self, event):
+        menu = tk.Menu(self.win, tearoff=False, bg="#2d2d2d", fg="#cccccc",
+                       activebackground="#505050", activeforeground="#ffffff",
+                       font=("Segoe UI", 9), relief="flat", bd=1)
+        menu.add_command(label="Cut\tCtrl+X", command=lambda: self._cut_or_line())
+        menu.add_command(label="Copy\tCtrl+C", command=lambda: self._copy_or_line())
+        menu.add_command(label="Paste\tCtrl+V", command=lambda: self._paste())
+        menu.add_separator()
+        menu.add_command(label="Select All\tCtrl+A", command=lambda: self._select_all())
+        menu.add_separator()
+        menu.add_command(label="Find\tCtrl+F", command=lambda: self._find_dialog())
+        menu.add_command(label="Replace\tCtrl+H",
+                         command=lambda: self._find_dialog(replace=True))
+        menu.add_command(label="Go to Line\tCtrl+G", command=lambda: self._goto_line())
+        menu.add_separator()
+        menu.add_command(label="Duplicate\tCtrl+D", command=lambda: self._duplicate())
+        menu.add_command(label="Toggle Comment\tCtrl+/",
+                         command=lambda: self._toggle_comment())
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
 
         self._setup_tags()
         try:
@@ -3605,10 +3634,24 @@ class App:
         _donate_btn.pack(side="right", padx=4)
         ToolTip(_donate_btn, lang.t("donate_title"))
 
-        self._port_label = tk.Label(parent, text="", bg=THEME["bg_card"], fg=THEME["text_dim"],
-                                    font=("Cascadia Code", 8), anchor="w", padx=24, pady=7)
-        self._port_label.pack(fill="x")
-        self._port_label.configure(text=f"LOCAL SERVICES   •   Apache {CONFIG['apache_port']}   ·   MariaDB {CONFIG['mariadb_port']}   ·   PHP {CONFIG['php_cgi_port']}   ·   PostgreSQL {CONFIG['postgresql_port']}   ·   Redis {CONFIG['redis_port']}   ·   Nginx {CONFIG['nginx_port']}")
+        self._port_strip = tk.Frame(parent, bg=THEME["bg_card"])
+        self._port_strip.pack(fill="x")
+        tk.Label(self._port_strip, text="LOCAL SERVICES   •  ", bg=THEME["bg_card"],
+                 fg=THEME["text_muted"], font=("Cascadia Code", 8, "bold")).pack(side="left", padx=(24, 0), pady=7)
+        self._port_labels = {}
+        for key, cfgkey, attr in (("Apache", "apache_port", "apache"),
+                                  ("MariaDB", "mariadb_port", "db"),
+                                  ("PHP", "php_cgi_port", "php"),
+                                  ("PostgreSQL", "postgresql_port", "pg"),
+                                  ("Redis", "redis_port", "redis"),
+                                  ("Nginx", "nginx_port", "nginx")):
+            lbl = tk.Label(self._port_strip, text=f"{key} {CONFIG[cfgkey]}", bg=THEME["bg_card"],
+                           fg=THEME["text_dim"], font=("Cascadia Code", 8))
+            lbl.pack(side="left", pady=7)
+            self._port_labels[attr] = (lbl, key, cfgkey)
+            tk.Label(self._port_strip, text="   ·   ", bg=THEME["bg_card"],
+                     fg=THEME["text_muted"], font=("Cascadia Code", 8)).pack(side="left", pady=7)
+        self._refresh_port_label()
 
 
     def _switch_lang(self, code):
@@ -5559,7 +5602,16 @@ class App:
 
     def _refresh_port_label(self):
         try:
-            self._port_label.configure(text=f"LOCAL SERVICES   •   Apache {CONFIG['apache_port']}   ·   MariaDB {CONFIG['mariadb_port']}   ·   PHP {CONFIG['php_cgi_port']}   ·   PostgreSQL {CONFIG['postgresql_port']}   ·   Redis {CONFIG['redis_port']}   ·   Nginx {CONFIG['nginx_port']}")
+            for attr, (lbl, key, cfgkey) in self._port_labels.items():
+                lbl.configure(text=f"{key} {CONFIG[cfgkey]}")
+        except Exception:
+            pass
+
+    def _colorize_port_label(self, attr, running):
+        try:
+            lbl, _, _ = self._port_labels[attr]
+            lbl.configure(fg=THEME["success"] if running else THEME["text_dim"],
+                          font=("Cascadia Code", 8, "bold" if running else "normal"))
         except Exception:
             pass
 
@@ -5695,7 +5747,18 @@ class App:
         StyledButton(top, lang.t("btn_delete"), self._fm_delete, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      width=100, height=28, font_size=9).pack(side="left", padx=2)
+        _fm_copy_btn = StyledButton(top, "⧉", self._fm_copy, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=40, height=28, font_size=10)
+        _fm_copy_btn.pack(side="left", padx=2)
+        ToolTip(_fm_copy_btn, lang.t("donate_copy"))
+        _fm_paste_btn = StyledButton(top, "⎘", self._fm_paste, color=THEME["bg_input"],
+                     hover_color=THEME["border_light"], active_color=THEME["border"],
+                     width=40, height=28, font_size=10)
+        _fm_paste_btn.pack(side="left", padx=2)
+        ToolTip(_fm_paste_btn, lang.t("btn_paste"))
         self._fm_path = tk.StringVar(value=str(WWW))
+        self._fm_clip = {"op": None, "paths": []}
         path_entry = tk.Entry(top, textvariable=self._fm_path, bg=THEME["entry_bg"],
                               fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"],
                               font=("Cascadia Code", 9), relief="flat", bd=0)
@@ -5717,7 +5780,115 @@ class App:
         self._fm_tree.column("modified", width=130)
         self._fm_tree.pack(fill="both", expand=True)
         self._fm_tree.bind("<Double-1>", self._fm_open)
+        self._fm_tree.bind("<Button-3>", self._fm_menu)
+        self._fm_tree.bind("<Control-c>", lambda e: (self._fm_copy(), "break"))
+        self._fm_tree.bind("<Control-x>", lambda e: (self._fm_cut(), "break"))
+        self._fm_tree.bind("<Control-v>", lambda e: (self._fm_paste(), "break"))
+        self._fm_tree.bind("<Delete>", lambda e: (self._fm_delete(), "break"))
+        self._fm_tree.bind("<F2>", lambda e: (self._fm_rename(), "break"))
+        self._fm_tree.bind("<F5>", lambda e: (self._fm_refresh(), "break"))
         self._fm_refresh()
+
+    def _fm_sel_path(self):
+        sel = self._fm_tree.selection()
+        if not sel:
+            return None
+        item = Path(sel[0])
+        if item.name == "..":
+            return None
+        return item
+
+    def _fm_menu(self, event):
+        item = self._fm_tree.identify_row(event.y)
+        if item:
+            self._fm_tree.selection_set(item)
+        menu = tk.Menu(self.root, tearoff=False, bg=THEME["bg_elevated"], fg=THEME["text"],
+                       activebackground=THEME["accent"], activeforeground=THEME["white"],
+                       font=(THEME["font_family"], 9), relief="flat", bd=1)
+        menu.add_command(label=lang.t("btn_open"),
+                         command=lambda: self._fm_open(None))
+        menu.add_command(label=lang.t("btn_edit"), command=self._fm_edit)
+        menu.add_command(label=lang.t("btn_rename"), command=self._fm_rename)
+        menu.add_separator()
+        menu.add_command(label=lang.t("donate_copy"), command=self._fm_copy)
+        menu.add_command(label=lang.t("btn_cut"), command=self._fm_cut)
+        menu.add_command(label=lang.t("btn_paste"), command=self._fm_paste)
+        menu.add_separator()
+        menu.add_command(label=lang.t("btn_delete"), command=self._fm_delete)
+        menu.add_command(label=lang.t("btn_refresh"), command=self._fm_refresh)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _fm_copy(self):
+        item = self._fm_sel_path()
+        if not item:
+            return
+        self._fm_clip = {"op": "copy", "paths": [item]}
+        self.log(f"Copy: {item.name}")
+
+    def _fm_cut(self):
+        item = self._fm_sel_path()
+        if not item:
+            return
+        self._fm_clip = {"op": "cut", "paths": [item]}
+        self.log(f"Cut: {item.name}")
+
+    def _fm_unique(self, dest):
+        if not dest.exists():
+            return dest
+        stem = dest.stem + " - copy"
+        cand = dest.with_name(stem + dest.suffix)
+        i = 2
+        while cand.exists():
+            cand = dest.with_name(f"{dest.stem} - copy ({i}){dest.suffix}")
+            i += 1
+        return cand
+
+    def _fm_paste(self):
+        op, paths = self._fm_clip.get("op"), self._fm_clip.get("paths", [])
+        if not op or not paths:
+            return
+        dest_dir = Path(self._fm_path.get())
+        if not dest_dir.is_dir():
+            return
+        for src in paths:
+            try:
+                if not src.exists():
+                    continue
+                if op == "cut" and src.resolve().parent == dest_dir.resolve():
+                    continue
+                target = self._fm_unique(dest_dir / src.name)
+                if src.is_dir():
+                    if op == "copy":
+                        shutil.copytree(src, target)
+                    else:
+                        shutil.move(str(src), str(target))
+                else:
+                    if op == "copy":
+                        shutil.copy2(src, target)
+                    else:
+                        shutil.move(str(src), str(target))
+                self.log(f"Pasted: {target.name}")
+            except Exception as e:
+                self.log(f"Paste ERROR: {e}")
+        if op == "cut":
+            self._fm_clip = {"op": None, "paths": []}
+        self._fm_refresh()
+
+    def _fm_rename(self):
+        item = self._fm_sel_path()
+        if not item:
+            return
+        name = DarkPrompt.ask_string(self.root, lang.t("btn_rename"), item.name, initial=item.name)
+        if not name or name == item.name:
+            return
+        try:
+            item.rename(item.parent / name)
+            self._fm_refresh()
+        except Exception as e:
+            messagebox.showerror(lang.t("error"), str(e))
 
     def _fm_refresh(self):
         for item in self._fm_tree.get_children():
@@ -6149,18 +6320,28 @@ class App:
             return
         vals = self._site_tree.item(sel[0], "values")
         name, domain, port = vals[0], vals[1], vals[3]
+        typ = vals[4] if len(vals) > 4 else "php"
         https = len(vals) > 5 and vals[5] not in ("", "—")
+
+        def _local(d):
+            try:
+                return socket.gethostbyname(d) in ("127.0.0.1", "::1")
+            except Exception:
+                return False
+
+        use_domain = bool(domain and "." in domain and _local(domain))
         fallback = (f"http://127.0.0.1:{port}/" if port
                     else f"http://127.0.0.1:{CONFIG['apache_port']}/{name}/")
         if https and domain and "." in domain:
-            try:
-                if socket.gethostbyname(domain) in ("127.0.0.1", "::1"):
-                    url = f"https://{domain}/"
-                else:
-                    raise OSError("no hosts entry")
-            except Exception:
+            if use_domain:
+                url = f"https://{domain}/"
+            else:
                 self.log(lang.t("site_no_hosts", domain=domain))
                 url = fallback
+        elif use_domain and typ in ("node", "python") and self.svc.nginxrun():
+            url = f"http://{domain}/"
+        elif use_domain and typ in ("php", "static"):
+            url = f"http://{domain}:{CONFIG['apache_port']}/"
         else:
             url = fallback
         self.log(f"Opening site: {url}")
@@ -6748,6 +6929,7 @@ class App:
 
             for prefix, running in [("apache", a), ("db", d), ("php", p), ("pg", pg), ("redis", rd), ("nginx", nx), ("docker", dk), ("node", no)]:
                 self._update_toggle_btn(prefix, running)
+                self._colorize_port_label(prefix, running)
 
         finally:
             if not self.closing:
