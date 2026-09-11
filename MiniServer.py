@@ -3379,6 +3379,18 @@ class CodeEditor:
         self._text.bind("<Button-3>", self._context_menu)
         self._find_last = ""
 
+        self._setup_tags()
+        try:
+            content = filepath.read_text(encoding="utf-8", errors="replace")
+            self._text.insert("1.0", content)
+        except Exception as e:
+            self._text.insert("1.0", f"Error reading file: {e}")
+
+        self._update_line_numbers()
+        self._highlight()
+        self._refresh_minimap()
+        self._update_status()
+
     def _context_menu(self, event):
         menu = tk.Menu(self.win, tearoff=False, bg="#2d2d2d", fg="#cccccc",
                        activebackground="#505050", activeforeground="#ffffff",
@@ -3402,17 +3414,6 @@ class CodeEditor:
         finally:
             menu.grab_release()
         return "break"
-
-        self._setup_tags()
-        try:
-            content = filepath.read_text(encoding="utf-8", errors="replace")
-            self._text.insert("1.0", content)
-        except Exception as e:
-            self._text.insert("1.0", f"Error reading file: {e}")
-
-        self._update_line_numbers()
-        self._highlight()
-        self._refresh_minimap()
 
     def _refresh_minimap(self):
         self._mm_after = None
@@ -4414,6 +4415,7 @@ class App:
 
         nb = OfficeTabs(page, active_size=11, passive_size=9)
         self._extra_nb = nb
+        self._nb_logs = nb
         self.views = {}
         self._view_cache = {}
         self._log_stat = {}
@@ -4505,6 +4507,7 @@ class App:
                           PAGE_SUBTITLES["db"].get(lang.get(), PAGE_SUBTITLES["db"]["en"]), "▦")
         page = self._page_body(parent)
         nb = OfficeTabs(page, active_size=11, passive_size=9)
+        self._nb_data = nb
         sql_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(sql_frame, lang.t('tab_sql'))
         self._build_sql_editor(sql_frame)
@@ -4522,6 +4525,7 @@ class App:
                           PAGE_SUBTITLES["projects"].get(lang.get(), PAGE_SUBTITLES["projects"]["en"]), "□")
         page = self._page_body(parent)
         nb = OfficeTabs(page, active_size=11, passive_size=9)
+        self._nb_projects = nb
         files_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(files_frame, lang.t('tab_files'))
         self._build_file_manager(files_frame)
@@ -4547,6 +4551,7 @@ class App:
                           PAGE_SUBTITLES["monitor"].get(lang.get(), PAGE_SUBTITLES["monitor"]["en"]), "⌁")
         page = self._page_body(parent)
         nb = OfficeTabs(page, active_size=11, passive_size=9)
+        self._nb_monitor = nb
         docker_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(docker_frame, lang.t('tab_docker'))
         self._build_docker(self._scrollable(docker_frame))
@@ -6640,7 +6645,7 @@ class App:
         box = tk.Frame(parent, bg=THEME["bg_card"])
         box.grid(row=row, column=col, columnspan=colspan, sticky="ew", padx=5, pady=5)
         tk.Label(box, text=label, bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).pack(anchor="w", pady=(0,4))
-        e = tk.Entry(box, textvariable=variable, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"],
+        e = tk.Entry(box, textvariable=variable, bg=THEME["entry_bg"], fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"],
                      font=("Cascadia Code", 9), relief="flat", bd=0, highlightthickness=1,
                      highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
         if width: e.configure(width=width)
@@ -6665,6 +6670,7 @@ class App:
         workspace = tk.Frame(self.root, bg=THEME["bg"])
         workspace.pack(fill="both", expand=True)
         main_nb = OfficeTabs(workspace, active_size=12, passive_size=9)
+        self.main_nb = main_nb
         main_nb.hide_header()
 
         tab1 = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab1, lang.t('tab_main'))
@@ -7466,7 +7472,7 @@ class App:
         body.grid_columnconfigure(0, weight=1)
         tk.Label(body, text=lang.t("set_dl_folder"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).grid(row=0, column=0, sticky="w", padx=5, pady=(2,4))
         self._set_dl_var = tk.StringVar(value=str(DOWNLOADS))
-        e = tk.Entry(body, textvariable=self._set_dl_var, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"],
+        e = tk.Entry(body, textvariable=self._set_dl_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"],
                      font=("Cascadia Code", 9), relief="flat", bd=0, highlightthickness=1,
                      highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
         e.grid(row=1, column=0, sticky="ew", padx=5, pady=(0,5), ipady=7)
@@ -7509,7 +7515,7 @@ class App:
             box = tk.Frame(grid, bg=THEME["bg_card"]); box.grid(row=idx//3, column=idx%3, sticky="ew", padx=5, pady=5); grid.grid_columnconfigure(idx%3, weight=1)
             tk.Label(box, text=label, bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(anchor="w")
             var = tk.StringVar(value=str(CONFIG.get(key, ""))); self._port_vars[key] = var
-            tk.Entry(box, textvariable=var, bg=THEME["bg_input"], fg=THEME["text"], insertbackground=THEME["text"], font=("Cascadia Code",9), relief="flat", bd=0, width=10, highlightthickness=1, highlightbackground=THEME["border"], highlightcolor=THEME["accent"]).pack(fill="x", ipady=6, pady=(3,0))
+            tk.Entry(box, textvariable=var, bg=THEME["entry_bg"], fg=THEME["entry_fg"], insertbackground=THEME["entry_fg"], font=("Cascadia Code",9), relief="flat", bd=0, width=10, highlightthickness=1, highlightbackground=THEME["border"], highlightcolor=THEME["accent"]).pack(fill="x", ipady=6, pady=(3,0))
         foot = tk.Frame(body, bg=THEME["bg_card"]); foot.pack(fill="x", pady=(8,0))
         self._autostart_var = tk.BooleanVar(value=False)
         tk.Checkbutton(foot, text=lang.t("set_autostart"), variable=self._autostart_var, command=self._autostart_toggle,
