@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XML_DIZ_INFO>
+  <MASTER_PAD_VERSION_INFO>
+    <MASTER_PAD_VERSION>4.00</MASTER_PAD_VERSION>
+    <MASTER_PAD_EDITOR>Faraja</MASTER_PAD_EDITOR>
+    <MASTER_PAD_INFO>Portable Application Description, http://www.asp-shareware.org/pad</MASTER_PAD_INFO>
+  </MASTER_PAD_VERSION_INFO>
+  <Company_Info>
+    <Company_Name>Faraja</Company_Name>
+    <Address_1 />
+    <Address_2 />
+    <City_Town />
+    <State_Province />
+    <ZIP_Postal_Code />
+    <Country>Ukraine</Country>
+    <Company_WebSite_URL>https://nsmykh70-creator.github.io/FarajaWebServer/</Company_WebSite_URL>
+    <Contact_First_Name>Faraja</Contact_First_Name>
+    <Contact_Last_Name>Team</Contact_Last_Name>
+    <Contact_Email>TODO-REPLACE-WITH-YOUR-EMAIL@example.com</Contact_Email>
+    <Contact_Phone />
+  </Company_Info>
+  <Program_Info>
+    <Program_Name>Faraja WebServer PRO</Program_Name>
+    <Program_Version>16.0</Program_Version>
+    <Program_Release_Month>09</Program_Release_Month>
+    <Program_Release_Day>13</Program_Release_Day>
+    <Program_Release_Year>2026</Program_Release_Year>
+    <Program_Cost_Dollars>0</Program_Cost_Dollars>
+    <Program_Cost_Other_Code />
+    <Program_Cost_Other />
+    <Program_Type>Freeware</Program_Type>
+    <Program_Release_Status>Major Update</Program_Release_Status>
+    <Program_Install_Support>No Install Support</Program_Install_Support>
+    <Program_OS_Support>Win10,Win11</Program_OS_Support>
+    <Program_Language>English,Russian,Spanish,German,French,Chinese</Program_Language>
+    <Program_Change_Info>V16: unified card UI, service health center, staged updates with rollback, single-instance guard, Docker/Node start-stop from the panel, component auto-install.</Program_Change_Info>
+    <Program_Specific_Category>Internet Servers</Program_Specific_Category>
+    <Program_Categories>Development::Servers, Internet::Servers</Program_Categories>
+    <Program_System_Requirements>Windows 10/11 x64, ~150 MB free disk space. Administrator rights optional (needed for Nginx port 80 and hosts editing).</Program_System_Requirements>
+    <File_Size_Bytes>37400000</File_Size_Bytes>
+    <File_Size_K>36524</File_Size_K>
+    <File_Size_MB>35.7</File_Size_MB>
+  </Program_Info>
+  <Program_Descriptions>
+    <English>
+      <Keywords>web server, localhost, Apache, Nginx, PHP, MariaDB, PostgreSQL, Redis, Node.js, Docker, XAMPP alternative, portable, local development</Keywords>
+      <Char_Desc_45>Portable local web server for Windows in one EXE</Char_Desc_45>
+      <Char_Desc_250>Faraja WebServer PRO is a portable local web development environment for Windows: Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Python, Docker and local SSL in a single EXE. Nothing is installed into the system. Free, Apache-2.0.</Char_Desc_250>
+      <Char_Desc_450>Faraja WebServer PRO is a portable local web development environment for Windows in a single EXE. Apache 8080, MariaDB 3306, PHP 8.2-8.4, PostgreSQL 5432, Redis 6379, Nginx 80, Node.js 20-24, Python 3.11-3.13, Docker status and local SSL (mkcert). VHost manager, SQL editor, phpMyAdmin, code editor, load lab, health diagnostics and one-click updates with rollback. Nothing is installed into the system. Free, Apache-2.0 license.</Char_Desc_450>
+      <Char_Desc_2000>Faraja WebServer PRO ("Faraja" means "Comfort" in Swahili) is a portable local web development environment for Windows, distributed as a single EXE file that requires no installation.
+
+Everything runs locally: Apache (8080), MariaDB (3306, root without password), PHP 8.2-8.4 via FastCGI, PostgreSQL (5432), Redis (6379), Nginx (80, reverse proxy with HTTPS), Node.js 20-24 and Python 3.11-3.13 project servers, Docker status and containers. Components download once and live next to the program in runtime/ and downloads/ folders.
+
+Key features: service cards with Start/Stop/Restart and START ALL; VHost manager (Nginx block + Apache VirtualHost + hosts entry + per-domain SSL, https://myproject.local); built-in SQL editor and phpMyAdmin; PHP.ini editor; code editor with highlighting and minimap; cron-style task scheduler; Docker manager (containers, Compose, images, networks, volumes); Performance Lab (separate-process load tests with charts); Health Center diagnostics; staged updates with verification and rollback; 6 interface languages (RU/EN/ES/DE/FR/ZH); system tray; snapshots.
+
+To start: run the EXE, tick components in the first-run wizard, press START ALL, open http://127.0.0.1:8080/. Free and open source under the Apache-2.0 license.</Char_Desc_2000>
+    </English>
+  </Program_Descriptions>
+  <Web_Info>
+    <Application_URLs>
+      <Application_Info_URL>https://nsmykh70-creator.github.io/FarajaWebServer/</Application_Info_URL>
+      <Application_Order_URL>https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest</Application_Order_URL>
+      <Application_Screenshot_URL>https://nsmykh70-creator.github.io/FarajaWebServer/screenshots/01-main.png</Application_Screenshot_URL>
+      <Application_Icon_URL>https://nsmykh70-creator.github.io/FarajaWebServer/logo.png</Application_Icon_URL>
+      <Application_XML_File_URL>https://nsmykh70-creator.github.io/FarajaWebServer/faraja-pad.xml</Application_XML_File_URL>
+    </Application_URLs>
+    <Download_URLs>
+      <Primary_Download_URL>https://github.com/nsmykh70-creator/FarajaWebServer/releases/download/v16.0/FarajaWebServerPRO.exe</Primary_Download_URL>
+    </Download_URLs>
+  </Web_Info>
+</XML_DIZ_INFO>
