@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nsmykh70-creator.github.io/FarajaWebServer/sitemap.xml
