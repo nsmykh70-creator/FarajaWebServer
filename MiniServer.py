@@ -637,11 +637,19 @@ def unify_entries(root):
                     c.configure(relief="flat", bd=0, highlightthickness=1,
                                 highlightbackground=THEME["border"],
                                 highlightcolor=THEME["accent"])
+                    _packed = False
                     try:
                         if c.pack_info():
                             c.pack_configure(ipady=6)
+                            _packed = True
                     except Exception:
                         pass
+                    if not _packed:
+                        try:
+                            if c.grid_info():
+                                c.grid_configure(ipady=6)
+                        except Exception:
+                            pass
             except Exception:
                 pass
             walk(c)
@@ -1990,7 +1998,7 @@ http {{
         except Exception as e:
             self.log(f"Docker stop failed: {e}")
             return
-        for _ in range(15):
+        for _ in range(5):
             time.sleep(2)
             if not self.docker_check():
                 self.log("Docker Desktop stopped")
@@ -6571,7 +6579,7 @@ class App:
                      highlightbackground=THEME["border"], highlightcolor=THEME["accent"])
         if show:
             e.configure(show=show)
-        e.grid(row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=4)
+        e.grid(row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=4, ipady=6)
         return e
 
     def _db_static(self, parent, row, col, text, value):
@@ -6768,29 +6776,87 @@ class App:
 
 
     def _nav_button(self, parent, text, icon, command, active=False):
-        bg = THEME["accent"] if active else THEME["bg_card"]
-        fg = THEME["white"] if active else THEME["text_dim"]
-        btn = tk.Frame(parent, bg=bg, height=38, cursor="hand2")
+        btn = tk.Frame(parent, bg=THEME["bg_card"], height=38, cursor="hand2")
         btn.pack(fill="x", pady=2)
         btn.pack_propagate(False)
-        rail = tk.Frame(btn, bg=THEME["accent"] if active else bg, width=3)
+        rail = tk.Frame(btn, bg=THEME["bg_card"], width=3)
         rail.pack(side="left", fill="y")
-        tk.Label(btn, text=icon, bg=bg, fg=THEME["white"] if active else THEME["accent"],
+        tk.Label(btn, text=icon, bg=THEME["bg_card"], fg=THEME["accent"],
                  font=("Segoe UI Emoji", 13), width=3).pack(side="left", padx=(7, 1))
-        tk.Label(btn, text=text, bg=bg, fg=fg,
-                 font=(THEME["font_family"], 9, "bold" if active else "normal"),
-                 anchor="w").pack(side="left", fill="x", expand=True)
-        if active:
-            tk.Label(btn, text="›", bg=bg, fg=THEME["white"],
-                     font=(THEME["font_family"], 15, "bold")).pack(side="right", padx=10)
-        for w in btn.winfo_children():
+        tk.Label(btn, text=text, bg=THEME["bg_card"], fg=THEME["text_dim"],
+                 font=(THEME["font_family"], 9), anchor="w").pack(side="left", fill="x", expand=True)
+        btn._nav_active = bool(active)
+        btn._nav_hover = False
+        btn._nav_rail = rail
+        btn._nav_icon = icon
+        btn._nav_cmd = command
+        for w in [btn] + btn.winfo_children():
             w.bind("<Button-1>", lambda e: command())
-            w.bind("<Enter>", lambda e, b=btn, a=active: b.configure(bg=THEME["bg_elevated"] if not a else THEME["accent_hover"]))
-            w.bind("<Leave>", lambda e, b=btn, a=active, c=bg: b.configure(bg=c))
-        btn.bind("<Button-1>", lambda e: command())
-        btn.bind("<Enter>", lambda e, b=btn, a=active: b.configure(bg=THEME["bg_elevated"] if not a else THEME["accent_hover"]))
-        btn.bind("<Leave>", lambda e, b=btn, a=active, c=bg: b.configure(bg=c))
+            w.bind("<Enter>", lambda e, b=btn: (setattr(b, "_nav_hover", True), self._nav_paint(b)))
+            w.bind("<Leave>", lambda e, b=btn: (setattr(b, "_nav_hover", False), self._nav_paint(b)))
+        self._nav_paint(btn)
         return btn
+
+    def _nav_paint(self, btn):
+        """Single source of truth for a nav button look: fixed 38px height,
+        blue when active or hovered, identical metrics in every state."""
+        try:
+            active = bool(getattr(btn, "_nav_active", False))
+            hover = bool(getattr(btn, "_nav_hover", False))
+        except Exception:
+            return
+        if active:
+            bg = THEME["accent_hover"] if hover else THEME["accent"]
+            fg = THEME["white"]
+        else:
+            bg = THEME["bg_elevated"] if hover else THEME["bg_card"]
+            fg = THEME["text_dim"]
+        try:
+            btn.configure(bg=bg)
+            rail = getattr(btn, "_nav_rail", None)
+            if rail is not None:
+                rail.configure(bg=THEME["white"] if active else (THEME["accent"] if hover else bg))
+            icon = getattr(btn, "_nav_icon", "")
+            for child in btn.winfo_children():
+                if child is rail:
+                    continue
+                if not isinstance(child, tk.Label):
+                    continue
+                try:
+                    txt = child.cget("text")
+                except Exception:
+                    continue
+                if txt == "›":
+                    child.configure(bg=bg, fg=THEME["white"])
+                elif txt == icon:
+                    child.configure(bg=bg, fg=THEME["white"] if active else THEME["accent"])
+                else:
+                    child.configure(bg=bg, fg=fg,
+                                    font=(THEME["font_family"], 9, "bold" if active else "normal"))
+        except Exception:
+            pass
+
+    def _style_nav_button(self, btn, active):
+        btn._nav_active = bool(active)
+        # The chevron marks the active row; add/remove it so every row keeps
+        # the same height and width in both states.
+        try:
+            for child in btn.winfo_children():
+                if isinstance(child, tk.Label) and child.cget("text") == "›":
+                    child.destroy()
+        except Exception:
+            pass
+        if active:
+            try:
+                chev = tk.Label(btn, text="›", bg=THEME["accent"], fg=THEME["white"],
+                                font=(THEME["font_family"], 15, "bold"))
+                chev.pack(side="right", padx=10)
+                chev.bind("<Button-1>", lambda e, b=btn: b._nav_cmd())
+                chev.bind("<Enter>", lambda e, b=btn: (setattr(b, "_nav_hover", True), self._nav_paint(b)))
+                chev.bind("<Leave>", lambda e, b=btn: (setattr(b, "_nav_hover", False), self._nav_paint(b)))
+            except Exception:
+                pass
+        self._nav_paint(btn)
 
     def _build_sidebar(self, parent, main_nb):
         side = tk.Frame(parent, bg=THEME["bg_card"], width=228,
@@ -6834,27 +6900,6 @@ class App:
                  font=(THEME["font_family"], 8, "bold")).pack(anchor="w")
         tk.Label(sb, text="LOCAL • READY", bg=THEME["bg_elevated"], fg=THEME["text_muted"],
                  font=("Cascadia Code", 7)).pack(anchor="w", pady=(2,0))
-
-    def _style_nav_button(self, btn, active):
-        bg = THEME["accent"] if active else THEME["bg_card"]
-        fg = THEME["white"] if active else THEME["text_dim"]
-        btn.configure(bg=bg)
-        for child in btn.winfo_children():
-            try:
-                child.configure(bg=bg)
-                if isinstance(child, tk.Label):
-                    if child.cget("text") in ("⌂", "▤", "▦", "□", "⌁", "⚙"):
-                        child.configure(fg=THEME["white"] if active else THEME["accent"])
-                    elif child.cget("text") == "›":
-                        child.configure(fg=THEME["white"] if active else bg)
-                    else:
-                        child.configure(fg=fg)
-            except Exception:
-                pass
-        try:
-            btn.winfo_children()[0].configure(bg=THEME["accent"] if active else bg)
-        except Exception:
-            pass
 
     def _settings_header(self, parent):
         head = tk.Frame(parent, bg=THEME["bg"])
@@ -8523,6 +8568,8 @@ class App:
                 ("Redis", self.svc.start_redis),
                 ("Apache", self.svc.start_apache),
                 ("Nginx", self.svc.start_nginx),
+                ("Docker", self.svc.start_docker),
+                ("Node.js", self.svc.start_node),
             ]:
                 try:
                     fn()
@@ -8541,6 +8588,8 @@ class App:
                 ("MariaDB", self.svc.stop_db),
                 ("PostgreSQL", self.svc.stop_pg),
                 ("Redis", self.svc.stop_redis),
+                ("Node.js", self.svc.stop_node),
+                ("Docker", self.svc.stop_docker),
             ]:
                 try:
                     fn()
