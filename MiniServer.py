@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from pathlib import Path
-import json, os, shutil, socket, subprocess, sys, threading, time, webbrowser, zipfile, re, atexit, signal
+import json, os, shutil, socket, subprocess, sys, threading, time, webbrowser, zipfile, re, atexit, signal, hashlib, tempfile
 from urllib.parse import urljoin
 import requests, pystray
 from PIL import Image, ImageDraw, ImageTk
@@ -313,6 +313,15 @@ LOCALES = {
     "db_restore": {"ru": "Восстановить", "en": "Restore", "es": "Restaurar", "de": "Wiederherst.", "fr": "Restaurer", "zh": "恢复"},
     "db_flush": {"ru": "Очистить Redis", "en": "Flush Redis", "es": "Vaciar Redis", "de": "Redis leeren", "fr": "Vider Redis", "zh": "清空 Redis"},
     "tab_perf": {"ru": "Нагрузка", "en": "Load Test", "es": "Carga", "de": "Lasttest", "fr": "Charge", "zh": "压力测试"},
+    "tab_health": {"ru": "Здоровье", "en": "Health", "es": "Salud", "de": "Diagnose", "fr": "Santé", "zh": "健康"},
+    "health_component": {"ru": "Компонент", "en": "Component", "es": "Componente", "de": "Komponente", "fr": "Composant", "zh": "组件"},
+    "health_state": {"ru": "Состояние", "en": "State", "es": "Estado", "de": "Status", "fr": "État", "zh": "状态"},
+    "health_detail": {"ru": "Детали", "en": "Detail", "es": "Detalle", "de": "Detail", "fr": "Détail", "zh": "详情"},
+    "upd_download": {"ru": "Скачать обновление", "en": "Download update", "es": "Descargar actualización", "de": "Update herunterladen", "fr": "Télécharger la mise à jour", "zh": "下载更新"},
+    "upd_rollback": {"ru": "Откатить обновление", "en": "Roll back update", "es": "Revertir actualización", "de": "Update zurückrollen", "fr": "Annuler la mise à jour", "zh": "回滚更新"},
+    "upd_staged": {"ru": "Обновление {tag} загружено и проверено. Примените его после перезапуска.", "en": "Update {tag} downloaded and verified. Apply it after restart.", "es": "Actualización {tag} descargada y verificada. Aplíquela tras reiniciar.", "de": "Update {tag} heruntergeladen und geprüft. Nach Neustart anwenden.", "fr": "Mise à jour {tag} téléchargée et vérifiée. Appliquez-la après redémarrage.", "zh": "更新 {tag} 已下载并验证。请在重启后应用。"},
+    "upd_none": {"ru": "Новых версий нет.", "en": "No newer release available.", "es": "No hay versiones nuevas.", "de": "Keine neuere Version verfügbar.", "fr": "Aucune version plus récente.", "zh": "没有新版本。"},
+    "upd_rolled": {"ru": "Откат подготовлен, требуется перезапуск.", "en": "Rollback prepared, restart required.", "es": "Reversión preparada, reinicie.", "de": "Rollback vorbereitet, Neustart erforderlich.", "fr": "Retour préparé, redémarrage requis.", "zh": "已准备回滚，需要重启。"},
     "perf_target": {"ru": "Цель:", "en": "Target:", "es": "Objetivo:", "de": "Ziel:", "fr": "Cible :", "zh": "目标："},
     "perf_results": {"ru": "Результаты", "en": "Results", "es": "Resultados", "de": "Ergebnisse", "fr": "Résultats", "zh": "结果"},
     "perf_profile": {"ru": "Профиль:", "en": "Profile:", "es": "Perfil:", "de": "Profil:", "fr": "Profil :", "zh": "配置文件："},
@@ -623,6 +632,36 @@ def _cmd_list(exe, *args):
         return [os.environ.get("COMSPEC", "cmd.exe"), "/c"] + items
     return items
 
+def atomic_write_text(path, text, encoding="utf-8"):
+    """Crash-safe same-directory replace for small configuration/text files
+    (adapted from the V15 PRO hardening package)."""
+    from pathlib import Path as _P
+    path = _P(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding=encoding, newline="") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        try:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        except OSError:
+            pass
+
+def atomic_write_json(path, data):
+    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+def sha256_file(path, chunk=1024 * 1024):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(chunk), b""):
+            h.update(block)
+    return h.hexdigest()
+
 def unify_entries(root):
     """Bring every text field under root to the Settings standard: flat dark
     field with an accent focus border and the same height (ipady=6)."""
@@ -898,7 +937,22 @@ def install_component(name,log,progress,item=None,prearchive=None):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={};self.php_extra={}
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.php_extra={};self._death_reported=set()
+
+    def managed_process_health(self):
+        """Managed subprocesses that exited since the last check
+        (adapted from the V15 PRO hardening package)."""
+        watched = (("Apache", self.apache), ("MariaDB", self.db), ("PHP CGI", self.php),
+                   ("PostgreSQL", self.pg), ("Redis", self.redis_proc), ("Nginx", self.nginx))
+        dead = []
+        for name, proc in watched:
+            try:
+                if proc is not None and proc.poll() is not None and proc.pid not in self._death_reported:
+                    self._death_reported.add(proc.pid)
+                    dead.append((name, proc.pid, proc.returncode))
+            except Exception:
+                pass
+        return dead
     @property
     def ad(self):return RUNTIME/"Apache24"
     @property
@@ -2324,6 +2378,95 @@ http {{
                          timeout=10, headers={"User-Agent": "FarajaWebServer"})
         r.raise_for_status()
         return (r.json().get("tag_name", "") or "").strip()
+
+    def stage_latest_update(self):
+        """Download and validate the latest GitHub release without touching
+        the live install (adapted from the V15 PRO hardening package)."""
+        api = "https://api.github.com/repos/nsmykh70-creator/FarajaWebServer/releases/latest"
+        r = requests.get(api, timeout=15, headers={"User-Agent": "FarajaWebServer",
+                                                   "Accept": "application/vnd.github+json"})
+        r.raise_for_status()
+        data = r.json()
+        tag = (data.get("tag_name", "") or "").strip()
+        if not re.fullmatch(r"v?\d+(?:\.\d+){1,2}", tag):
+            raise RuntimeError("GitHub returned an invalid release tag")
+        if self._ver_tuple(tag) <= self._ver_tuple(APP_VERSION):
+            return None
+        assets = data.get("assets") or []
+        candidates = [a for a in assets if isinstance(a, dict)
+                      and str(a.get("browser_download_url", "")).startswith("https://github.com/")
+                      and str(a.get("name", "")).lower().endswith(".zip")]
+        if not candidates:
+            raise RuntimeError("No verified HTTPS ZIP release asset found")
+        asset = max(candidates, key=lambda a: int(a.get("size") or 0))
+        size = int(asset.get("size") or 0)
+        if size <= 0 or size > 500 * 1024 * 1024:
+            raise RuntimeError("Release asset size is outside the safe limit")
+        updates = APP_ROOT / "updates"
+        updates.mkdir(parents=True, exist_ok=True)
+        archive = updates / f"FarajaWebServer-{tag.lstrip('v')}.zip"
+        with requests.get(asset["browser_download_url"], stream=True, timeout=30,
+                           headers={"User-Agent": "FarajaWebServer"}) as dl:
+            dl.raise_for_status()
+            total = 0
+            with open(archive, "wb") as f:
+                for chunk in dl.iter_content(1024 * 1024):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > 500 * 1024 * 1024:
+                        raise RuntimeError("Downloaded release exceeds safe size limit")
+                    f.write(chunk)
+                f.flush()
+                os.fsync(f.fileno())
+        if not zipfile.is_zipfile(archive):
+            archive.unlink(missing_ok=True)
+            raise RuntimeError("Downloaded release is not a valid ZIP")
+        with zipfile.ZipFile(archive) as z:
+            if z.testzip():
+                raise RuntimeError("Downloaded release failed ZIP CRC verification")
+            py_files = [n for n in z.namelist()
+                        if Path(n).name.lower().startswith("miniserver") and n.lower().endswith(".py")]
+            if not py_files:
+                raise RuntimeError("Release ZIP does not contain the application source")
+        if getattr(sys, "frozen", False):
+            backup = None
+        else:
+            backup = updates / f"pre-update-{APP_VERSION}-{int(time.time())}.py"
+            try:
+                shutil.copy2(Path(__file__).resolve(), backup)
+            except Exception:
+                backup = None
+        atomic_write_json(updates / "staged.json", {
+            "format": "faraja-update-v1", "tag": tag, "asset": asset.get("name", ""),
+            "archive": archive.name, "backup": backup.name if backup else None,
+            "sha256": sha256_file(archive),
+            "staged_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        self.log(f"Update staged: {tag} ({archive.name}); restart/apply is required")
+        return tag
+
+    def update_rollback(self):
+        """Restore the last source backup created by the updater
+        (adapted from the V15 PRO hardening package)."""
+        meta = APP_ROOT / "updates" / "staged.json"
+        if not meta.is_file():
+            raise RuntimeError("No staged update found")
+        data = json.loads(meta.read_text(encoding="utf-8"))
+        backup = data.get("backup")
+        if not backup:
+            raise RuntimeError("Rollback source is unavailable for this installation")
+        src = APP_ROOT / "updates" / backup
+        if not src.is_file():
+            raise RuntimeError("Rollback backup is missing")
+        target = Path(__file__).resolve()
+        if getattr(sys, "frozen", False):
+            raise RuntimeError("Frozen builds require the external updater (tools/faraja_updater.py) to apply rollback")
+        tmp = target.with_suffix(target.suffix + ".rollback.tmp")
+        shutil.copy2(src, tmp)
+        os.replace(tmp, target)
+        meta.unlink(missing_ok=True)
+        self.log(f"Rollback prepared from {src.name}; restart required")
+        return src
 
     def snapshot_create(self):
         ts = time.strftime("%Y%m%d-%H%M%S")
@@ -4824,6 +4967,10 @@ class App:
         nb.add(procs_frame, lang.t('tab_procs'))
         self._build_procs(procs_frame)
 
+        health_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
+        nb.add(health_frame, lang.t('tab_health'))
+        self._build_health_center(self._scrollable(health_frame))
+
         perf_frame = tk.Frame(nb.body, bg=THEME["bg_elevated"])
         nb.add(perf_frame, lang.t('tab_perf'))
         self._build_perf(self._scrollable(perf_frame))
@@ -6248,6 +6395,78 @@ class App:
                                       font=(THEME["font_family"], 8), anchor="w")
         self._procs_status.pack(fill="x", pady=(0, 2))
         self._procs_refresh()
+
+    def _health_check(self, name, fn):
+        try:
+            ok = bool(fn())
+            return ("OK" if ok else "DOWN", "OK" if ok else "not reachable")
+        except Exception as e:
+            return ("ERROR", str(e)[:160])
+
+    def _build_health_center(self, parent):
+        """Service diagnostics table (adapted from the V15 PRO hardening package)."""
+        _, top = self._settings_card(parent, lang.t("tab_health"), "", icon="♥")
+        bar = self._toolbar(top)
+        IconButton(bar, "refresh", self._health_refresh, color=THEME["info"],
+                   hover_color="#2e9bf5", active_color="#0769b5",
+                   size=30, tip=lang.t("btn_refresh")).pack(side="left", padx=2)
+        cols = ("component", "state", "detail")
+        self._health_tree = ttk.Treeview(top, columns=cols, show="headings",
+                                         height=12, style="Big.Treeview")
+        self._health_tree.heading("component", text=lang.t("health_component"))
+        self._health_tree.heading("state", text=lang.t("health_state"))
+        self._health_tree.heading("detail", text=lang.t("health_detail"))
+        self._health_tree.column("component", width=160)
+        self._health_tree.column("state", width=90, anchor="center")
+        self._health_tree.column("detail", width=420)
+        self._health_tree.pack(fill="x", pady=(6, 2))
+        self._health_refresh()
+
+    def _health_refresh(self):
+        if not hasattr(self, "_health_tree"):
+            return
+        checks = [
+            ("Apache", self.svc.arun),
+            ("MariaDB", self.svc.drun),
+            ("PHP CGI", self.svc.prun),
+            ("PostgreSQL", self.svc.pgrun),
+            ("Redis", self.svc.redisrun),
+            ("Nginx", self.svc.nginxrun),
+            ("Docker", lambda: getattr(self, "_docker_ok", False)),
+            ("Node.js", self.svc.noderun),
+        ]
+
+        def work():
+            rows = []
+            for name, fn in checks:
+                state, detail = self._health_check(name, fn)
+                rows.append((name, state, detail))
+            try:
+                _cfg = APP_ROOT / "config" / "server.json"
+                _ok = _cfg.is_file() and json.loads(_cfg.read_text(encoding="utf-8")) is not None
+                rows.append(("server.json", "OK" if _ok else "ERROR", str(_cfg)))
+            except Exception as e:
+                rows.append(("server.json", "ERROR", str(e)[:160]))
+            try:
+                free = shutil.disk_usage(APP_ROOT).free
+                rows.append(("disk", "OK" if free >= 512 * 1024 * 1024 else "WARN",
+                             f"{free / 1024 / 1024 / 1024:.1f} GB free"))
+            except Exception as e:
+                rows.append(("disk", "ERROR", str(e)[:160]))
+
+            def apply():
+                try:
+                    for item in self._health_tree.get_children():
+                        self._health_tree.delete(item)
+                    for row in rows:
+                        self._health_tree.insert("", "end", values=row)
+                except Exception:
+                    pass
+            try:
+                self.root.after(0, apply)
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True).start()
 
     def _procs_filter(self):
         if not hasattr(self, "_procs_tree"):
@@ -7919,6 +8138,13 @@ class App:
         tk.Label(br, text=lang.t("set_snapshot"), bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
         IconButton(br, "up", self._snapshot_restore, color=THEME["warning_dim"], hover_color=THEME["warning"], active_color="#ba5e17", size=32, tip=lang.t("set_restore")).pack(side="left", padx=(16,2))
         tk.Label(br, text=lang.t("set_restore"), bg=THEME["bg_card"], fg=THEME["text"], font=(THEME["font_family"],8)).pack(side="left", padx=5)
+        ur = tk.Frame(body, bg=THEME["bg_card"]); ur.pack(fill="x", pady=(8, 0))
+        IconButton(ur, "down", self._update_stage, color=THEME["info"], hover_color="#2e9bf5",
+                   active_color="#0769b5", size=30, tip=lang.t("upd_download"),
+                   text=lang.t("upd_download")).pack(side="left", padx=2)
+        IconButton(ur, "up", self._update_rollback_ui, color=THEME["warning_dim"], hover_color=THEME["warning"],
+                   active_color="#ba5e17", size=30, tip=lang.t("upd_rollback"),
+                   text=lang.t("upd_rollback")).pack(side="left", padx=(10, 2))
         self._update_label = tk.Label(body, text="", bg=THEME["bg_card"], fg=THEME["warning"], font=(THEME["font_family"],8), wraplength=400, justify="left")
         self._update_label.pack(anchor="w", pady=(8,0))
         threading.Thread(target=self._update_check, daemon=True).start()
@@ -8174,6 +8400,35 @@ class App:
         except Exception as e:
             self.log(f"Update check skipped ({e})")
 
+    def _update_stage(self):
+        """Download + verify the latest release into updates/ (staged.json)."""
+        def w():
+            try:
+                tag = self.svc.stage_latest_update()
+                if tag:
+                    msg = lang.t("upd_staged", tag=tag)
+                    self.log(msg)
+                    self.root.after(0, lambda: messagebox.showinfo(APP_NAME, msg))
+                else:
+                    self.log(lang.t("upd_none"))
+                    self.root.after(0, lambda: messagebox.showinfo(APP_NAME, lang.t("upd_none")))
+            except Exception as e:
+                self.log(f"Update stage ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
+    def _update_rollback_ui(self):
+        def w():
+            try:
+                src = self.svc.update_rollback()
+                msg = f"{lang.t('upd_rolled')} ({src.name})"
+                self.log(msg)
+                self.root.after(0, lambda: messagebox.showinfo(APP_NAME, msg))
+            except Exception as e:
+                self.log(f"Rollback ERROR: {e}")
+                self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(e)))
+        threading.Thread(target=w, daemon=True).start()
+
     def _on_log_font_change(self):
         self._settings["log_font"] = self._log_font_var.get()
         try:
@@ -8368,6 +8623,11 @@ class App:
 
     def refresh(self):
         try:
+            try:
+                for _name, _pid, _code in self.svc.managed_process_health():
+                    self.log(f"Service died unexpectedly: {_name} (PID {_pid}, exit code {_code})")
+            except Exception:
+                pass
             a = self.svc.arun()
             d = self.svc.drun()
             p = self.svc.prun()
