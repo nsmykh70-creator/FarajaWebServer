@@ -937,7 +937,7 @@ def install_component(name,log,progress,item=None,prearchive=None):
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.php_extra={};self._death_reported=set()
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={};self.php_extra={};self._death_reported=set()
 
     def managed_process_health(self):
         """Managed subprocesses that exited since the last check
@@ -6426,21 +6426,21 @@ class App:
         if not hasattr(self, "_health_tree"):
             return
         checks = [
-            ("Apache", self.svc.arun),
-            ("MariaDB", self.svc.drun),
-            ("PHP CGI", self.svc.prun),
-            ("PostgreSQL", self.svc.pgrun),
-            ("Redis", self.svc.redisrun),
-            ("Nginx", self.svc.nginxrun),
-            ("Docker", lambda: getattr(self, "_docker_ok", False)),
-            ("Node.js", self.svc.noderun),
+            ("Apache", self.svc.arun, f"port {CONFIG['apache_port']}"),
+            ("MariaDB", self.svc.drun, f"port {CONFIG['mariadb_port']}"),
+            ("PHP CGI", self.svc.prun, f"port {CONFIG['php_cgi_port']}"),
+            ("PostgreSQL", self.svc.pgrun, f"port {CONFIG['postgresql_port']}"),
+            ("Redis", self.svc.redisrun, f"port {CONFIG['redis_port']}"),
+            ("Nginx", self.svc.nginxrun, f"port {CONFIG['nginx_port']}"),
+            ("Docker", lambda: getattr(self, "_docker_ok", False), "daemon"),
+            ("Node.js", self.svc.noderun, "runtime"),
         ]
 
         def work():
             rows = []
-            for name, fn in checks:
-                state, detail = self._health_check(name, fn)
-                rows.append((name, state, detail))
+            for name, fn, ok_detail in checks:
+                state, _d = self._health_check(name, fn)
+                rows.append((name, state, ok_detail if state == "OK" else _d))
             try:
                 _cfg = APP_ROOT / "config" / "server.json"
                 _ok = _cfg.is_file() and json.loads(_cfg.read_text(encoding="utf-8")) is not None
