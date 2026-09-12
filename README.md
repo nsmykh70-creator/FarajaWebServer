@@ -12,7 +12,7 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 ![Faraja WebServer](docs/logo.png)
 
-[![Скачать EXE](https://img.shields.io/badge/Скачать_EXE-Windows_11_•_PRO-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe) ·
+[<img src="docs/button-download.png" width="320" alt="Скачать EXE">](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe) ·
 **[🌐 Сайт проекта](https://nsmykh70-creator.github.io/FarajaWebServer/)**
 
 > *Название **Faraja** на языке суахили означает «Комфорт» — среда создана для комфортной разработки.*
