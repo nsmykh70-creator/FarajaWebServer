@@ -1341,6 +1341,7 @@ port={CONFIG["mariadb_port"]}
         return self._port_cached(CONFIG["php_cgi_port"])
     def start_php(self):
         if self.prun():self.log("PHP CGI is already running");return
+        self._ensure_component("php")
         self.write_configs();exe=self.pd/"php-cgi.exe"
         if not exe.exists():raise RuntimeError("PHP is not installed")
         f=self.logfile("php-process.log")
@@ -1366,6 +1367,7 @@ port={CONFIG["mariadb_port"]}
     def start_apache(self):
         # Apache and Nginx may run side by side on different ports
         # (Nginx proxies to Apache). Only identical ports conflict.
+        self._ensure_component("apache")
         if CONFIG["apache_port"] == CONFIG["nginx_port"] and self.nginxrun():
             raise RuntimeError(
                 f"Apache and Nginx use the same port {CONFIG['apache_port']}. "
@@ -1470,6 +1472,7 @@ port={CONFIG["mariadb_port"]}
             pma_cfg.write_text(txt,encoding="utf-8")
     def start_db(self):
         if self.drun():self.log("MariaDB is already running");return
+        self._ensure_component("mariadb")
         self.write_configs();exe=self.md/"bin/mariadbd.exe"
         if not exe.exists():raise RuntimeError("MariaDB is not installed")
         if not (self.md/"data/mysql").exists():self.initialize_db()
@@ -2593,29 +2596,18 @@ http {{
         self.install_tsx()
         self.log(f"Node.js {ver} ready (tsx available)")
     def stop_node(self):
-        killed = 0
-        for name in list(getattr(self, "node_servers", {}).keys()):
-            try:
-                proc = (self.node_servers.get(name) or {}).get("proc")
-            except Exception:
-                proc = None
-            if proc is not None:
-                try:
-                    if proc.poll() is None:
-                        stop_proc(proc)
-                        killed += 1
-                except Exception:
-                    pass
-        try:
-            self.node_servers = {n: i for n, i in self.node_servers.items()
-                                 if (i or {}).get("proc") is not None
-                                 and (i["proc"].poll() is None)}
-        except Exception:
-            pass
-        if killed:
-            self.log(f"Node.js servers stopped: {killed}")
-        else:
+        names = list(getattr(self, "node_servers", {}).keys())
+        if not names:
             self.log("Node.js has no running servers; nothing to stop")
+            return
+        # Hard kill of the whole process tree (taskkill /T /F), exactly like
+        # node_server_stop: gentle terminate leaves cmd/npx wrappers behind.
+        for name in names:
+            try:
+                self.node_server_stop(name, quiet=True)
+            except Exception:
+                pass
+        self.log(f"Node.js servers stopped: {len(names)}")
     def noderun(self):
         return self.node_installed()
     def py_dir(self, ver=None):
@@ -4827,8 +4819,21 @@ class App:
             values, _en0, _ln = self.svc.php_ini_parse()
             avail, enabled = self.svc.php_ini_extensions()
         except RuntimeError as e:
-            tk.Label(parent, text=str(e), bg=THEME["bg_elevated"], fg=THEME["danger"],
-                     font=(THEME["font_family"], 10)).pack(padx=12, pady=12, anchor="w")
+            _, _nophp = self._settings_card(parent, "PHP", str(e), icon="📜")
+            def _install_php_now():
+                def w():
+                    try:
+                        self.svc._ensure_component("php")
+                        self.log("PHP installed — rebuilding the view")
+                        self.root.after(0, self._rebuild_ui)
+                    except Exception as ex:
+                        self.log(f"PHP install ERROR: {ex}")
+                        self.root.after(0, lambda: messagebox.showerror(lang.t("error"), str(ex)))
+                threading.Thread(target=w, daemon=True).start()
+            IconButton(_nophp, "down", _install_php_now, color=THEME["success"],
+                       hover_color="#55e39a", active_color=THEME["success_dim"],
+                       size=30, tip=lang.t("set_install_missing"),
+                       text=lang.t("set_install_missing")).pack(anchor="w", pady=4)
             return
         self._phpini_vars = {}
         self._phpini_ext_vars = {}
@@ -6196,16 +6201,17 @@ class App:
     def _build_procs(self, parent):
         self._procs_rows = []
         _, top = self._settings_card(parent, lang.t("card_procs"), "", icon="◉")
-        IconButton(top, "refresh", self._procs_refresh, color=THEME["bg_input"],
+        bar = self._toolbar(top)
+        IconButton(bar, "refresh", self._procs_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
-        IconButton(top, "cross", self._procs_kill, color=THEME["danger"],
+        IconButton(bar, "cross", self._procs_kill, color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      size=30, tip=lang.t("btn_delete") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
-        tk.Label(top, text=lang.t("log_find"), bg=THEME["bg_elevated"], fg=THEME["text"],
+        tk.Label(bar, text=lang.t("log_find"), bg=THEME["bg_card"], fg=THEME["text"],
                  font=(THEME["font_family"], 9)).pack(side="left", padx=(12, 2))
         self._procs_search_var = tk.StringVar(value="")
-        se = tk.Entry(top, textvariable=self._procs_search_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
+        se = tk.Entry(bar, textvariable=self._procs_search_var, bg=THEME["entry_bg"], fg=THEME["entry_fg"],
                       insertbackground=THEME["entry_fg"], font=("Cascadia Code", 9),
                       relief="flat", bd=0, width=24)
         se.pack(side="left", padx=4)
@@ -6272,21 +6278,29 @@ class App:
         self.log(f"Killed PID {pid}")
         self.root.after(1500, self._procs_refresh)
 
+    def _toolbar(self, parent):
+        """Full-width toolbar row above a table, with a divider underneath."""
+        bar = tk.Frame(parent, bg=THEME["bg_card"])
+        bar.pack(fill="x", pady=(0, 6))
+        tk.Frame(parent, bg=THEME["border"], height=1).pack(fill="x", pady=(0, 6))
+        return bar
+
     def _build_docker(self, parent):
         _, top = self._settings_card(parent, lang.t("card_containers"), "", icon="🐳")
-        IconButton(top, "refresh", self._dock_refresh, color=THEME["bg_input"],
+        bar = self._toolbar(top)
+        IconButton(bar, "refresh", self._dock_refresh, color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_refresh") + " — " + lang.t("tip_refresh")).pack(side="left", padx=2)
-        IconButton(top, "play", lambda: self._dock_ctl("start"), color=THEME["success"],
+        IconButton(bar, "play", lambda: self._dock_ctl("start"), color=THEME["success"],
                      hover_color="#55e39a", active_color=THEME["success_dim"],
                      size=30, tip=lang.t("start") + " — " + lang.t("tip_run")).pack(side="left", padx=2)
-        IconButton(top, "stop", lambda: self._dock_ctl("stop"), color=THEME["danger"],
+        IconButton(bar, "stop", lambda: self._dock_ctl("stop"), color=THEME["danger"],
                      hover_color="#ff6b5a", active_color=THEME["danger_dim"],
                      size=30, tip=lang.t("stop") + " — " + lang.t("tip_start")).pack(side="left", padx=2)
-        IconButton(top, "restart", lambda: self._dock_ctl("restart"), color=THEME["warning_dim"],
+        IconButton(bar, "restart", lambda: self._dock_ctl("restart"), color=THEME["warning_dim"],
                      hover_color=THEME["warning"], active_color="#ba5e17",
                      size=30, tip=lang.t("restart") + " — " + lang.t("tip_restart")).pack(side="left", padx=2)
-        IconButton(top, "cross", lambda: self._dock_ctl("rm"), color=THEME["bg_input"],
+        IconButton(bar, "cross", lambda: self._dock_ctl("rm"), color=THEME["bg_input"],
                      hover_color=THEME["border_light"], active_color=THEME["border"],
                      size=30, tip=lang.t("btn_remove") + " — " + lang.t("tip_remove")).pack(side="left", padx=2)
         cols = ("name", "image", "status", "ports")
