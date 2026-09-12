@@ -1,6 +1,7 @@
 # Faraja WebServer
 
 [![Release](https://img.shields.io/github/v/release/nsmykh70-creator/FarajaWebServer)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/nsmykh70-creator/FarajaWebServer/total)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/nsmykh70-creator/FarajaWebServer)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-blue)](MiniServer.py)
@@ -11,7 +12,7 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 ![Faraja WebServer](docs/logo.png)
 
-**[⬇ Скачать FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)** ·
+**[⬇ Скачать FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)** ·
 **[🌐 Сайт проекта](https://nsmykh70-creator.github.io/FarajaWebServer/)**
 
 > *Название **Faraja** на языке суахили означает «Комфорт» — среда создана для комфортной разработки.*
@@ -73,6 +74,24 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
   переключение флажками в шапке, выбор запоминается.
 - 💡 **Всплывающие подсказки** и подробная встроенная пошаговая помощь
   (кнопка «Помощь» в шапке, на языке интерфейса).
+- ♥️ **Диагностика** — вкладка «Здоровье»: состояние всех сервисов, конфига
+  и диска; падения процессов фиксируются в логе. Обновления скачиваются
+  и проверяются в один клик с откатом.
+
+## Почему Faraja, а не XAMPP / WAMP?
+
+| | Faraja WebServer PRO | Классические сборки |
+|---|---|---|
+| Установка в систему | Не требуется — один EXE | Требуется установщик |
+| Версии PHP / Node / Python | 8.2–8.4 / 20–24 / 3.11–3.13, переключение на лету | Одна зафиксированная |
+| Docker, Redis, PostgreSQL | Из коробки | Нет / частично |
+| HTTPS для localhost | В один клик (mkcert) | Вручную |
+| Языки интерфейса | 6 (RU/EN/ES/DE/FR/ZH) | 1–2 |
+| Диагностика и обновления | Вкладка «Здоровье», staging обновлений с откатом | Нет |
+
+Если проект полезен — поставьте ⭐
+[репозиторию](https://github.com/nsmykh70-creator/FarajaWebServer):
+это помогает продвижению и мотивирует развивать продукт.
 
 ## Сервисы и порты
 
@@ -92,13 +111,13 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 ## Быстрый старт
 
-1. Скачайте `FarajaWebServer.exe` из
+1. Скачайте `FarajaWebServerPRO.exe` из
    [релизов](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest)
    и запустите (установка не требуется).
 2. При первом запуске откроется **мастер**: отметьте нужные компоненты
    и нажмите «Установить». Можно указать папку с уже скачанными ZIP-архивами —
    они подхватятся автоматически.
-3. Нажмите **«ЗАПУСТИТЬ ВСЕ»** в шапке — все бейджи сервисов станут зелёными.
+3. Нажмите **«ЗАПУСТИТЬ ВСЕ»** в шапке — иконки сервисов станут зелёными.
 4. Откройте в браузере `http://127.0.0.1:8080/` — стартовая страница.
 5. Положите свой проект в папку `www/` (например `www/mysite/index.php`) —
    он сразу доступен по адресу `http://127.0.0.1:8080/mysite/`.
@@ -218,18 +237,33 @@ GRANT ALL ON mysite.* TO 'mysite'@'localhost';
 
 ## Сборка из исходников
 
-Требуется Python 3.12, Windows 10/11:
+Требуется Python 3.12, Windows 10/11. Проще всего — готовым скриптом
+(проверка синтаксиса → зависимости → сборка PRO → отчёт):
+
+```bat
+build.bat
+```
+
+Варианты: `build.bat PRO` — сборка с заменой `dist\FarajaWebServerPRO.exe`
+(требует закрытый PRO), `build.bat check` — только компиляция и дымовой тест.
+
+Вручную (эквивалент `build.bat`):
 
 ```bat
 pip install -r requirements.txt
 pyinstaller --noconfirm --onefile --windowed --icon "assets/logo.ico" ^
-  --name "FarajaWebServer" ^
+  --name "FarajaWebServerPRO_stage" ^
   --add-data "config;config" --add-data "www;www" --add-data "assets;assets" ^
   --add-data "components.json;." --add-data "requirements.txt;." ^
   --clean MiniServer.py
 ```
 
-Готовый файл появится в `dist/FarajaWebServer.exe`.
+Готовый файл появится в `dist/FarajaWebServerPRO_stage.exe` — переименуйте
+его в `FarajaWebServerPRO.exe` (при закрытом PRO).
+
+> `build.bat` перед упаковкой делает чистую stage-копию `www/`
+> (без `downloads/`, `runtime/`, `*.exe`, `*.zip`) — вручную исключите
+> этот мусор из `--add-data`, иначе EXE распухнет до гигабайта.
 
 ## Структура проекта
 
@@ -252,10 +286,10 @@ docs/              — лендинг проекта (публикуется ч�
 
 Спасибо!
 
-## PRO-версия
+## Возможности PRO
 
 **[⬇ Скачать FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)**
-— расширенное издание со всеми возможностями ниже.
+— единственная редакция: всё ниже уже внутри, ничего докупать не нужно.
 
 - **VHost-менеджер** — сайт создаётся одной кнопкой: Nginx-блок + Apache VirtualHost + запись в hosts + SSL-сертификат на домен (`https://myproject.local` без ручных правок, типы php/node/python/static).
 - **Node.js и Python серверы** — запуск проектов с выбором порта, роуты Nginx (`/node/3000/`, `/py/5000/`), WebSocket-прокси, трекинг процессов, всё убивается при выходе.
@@ -282,7 +316,7 @@ Node.js, Docker y SSL local — todo en un solo EXE, sin instalación.
 abra `http://127.0.0.1:8080/` → copie su proyecto a `www/`.
 HTTPS: pulse «Configurar SSL», reinicie Nginx, abra `https://localhost/`.
 Idiomas: RU / EN / ES / DE / FR / ZH. Licencia: Apache-2.0.
-Descarga: [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+Descarga: [FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)
 
 ## Deutsch
 
@@ -295,7 +329,7 @@ Node.js, Docker und lokales SSL — alles in einer EXE, keine Installation.
 `http://127.0.0.1:8080/` öffnen → Projekt nach `www/` kopieren.
 HTTPS: «SSL einrichten», Nginx neu starten, `https://localhost/` öffnen.
 Sprachen: RU / EN / ES / DE / FR / ZH. Lizenz: Apache-2.0.
-Download: [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+Download: [FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)
 
 ## Français
 
@@ -308,7 +342,7 @@ Node.js, Docker et SSL local — le tout dans un seul EXE, sans installation.
 ouvrez `http://127.0.0.1:8080/` → copiez votre projet dans `www/`.
 HTTPS : « Configurer SSL », redémarrez Nginx, ouvrez `https://localhost/`.
 Langues : RU / EN / ES / DE / FR / ZH. Licence : Apache-2.0.
-Téléchargement : [FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+Téléchargement : [FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)
 
 ## 中文
 
@@ -321,7 +355,7 @@ Node.js、Docker 和本地 SSL — 集于单个 EXE，无需安装。
 打开 `http://127.0.0.1:8080/` → 将项目复制到 `www/`。
 HTTPS：点击「设置 SSL」，重启 Nginx，打开 `https://localhost/`。
 语言：RU / EN / ES / DE / FR / ZH。许可证：Apache-2.0。
-下载：[FarajaWebServer.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+下载：[FarajaWebServerPRO.exe](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)
 
 ## English
 
@@ -329,7 +363,7 @@ HTTPS：点击「设置 SSL」，重启 Nginx，打开 `https://localhost/`。
 Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker status check and
 local SSL — all in a single EXE, nothing installed into the system.
 
-- **Download:** [FarajaWebServer.exe (latest release)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServer.exe)
+- **Download:** [FarajaWebServerPRO.exe (latest release)](https://github.com/nsmykh70-creator/FarajaWebServer/releases/latest/download/FarajaWebServerPRO.exe)
 - **Site:** [nsmykh70-creator.github.io/FarajaWebServer](https://nsmykh70-creator.github.io/FarajaWebServer/)
 
 **Quick start:** run the EXE → tick components in the first-run wizard → press
@@ -339,4 +373,4 @@ Default DB logins: MariaDB `root` with empty password, PostgreSQL `postgres`.
 HTTPS: press **Setup SSL**, restart Nginx, open `https://localhost/`.
 UI languages: RU / EN / ES / DE / FR / ZH via the flag buttons in the header.
 Build from source with Python 3.12 — see [Сборка из исходников](#сборка-из-исходников).
-License: MIT.
+License: Apache-2.0.
