@@ -4305,19 +4305,14 @@ class App:
         self.root.bind("<Unmap>",self.unmap)
         self.root.after(500,self.refresh)
         self.root.after(1000,self.refresh_logs)
-        self.root.after(1200, self._reconcile_web_servers)
+        # Ignore Unmap events during early startup: on some systems the window
+        # manager briefly unmaps the fresh window, which used to send the app
+        # straight to the tray ("starts minimized").
+        self._startup_grace_until = time.monotonic() + 8
+        # Make sure the fresh window is visible, not buried behind others.
+        self.root.after(600, lambda: (self.root.deiconify(), self.root.lift()))
         signal.signal(signal.SIGINT, lambda s,f: self.exit())
         signal.signal(signal.SIGTERM, lambda s,f: self.exit())
-
-    def _reconcile_web_servers(self):
-        if self.closing:
-            return
-        try:
-            if web_server_running("apache") and web_server_running("nginx"):
-                self.log("Both Apache and Nginx detected; stopping Nginx to keep only one web server active.")
-                self.svc.stop_nginx()
-        except Exception as e:
-            self.log("Web server reconciliation error: " + str(e))
 
     def _install_global_wheel(self):
         """Route mouse-wheel input to the active scrollable page.
@@ -4493,8 +4488,11 @@ class App:
                                   ("PHP", "php_cgi_port", "php"),
                                   ("PostgreSQL", "postgresql_port", "pg"),
                                   ("Redis", "redis_port", "redis"),
-                                  ("Nginx", "nginx_port", "nginx")):
-            lbl = tk.Label(self._port_strip, text=f"{key} {CONFIG[cfgkey]}", bg=THEME["bg_card"],
+                                  ("Nginx", "nginx_port", "nginx"),
+                                  ("Docker", None, "docker"),
+                                  ("Node.js", None, "node")):
+            txt = f"{key} {CONFIG[cfgkey]}" if cfgkey else key
+            lbl = tk.Label(self._port_strip, text=txt, bg=THEME["bg_card"],
                            fg=THEME["text_dim"], font=("Cascadia Code", 8))
             lbl.pack(side="left", pady=7)
             self._port_labels[attr] = (lbl, key, cfgkey)
@@ -4535,8 +4533,12 @@ class App:
         icon_box = tk.Frame(row, bg=THEME["bg_elevated"], width=44, height=44,
                             highlightbackground=THEME["border"], highlightthickness=1)
         icon_box.pack(side="left", padx=(0, 12)); icon_box.pack_propagate(False)
-        tk.Label(icon_box, text=icon_text, bg=THEME["bg_elevated"], fg=THEME["accent"],
-                 font=("Segoe UI Emoji", 17)).pack(expand=True)
+        icon_glyph = tk.Label(icon_box, text=icon_text, bg=THEME["bg_elevated"], fg=THEME["danger"],
+                              font=("Segoe UI Emoji", 17))
+        icon_glyph.pack(expand=True)
+        # State lives on the icon itself (green = running, red = stopped);
+        # status_color() repaints this pair every refresh.
+        setattr(self, attr + "_status", (icon_box, icon_glyph))
         info = tk.Frame(row, bg=THEME["bg_card"]); info.pack(side="left", fill="both", expand=True)
         title_row = tk.Frame(info, bg=THEME["bg_card"]); title_row.pack(fill="x")
         tk.Label(title_row, text=lang.t(name_key), bg=THEME["bg_card"], fg=THEME["text"],
@@ -4546,10 +4548,6 @@ class App:
         if attr not in port_map:
             tk.Label(title_row, text="LOCAL SERVICE", bg=THEME["info"], fg=THEME["white"],
                      font=(THEME["font_family"], 7, "bold"), padx=7, pady=2).pack(side="left", padx=(8, 0))
-        status_lbl = tk.Label(title_row, text=lang.t("stopped"), bg=THEME["danger"], fg=THEME["white"],
-                              font=(THEME["font_family"], 7, "bold"), padx=8, pady=3)
-        status_lbl.pack(side="left", padx=(8, 0))
-        setattr(self, attr + "_status", status_lbl)
         if attr in port_map:
             tk.Label(info, text=f"{lang.t('port_is')} {CONFIG[port_map[attr]]}",
                      bg=THEME["bg_card"], fg=THEME["text_dim"],
@@ -6716,7 +6714,7 @@ class App:
     def _refresh_port_label(self):
         try:
             for attr, (lbl, key, cfgkey) in self._port_labels.items():
-                lbl.configure(text=f"{key} {CONFIG[cfgkey]}")
+                lbl.configure(text=f"{key} {CONFIG[cfgkey]}" if cfgkey else key)
         except Exception:
             pass
 
@@ -6769,8 +6767,36 @@ class App:
                 self._db_err(e)
         threading.Thread(target=w, daemon=True).start()
 
+    def _admin_hint_dismissed(self):
+        try:
+            data = json.loads((APP_ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+            return bool(data.get("hide_admin_hint"))
+        except Exception:
+            return False
+
+    def _dismiss_admin_hint(self, hint):
+        try:
+            hint.destroy()
+        except Exception:
+            pass
+        try:
+            if isinstance(getattr(self, "_settings", None), dict):
+                self._settings["hide_admin_hint"] = True
+        except Exception:
+            pass
+        try:
+            p = APP_ROOT / "config" / "settings.json"
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+            data["hide_admin_hint"] = True
+            p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
     def _status_bar(self, parent):
-        if not is_admin():
+        if not is_admin() and not self._admin_hint_dismissed():
             hint = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["warning_dim"],
                             highlightthickness=1)
             hint.pack(fill="x", side="bottom", padx=12, pady=(0, 6))
@@ -6779,6 +6805,11 @@ class App:
             tk.Label(hint, text=lang.t("admin_hint"), bg=THEME["bg_card"], fg=THEME["text_dim"],
                      font=(THEME["font_family"], 8), wraplength=900, justify="left").pack(
                          side="left", fill="x", expand=True, pady=5)
+            tk.Button(hint, text="✕", bg=THEME["bg_card"], fg=THEME["text_muted"],
+                      activebackground=THEME["bg_elevated"], activeforeground=THEME["text"],
+                      relief="flat", bd=0, cursor="hand2", font=(THEME["font_family"], 8),
+                      highlightthickness=0,
+                      command=lambda: self._dismiss_admin_hint(hint)).pack(side="right", padx=8)
         bar = tk.Frame(parent, bg=THEME["bg_card"], height=30, highlightbackground=THEME["border"], highlightthickness=1)
         bar.pack(fill="x", side="bottom"); bar.pack_propagate(False)
         self.status = tk.StringVar(value=lang.t("status_ready"))
@@ -8260,6 +8291,17 @@ class App:
         self.root.after(0, lambda: self.status.set(msg))
 
     def status_color(self, w, running):
+        # Service cards store an (icon_box, icon_glyph) pair: the glyph turns
+        # green/red instead of a text badge.
+        if isinstance(w, (tuple, list)) and len(w) == 2:
+            box, glyph = w
+            color = THEME["success"] if running else THEME["danger"]
+            try:
+                box.configure(highlightbackground=color)
+                glyph.configure(fg=color)
+            except Exception:
+                pass
+            return
         if running:
             w.configure(text=lang.t("running"), bg=THEME["success"], fg=THEME["white"])
         else:
@@ -8712,6 +8754,11 @@ class App:
         self.root.after(0, lambda: (self.root.deiconify(), self.root.lift(), self.root.focus_force()))
 
     def unmap(self, e):
+        try:
+            if time.monotonic() < getattr(self, "_startup_grace_until", 0):
+                return
+        except Exception:
+            pass
         if self.root.state() == "iconic":
             self.hide()
 
