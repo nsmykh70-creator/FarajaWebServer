@@ -27,7 +27,7 @@ if /i "%~1"=="check" goto check
 
 rem --- 0. Проверка синтаксиса ---
 echo.
-echo [1/4] Proverka sintaksisa...
+echo [1/5] Proverka sintaksisa...
 %PY% -m py_compile MiniServer.py
 if errorlevel 1 (
   echo [ERROR] Oshibka sintaksisa v MiniServer.py
@@ -38,7 +38,7 @@ echo OK.
 
 rem --- 1. Зависимости ---
 echo.
-echo [2/4] Zavisimosti...
+echo [2/5] Zavisimosti...
 %PY% -m pip install -q -r requirements.txt
 if errorlevel 1 goto fail
 
@@ -56,16 +56,28 @@ if /i "%~1"=="PRO" (
   )
 )
 
-rem --- 4. Сборка (onefile, windowed, все ресурсы) ---
+rem --- 4. Чистый stage www (без мусора: downloads, runtime, exe, syslog) ---
 echo.
-echo [3/4] Sborka %OUT%.exe ...
+echo [3/5] Stage www...
+if exist .build_www rmdir /s /q .build_www
+robocopy www .build_www /E /NFL /NDL /NJH /NJS >nul
+if exist .build_www\downloads rmdir /s /q .build_www\downloads
+if exist .build_www\runtime rmdir /s /q .build_www\runtime
+del /q .build_www\*.exe 2>nul
+del /q .build_www\*.zip 2>nul
+del /q .build_www\MiniServer.py 2>nul
+
+rem --- 5. Сборка (onefile, windowed, все ресурсы) ---
+echo.
+echo [4/5] Sborka %OUT%.exe ...
 if exist build rmdir /s /q build
 if exist "%OUT%.spec" del /q "%OUT%.spec"
-%PY% -m PyInstaller --noconfirm --onefile --windowed --icon "assets\logo.ico" --name "%OUT%" --add-data "config;config" --add-data "www;www" --add-data "assets;assets" --add-data "components.json;." --add-data "requirements.txt;." --clean MiniServer.py
+%PY% -m PyInstaller --noconfirm --onefile --windowed --icon "assets\logo.ico" --name "%OUT%" --add-data "config;config" --add-data ".build_www;www" --add-data "assets;assets" --add-data "components.json;." --add-data "requirements.txt;." --clean MiniServer.py
 if errorlevel 1 goto fail
+rmdir /s /q .build_www
 
 echo.
-echo [4/4] Gotovo:
+echo [5/5] Gotovo:
 for %%F in ("dist\%OUT%.exe") do echo   %%~nxF  %%~zF bait
 echo.
 echo BUILD SUCCESSFUL - dist\%OUT%.exe

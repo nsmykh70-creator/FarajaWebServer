@@ -99,6 +99,7 @@ LOCALES = {
     "start": {"ru": "СТАРТ", "en": "START", "es": "INICIAR", "de": "STARTEN", "fr": "DÉMARRER", "zh": "启动"},
     "stop": {"ru": "СТОП", "en": "STOP", "es": "DETENER", "de": "STOPPEN", "fr": "ARRÊTER", "zh": "停止"},
     "restart": {"ru": "ПЕРЕЗАПУСК", "en": "RESTART", "es": "REINICIAR", "de": "NEUSTART", "fr": "REDÉMARRER", "zh": "重启"},
+    "port_is": {"ru": "Порт:", "en": "Port:", "es": "Puerto:", "de": "Port:", "fr": "Port :", "zh": "端口："},
     "running": {"ru": "РАБОТАЕТ", "en": "RUNNING", "es": "EJECUTANDO", "de": "LÄUFT", "fr": "EN EXÉCUTION", "zh": "运行中"},
     "stopped": {"ru": "ОСТАНОВЛЕН", "en": "STOPPED", "es": "DETENIDO", "de": "GESTOPPT", "fr": "ARRÊTÉ", "zh": "已停止"},
     "apache": {"ru": "Apache HTTP Server", "en": "Apache HTTP Server", "es": "Apache HTTP Server", "de": "Apache HTTP Server", "fr": "Apache HTTP Server", "zh": "Apache HTTP 服务器"},
@@ -189,6 +190,12 @@ LOCALES = {
     "minimized_tray": {"ru": "MiniServer свернут в трей", "en": "MiniServer minimized to tray", "es": "MiniServer minimizado a la bandeja", "de": "MiniServer in den Taskleiste minimiert", "fr": "MiniServer minimisé dans la zone de notification", "zh": "MiniServer 已最小化到托盘"},
     "tab_settings": {"ru": "Настройки", "en": "Settings", "es": "Ajustes", "de": "Einstellungen", "fr": "Paramètres", "zh": "设置"},
     "set_modules": {"ru": "Модули и дополнения", "en": "Modules & add-ons", "es": "Módulos y complementos", "de": "Module & Add-ons", "fr": "Modules et extensions", "zh": "模块和附加组件"},
+    "sub_general": {"ru": "Общие", "en": "General", "es": "General", "de": "Allgemein", "fr": "Général", "zh": "常规"},
+    "sub_php": {"ru": "PHP", "en": "PHP", "es": "PHP", "de": "PHP", "fr": "PHP", "zh": "PHP"},
+    "sub_web": {"ru": "Веб-серверы", "en": "Web servers", "es": "Servidores web", "de": "Webserver", "fr": "Serveurs web", "zh": "Web 服务器"},
+    "sub_db": {"ru": "Базы данных", "en": "Databases", "es": "Bases de datos", "de": "Datenbanken", "fr": "Bases de données", "zh": "数据库"},
+    "sub_env": {"ru": "Окружение", "en": "Environment", "es": "Entorno", "de": "Umgebung", "fr": "Environnement", "zh": "环境"},
+    "sub_dl": {"ru": "Загрузки", "en": "Downloads", "es": "Descargas", "de": "Downloads", "fr": "Téléchargements", "zh": "下载"},
     "set_dl_folder": {"ru": "Папка загрузок / локальных архивов:", "en": "Downloads / local archives folder:", "es": "Carpeta de descargas / archivos locales:", "de": "Downloads / lokaler Archivordner:", "fr": "Dossier de téléchargements / archives locales :", "zh": "下载 / 本地归档文件夹："},
     "set_open_folder": {"ru": "Открыть папку", "en": "Open folder", "es": "Abrir carpeta", "de": "Ordner öffnen", "fr": "Ouvrir le dossier", "zh": "打开文件夹"},
     "set_rescan": {"ru": "Пересканировать", "en": "Rescan", "es": "Reescanear", "de": "Neu scannen", "fr": "Réanalyser", "zh": "重新扫描"},
@@ -607,6 +614,14 @@ def stop_proc(p,timeout=3):
             except Exception:pass
         except Exception:
             pass
+
+def _cmd_list(exe, *args):
+    """Build a Popen-ready command.  Batch shims (npx.cmd, npm.cmd) cannot be
+    executed directly by CreateProcess, so route them through COMSPEC."""
+    items = [str(exe)] + [str(a) for a in args]
+    if items[0].lower().endswith((".cmd", ".bat")):
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/c"] + items
+    return items
 
 def unify_entries(root):
     """Bring every text field under root to the Settings standard: flat dark
@@ -1813,10 +1828,25 @@ http {{
         sys_npx=shutil.which("npx")
         if sys_npx:return sys_npx
         raise RuntimeError("npx is not found")
+    def _nodejs_ready(self):
+        """A usable Node.js exists (portable bundle or system install),
+        so no download is required."""
+        if (RUNTIME / "Nodejs" / "node.exe").exists():
+            return True
+        import shutil as _shn
+        return _shn.which("node") is not None
+    def _ensure_nodejs(self):
+        if self._nodejs_ready():
+            try:
+                self.log(f"Using Node.js: {self.get_node_exe()}")
+            except Exception:
+                pass
+            return
+        self._ensure_component("nodejs")
     def install_tsx(self):
         try:
             npx=self.get_npx_exe()
-            result=subprocess.run([npx,"--yes","tsx","--version"],
+            result=subprocess.run(_cmd_list(npx,"--yes","tsx","--version"),
                 capture_output=True,text=True,timeout=60,
                 creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
             return result.returncode==0
@@ -1827,7 +1857,7 @@ http {{
         if not p.exists():raise RuntimeError(f"Script not found: {script_path}")
         if p.suffix.lower()==".ts":
             npx=self.get_npx_exe()
-            cmd=[npx,"--yes","tsx",str(p.resolve())]
+            cmd=_cmd_list(npx,"--yes","tsx",str(p.resolve()))
         elif p.suffix.lower()==".js":
             node=self.get_node_exe()
             cmd=[node,str(p.resolve())]
@@ -1848,7 +1878,7 @@ http {{
         except Exception:
             return False
     def node_server_start(self, name, directory, entry, port):
-        self._ensure_component("nodejs")
+        self._ensure_nodejs()
         try:
             port = int(port)
         except (TypeError, ValueError):
@@ -1858,7 +1888,7 @@ http {{
         if not entry_path.exists():
             raise RuntimeError(f"Entry not found: {entry_path}")
         if entry_path.suffix.lower() == ".ts":
-            cmd = [self.get_npx_exe(), "--yes", "tsx", str(entry_path.resolve())]
+            cmd = _cmd_list(self.get_npx_exe(), "--yes", "tsx", str(entry_path.resolve()))
         elif entry_path.suffix.lower() == ".js":
             cmd = [self.get_node_exe(), str(entry_path.resolve())]
         else:
@@ -2544,7 +2574,7 @@ http {{
         import shutil as _shn
         return _shn.which("node") is not None
     def start_node(self):
-        self._ensure_component("nodejs")
+        self._ensure_nodejs()
         exe = self.get_node_exe()
         try:
             r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=10,
@@ -4495,49 +4525,57 @@ class App:
         if self._service_col >= 2:
             self._service_col = 0; self._service_row = getattr(self, "_service_row", 0) + 1
 
+        # Horizontal layout from the design concept:
+        # [icon] name [LOCAL SERVICE] [status] ... [play] [restart] [dots]
+        #        Port: N
+        #        description
         inner = tk.Frame(card, bg=THEME["bg_card"])
         inner.pack(fill="both", expand=True, padx=14, pady=12)
-        top = tk.Frame(inner, bg=THEME["bg_card"]); top.pack(fill="x")
-        icon_box = tk.Frame(top, bg=THEME["bg_elevated"], width=36, height=36,
+        row = tk.Frame(inner, bg=THEME["bg_card"]); row.pack(fill="both", expand=True)
+        icon_box = tk.Frame(row, bg=THEME["bg_elevated"], width=44, height=44,
                             highlightbackground=THEME["border"], highlightthickness=1)
-        icon_box.pack(side="left", padx=(0,10)); icon_box.pack_propagate(False)
+        icon_box.pack(side="left", padx=(0, 12)); icon_box.pack_propagate(False)
         tk.Label(icon_box, text=icon_text, bg=THEME["bg_elevated"], fg=THEME["accent"],
-                 font=("Segoe UI Emoji", 14)).pack(expand=True)
-        name_box = tk.Frame(top, bg=THEME["bg_card"]); name_box.pack(side="left", fill="x", expand=True)
-        tk.Label(name_box, text=lang.t(name_key), bg=THEME["bg_card"], fg=THEME["text"],
-                 font=(THEME["font_family"], 10, "bold")).pack(anchor="w")
+                 font=("Segoe UI Emoji", 17)).pack(expand=True)
+        info = tk.Frame(row, bg=THEME["bg_card"]); info.pack(side="left", fill="both", expand=True)
+        title_row = tk.Frame(info, bg=THEME["bg_card"]); title_row.pack(fill="x")
+        tk.Label(title_row, text=lang.t(name_key), bg=THEME["bg_card"], fg=THEME["text"],
+                 font=(THEME["font_family"], 10, "bold")).pack(side="left")
         port_map = {"apache":"apache_port","db":"mariadb_port","php":"php_cgi_port",
                     "pg":"postgresql_port","redis":"redis_port","nginx":"nginx_port"}
-        port_text = f"PORT {CONFIG[port_map[attr]]}" if attr in port_map else "LOCAL SERVICE"
-        tk.Label(name_box, text=port_text, bg=THEME["bg_card"], fg=THEME["text_muted"],
-                 font=("Cascadia Code", 7, "bold")).pack(anchor="w", pady=(2,0))
+        if attr not in port_map:
+            tk.Label(title_row, text="LOCAL SERVICE", bg=THEME["info"], fg=THEME["white"],
+                     font=(THEME["font_family"], 7, "bold"), padx=7, pady=2).pack(side="left", padx=(8, 0))
+        status_lbl = tk.Label(title_row, text=lang.t("stopped"), bg=THEME["danger"], fg=THEME["white"],
+                              font=(THEME["font_family"], 7, "bold"), padx=8, pady=3)
+        status_lbl.pack(side="left", padx=(8, 0))
+        setattr(self, attr + "_status", status_lbl)
+        if attr in port_map:
+            tk.Label(info, text=f"{lang.t('port_is')} {CONFIG[port_map[attr]]}",
+                     bg=THEME["bg_card"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 9)).pack(anchor="w", pady=(3, 0))
         try:
             _desc = lang.t(f"svc_desc_{attr}")
         except Exception:
             _desc = ""
         if _desc:
-            tk.Label(name_box, text=_desc, bg=THEME["bg_card"], fg=THEME["text_dim"],
-                     font=(THEME["font_family"], 8), wraplength=230, justify="left").pack(anchor="w", pady=(3,0))
-        status_lbl = tk.Label(top, text=lang.t("stopped"), bg=THEME["danger"], fg=THEME["white"],
-                              font=(THEME["font_family"], 7, "bold"), padx=8, pady=3)
-        status_lbl.pack(side="right", anchor="n")
-        setattr(self, attr + "_status", status_lbl)
-
-        actions = tk.Frame(inner, bg=THEME["bg_card"]); actions.pack(fill="x", pady=(12,0))
+            tk.Label(info, text=_desc, bg=THEME["bg_card"], fg=THEME["text_muted"],
+                     font=(THEME["font_family"], 8), wraplength=250, justify="left").pack(anchor="w", pady=(1, 0))
+        actions = tk.Frame(row, bg=THEME["bg_card"]); actions.pack(side="right", padx=(10, 0))
         toggle_btn = IconButton(actions, "play", lambda a=attr: self._toggle_svc(a),
             color=THEME["success"], hover_color="#55e39a", active_color=THEME["success_dim"],
-            size=30, tip=lang.t("start") + " / " + lang.t("stop") + " — " + lang.t("tip_start"))
-        toggle_btn.pack(side="left")
+            size=32, tip=lang.t("start") + " / " + lang.t("stop") + " — " + lang.t("tip_start"))
+        toggle_btn.pack(side="left", padx=2)
         setattr(self, attr + "_toggle", toggle_btn)
         if restart_cmd:
             restart_btn = IconButton(actions, "restart", restart_cmd, color=THEME["warning_dim"],
-                hover_color=THEME["warning"], active_color="#ba5e17", size=30,
+                hover_color=THEME["warning"], active_color="#ba5e17", size=32,
                 tip=lang.t("restart") + " — " + lang.t("tip_restart"))
-            restart_btn.pack(side="left", padx=5); setattr(self, attr + "_restart", restart_btn)
+            restart_btn.pack(side="left", padx=2); setattr(self, attr + "_restart", restart_btn)
         dots_btn = IconButton(actions, "dots", None, color=THEME["bg_input"],
-            hover_color=THEME["border_light"], active_color=THEME["border"], size=30,
+            hover_color=THEME["border_light"], active_color=THEME["border"], size=32,
             tip="•••")
-        dots_btn.pack(side="right")
+        dots_btn.pack(side="left", padx=2)
         def _svc_menu(e=None, _a=attr, _s=start_cmd, _t=stop_cmd, _r=restart_cmd, _b=dots_btn):
             try:
                 m = tk.Menu(self.root, tearoff=0, bg=THEME["bg_elevated"], fg=THEME["text"],
@@ -4711,6 +4749,7 @@ class App:
 
         body.bind("<Configure>", _fit)
         canvas.bind("<Configure>", _fit)
+        body._scroll_canvas = canvas
         return body
 
     def _data_tabs(self, parent):
@@ -7674,7 +7713,7 @@ class App:
         left = tk.Frame(content, bg=THEME["bg"]); left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         right = tk.Frame(content, bg=THEME["bg"]); right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
-        _, body = self._settings_card(left, lang.t("set_modules"), "Рабочие каталоги и локальные архивы", "▣")
+        mod_card, body = self._settings_card(left, lang.t("set_modules"), "Рабочие каталоги и локальные архивы", "▣")
         body.grid_columnconfigure(0, weight=1)
         tk.Label(body, text=lang.t("set_dl_folder"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"], 8)).grid(row=0, column=0, sticky="w", padx=5, pady=(2,4))
         self._set_dl_var = tk.StringVar(value=str(DOWNLOADS))
@@ -7700,7 +7739,7 @@ class App:
         sm = tk.OptionMenu(row, self._log_size_var, *["8","9","10","11","12","13","14","16"], command=lambda e: self._on_log_font_change())
         sm.configure(bg=THEME["bg_input"], fg=THEME["text"], relief="flat", highlightthickness=0, font=(THEME["font_family"],9)); sm["menu"].configure(bg=THEME["bg_elevated"], fg=THEME["text"]); sm.pack(side="left", padx=5)
 
-        _, body = self._settings_card(left, lang.t("set_phpmode"), "PHP FastCGI и поведение локального сервера", "</>")
+        php_card, body = self._settings_card(left, lang.t("set_phpmode"), "PHP FastCGI и поведение локального сервера", "</>")
         row = tk.Frame(body, bg=THEME["bg_card"]); row.pack(fill="x")
         self._php_mode_map = {lang.t("php_dev"): "dev", lang.t("php_safe"): "safe"}
         _cur_mode = self._settings.get("php_mode", "dev")
@@ -7713,7 +7752,7 @@ class App:
                        bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"],
                        activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).pack(side="left", padx=(18,0))
 
-        _, body = self._settings_card(left, lang.t("set_ports"), "Порты сервисов • применяются с перезапуском активных процессов", "▦")
+        ports_card, body = self._settings_card(left, lang.t("set_ports"), "Порты сервисов • применяются с перезапуском активных процессов", "▦")
         grid = tk.Frame(body, bg=THEME["bg_card"]); grid.pack(fill="x")
         self._port_vars = {}
         _pdefs = (("Apache", "apache_port"), ("MariaDB", "mariadb_port"), ("PHP", "php_cgi_port"), ("PostgreSQL", "postgresql_port"), ("Redis", "redis_port"), ("Nginx", "nginx_port"))
@@ -7732,7 +7771,7 @@ class App:
         threading.Thread(target=self._autostart_refresh, daemon=True).start()
 
         # Right column: environment and installed components.
-        _, body = self._settings_card(right, lang.t("set_env"), "Версии PHP, Node.js, Python и инструментов", "◈")
+        env_card, body = self._settings_card(right, lang.t("set_env"), "Версии PHP, Node.js, Python и инструментов", "◈")
         try:
             _php_vers = list(comps().get("php_versions", {}).keys()) or ["8.2","8.3","8.4"]
             _node_vers = list(comps().get("node_versions", {}).keys()) or ["20","22","24"]
@@ -7756,7 +7795,7 @@ class App:
         tk.Label(body, text=lang.t("env_tools"), bg=THEME["bg_card"], fg=THEME["text_dim"], font=(THEME["font_family"],8)).pack(anchor="w")
         tk.Label(body, textvariable=self._env_tools_var, bg=THEME["bg_card"], fg=THEME["text_dim"], font=("Cascadia Code",8), justify="left", wraplength=390).pack(anchor="w", pady=(3,0))
 
-        _, body = self._settings_card(right, lang.t("set_select"), "Выберите локальные компоненты для установки", "↓")
+        dl_card, body = self._settings_card(right, lang.t("set_select"), "Выберите локальные компоненты для установки", "↓")
         self._set_component_vars = {}
         cb_grid = tk.Frame(body, bg=THEME["bg_card"]); cb_grid.pack(fill="x")
         try: manifest_names = [n for n,i in comps().items() if is_component(i)]
@@ -7787,6 +7826,53 @@ class App:
         self._set_progress = ttk.Progressbar(prog, mode="determinate", length=300, style="Modern.Horizontal.TProgressbar"); self._set_progress.pack(side="left")
         self._set_progress_label = tk.Label(prog, text="", bg=THEME["bg"], fg=THEME["text_dim"], font=(THEME["font_family"],8)); self._set_progress_label.pack(side="left", padx=8)
         self._set_refresh(); self._apply_log_font(); self._env_refresh_versions()
+        self._build_settings_subtabs(parent, content, (
+            ("sub_general", mod_card), ("sub_php", php_card),
+            ("sub_web", ports_card), ("sub_db", ports_card),
+            ("sub_env", env_card), ("sub_dl", dl_card)))
+
+    def _build_settings_subtabs(self, parent, content, sections):
+        """Sub-tab strip from the design concept: jumps to a settings card."""
+        strip = tk.Frame(parent, bg=THEME["bg_card"], highlightbackground=THEME["border"],
+                         highlightthickness=1)
+        strip.pack(fill="x", padx=16, pady=(0, 10), before=content)
+        btns = []
+
+        def jump(idx, card):
+            for i, b in enumerate(btns):
+                b.configure(fg=THEME["accent"] if i == idx else THEME["text_dim"],
+                            font=(THEME["font_family"], 9, "bold" if i == idx else "normal"))
+            self._settings_goto(card)
+
+        for i, (key, card) in enumerate(sections):
+            b = tk.Button(strip, text=lang.t(key), bg=THEME["bg_card"],
+                          fg=THEME["accent"] if i == 0 else THEME["text_dim"],
+                          activebackground=THEME["bg_elevated"], activeforeground=THEME["accent"],
+                          relief="flat", bd=0, cursor="hand2",
+                          font=(THEME["font_family"], 9, "bold" if i == 0 else "normal"),
+                          highlightthickness=0,
+                          command=lambda i=i, c=card: jump(i, c))
+            b.pack(side="left", padx=12, pady=9)
+            btns.append(b)
+
+    def _settings_goto(self, card):
+        try:
+            body = card.master
+            while body is not None and not hasattr(body, "_scroll_canvas"):
+                body = body.master
+            if body is None:
+                return
+            canvas = body._scroll_canvas
+            self.root.update_idletasks()
+            y = 0
+            w = card
+            while w is not None and w is not body:
+                y += w.winfo_y()
+                w = w.master
+            total = max(1, body.winfo_height())
+            canvas.yview_moveto(max(0.0, min(1.0, (y - 8) / total)))
+        except Exception:
+            pass
 
     def _env_refresh_versions(self):
         def w():
@@ -8553,6 +8639,11 @@ class App:
         self.ensure_tray()
         self.root.withdraw()
         self.log(lang.t("minimized_tray"))
+        try:
+            if self.tray:
+                self.tray.notify(lang.t("minimized_tray"), APP_NAME)
+        except Exception:
+            pass
 
     def show(self):
         self.root.after(0, lambda: (self.root.deiconify(), self.root.lift(), self.root.focus_force()))
@@ -8570,6 +8661,16 @@ class App:
                 self.tray.stop()
         except Exception:
             pass
+        # Hard watchdog: whatever hangs below, the process is gone in 12 s.
+        # Daemon threads never block interpreter exit, so this only fires
+        # when the normal path is stuck (e.g. a blocked destroy).
+        def _watchdog():
+            time.sleep(12)
+            try:
+                os._exit(0)
+            except Exception:
+                pass
+        threading.Thread(target=_watchdog, daemon=True).start()
 
         def finalize():
             try:
@@ -9316,9 +9417,63 @@ class App:
     def run(self):
         self.root.mainloop()
 
+_SINGLE_MUTEX = None
+
+def _ensure_single_instance():
+    """Named-mutex guard: returns (is_first, activated).
+
+    Perf-child helper processes bypass the guard.  When another instance
+    is already running we try to restore its window, so a second launch
+    never leaves a stray process behind."""
+    global _SINGLE_MUTEX
+    if "--perf-child" in sys.argv:
+        return True, False
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        _SINGLE_MUTEX = kernel32.CreateMutexW(None, False, "FarajaWebServerV16SingleInstance")
+        if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            activated = False
+            try:
+                import time as _t
+                user32 = ctypes.windll.user32
+                # The first instance may still be unpacking/booting, so retry
+                # the window lookup instead of popping a dialog at once.
+                for _ in range(5):
+                    hwnd = user32.FindWindowW(None, f"{APP_NAME} V16")
+                    if hwnd:
+                        try:
+                            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                        except Exception:
+                            pass
+                        try:
+                            user32.SetForegroundWindow(hwnd)
+                        except Exception:
+                            pass
+                        activated = True
+                        break
+                    _t.sleep(2)
+            except Exception:
+                pass
+            return False, activated
+    except Exception:
+        pass
+    return True, False
+
 if __name__ == "__main__":
     if "--perf-child" in sys.argv:
         _idx = sys.argv.index("--perf-child")
         run_perf_child(sys.argv[_idx + 1] if _idx + 1 < len(sys.argv) else "")
     else:
+        _first, _activated = _ensure_single_instance()
+        if not _first:
+            if not _activated:
+                try:
+                    import ctypes as _ct
+                    _ct.windll.user32.MessageBoxW(
+                        None, "Faraja WebServer is already running.",
+                        "Faraja WebServer", 0x40)
+                except Exception:
+                    pass
+            sys.exit(0)
         App().run()
