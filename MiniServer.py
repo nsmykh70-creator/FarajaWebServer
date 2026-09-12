@@ -2597,9 +2597,6 @@ http {{
         self.log(f"Node.js {ver} ready (tsx available)")
     def stop_node(self):
         names = list(getattr(self, "node_servers", {}).keys())
-        if not names:
-            self.log("Node.js has no running servers; nothing to stop")
-            return
         # Hard kill of the whole process tree (taskkill /T /F), exactly like
         # node_server_stop: gentle terminate leaves cmd/npx wrappers behind.
         for name in names:
@@ -2607,7 +2604,26 @@ http {{
                 self.node_server_stop(name, quiet=True)
             except Exception:
                 pass
-        self.log(f"Node.js servers stopped: {len(names)}")
+        # Anything left is foreign: a node.exe started before/without the app
+        # (it shows as "running" but is not tracked). Kill it too, otherwise
+        # STOP can never stop Node.js.
+        strays = []
+        try:
+            for pr in self.proc_list():
+                if (pr.get("name") or "").lower() == "node.exe":
+                    strays.append(pr["pid"])
+        except Exception:
+            pass
+        for pid in strays:
+            try:
+                kill_pid_tree(pid)
+            except Exception:
+                pass
+        gone = len(names) + len(strays)
+        if gone:
+            self.log(f"Node.js stopped: {len(names)} tracked servers, {len(strays)} external node.exe")
+        else:
+            self.log("Node.js has no running servers; nothing to stop")
     def noderun(self):
         return self.node_installed()
     def py_dir(self, ver=None):
