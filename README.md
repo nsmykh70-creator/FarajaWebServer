@@ -21,13 +21,13 @@ Apache, MariaDB, PHP, PostgreSQL, Redis, Nginx, Node.js, Docker, локальн�
 
 ## Скриншоты
 
-| Главная — сервисы | Логи | Настройки и модули |
+| Главная — сервисы | Docker — контейнеры | Серверы Node.js |
 |---|---|---|
-| ![Главная](docs/screenshots/01-main.png) | ![Логи](docs/screenshots/02-logs.png) | ![Настройки](docs/screenshots/03-settings.png) |
+| ![Главная](docs/screenshots/01-main.png) | ![Docker](docs/screenshots/02-docker.png) | ![Node.js](docs/screenshots/03-node.png) |
 
-| Помощь | Трей |
-|---|---|
-| ![Помощь](docs/screenshots/04-help.png) | ![Трей](docs/screenshots/05-tray.png) |
+| Базы данных | Диагностика | Настройки |
+|---|---|---|
+| ![Базы данных](docs/screenshots/04-db.png) | ![Диагностика](docs/screenshots/05-health.png) | ![Настройки](docs/screenshots/06-settings.png) |
 
 ## Содержание
 
