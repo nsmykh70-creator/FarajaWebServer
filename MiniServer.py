@@ -4729,22 +4729,6 @@ class App:
                 hover_color=THEME["warning"], active_color="#ba5e17", size=32,
                 tip=lang.t("restart") + " — " + lang.t("tip_restart"))
             restart_btn.pack(side="left", padx=2); setattr(self, attr + "_restart", restart_btn)
-        dots_btn = IconButton(actions, "dots", None, color=THEME["bg_input"],
-            hover_color=THEME["border_light"], active_color=THEME["border"], size=32,
-            tip="•••")
-        dots_btn.pack(side="left", padx=2)
-        def _svc_menu(e=None, _a=attr, _s=start_cmd, _t=stop_cmd, _r=restart_cmd, _b=dots_btn):
-            try:
-                m = tk.Menu(self.root, tearoff=0, bg=THEME["bg_elevated"], fg=THEME["text"],
-                            activebackground=THEME["accent"], activeforeground=THEME["white"])
-                m.add_command(label=lang.t("start"), command=_s)
-                m.add_command(label=lang.t("stop"), command=_t)
-                if _r:
-                    m.add_command(label=lang.t("restart"), command=_r)
-                m.tk_popup(_b.winfo_rootx(), _b.winfo_rooty() + _b.winfo_height() + 2)
-            except Exception:
-                pass
-        dots_btn.bind("<ButtonRelease-1>", _svc_menu, add="+")
 
 
     def _action_bar(self, parent):
@@ -5948,7 +5932,7 @@ class App:
         if not base.startswith(("http://", "https://")):
             base = "http://" + base
         try:
-            users = max(1, min(10000, int(self._perf_users_var.get())))
+            users = max(1, min(2000, int(self._perf_users_var.get())))
             dur = max(5, min(86400, int(self._perf_dur_var.get())))
         except ValueError:
             messagebox.showerror(lang.t("error"), "users/duration")
@@ -5983,7 +5967,7 @@ class App:
         stats = {"n": 0, "err": 0, "lat": [], "bytes": 0, "active": 0, "max_active": 0,
                  "lock": threading.Lock(), "t0": time.monotonic(),
                  "users": users, "dur": dur, "base": base,
-                 "profile": self._perf_profile_var.get(), "threads": min(users, 2000)}
+                  "profile": self._perf_profile_var.get(), "threads": users}
         self._perf_stats = stats
         self._perf_stop = threading.Event()
         self._perf_running = True
@@ -6074,7 +6058,7 @@ class App:
         self._perf_toggle_visual(True)
         threading.Thread(target=tail, daemon=True).start()
         self.log(f"Load test started in separate process (PID {child.pid}): "
-                 f"{users} users, {dur}s -> {base} ({min(users, 2000)} OS threads)")
+                 f"{users} users = {users} OS threads, {dur}s -> {base}")
 
     def _perf_tick(self):
         st = getattr(self, "_perf_stats", None)
@@ -9181,7 +9165,7 @@ class App:
 
         docs = {
             "ru": {
-                "overview": "LockSer — портативная локальная среда разработки для Windows.\n\n"
+                "overview": "Faraja WebServer — портативная локальная среда разработки для Windows.\n\n"
                     "ЧТО ВХОДИТ:\n"
                     "• Apache — веб-сервер (HTTP, порт 8080)\n"
                     "• MariaDB — база данных, совместимая с MySQL (порт 3306)\n"
@@ -9194,14 +9178,14 @@ class App:
                     "• phpMyAdmin — веб-панель управления базами MySQL/MariaDB\n\n"
                     "КАК УСТРОЕНО:\n"
                     "• Все компоненты живут в папке runtime/ рядом с программой — ничего не ставится в систему.\n"
-                    "• Вкладка «Основное» — карточки сервисов: зелёный бейдж РАБОТАЕТ, красный ОСТАНОВЛЕН.\n"
-                    "• Вкладка «Дополнительно» — логи, файлы, SQL-редактор, сайты, задачи, настройки.\n"
+                    "• Вкладка «Основное» — карточки сервисов: зелёная иконка — работает, красная — остановлен.\n"
+                    "• Вкладки: Логи, Базы данных, Проекты, Мониторинг, Настройки — вся функциональность по разделам.\n"
                     "• Язык интерфейса переключается флажками в шапке (RU/EN/ES/DE/FR/ZH) и запоминается.\n"
                     "• При закрытии окна программа сворачивается в трей (значок у часов). Полный выход — через меню трея.",
                 "services": "УПРАВЛЕНИЕ СЕРВИСАМИ — ПОШАГОВО:\n\n"
-                    "1. ЗАПУСК ОДНОГО СЕРВИСА: на карточке нажмите СТАРТ. Дождитесь зелёного бейджа РАБОТАЕТ\n"
+                    "1. ЗАПУСК ОДНОГО СЕРВИСА: на карточке нажмите СТАРТ. Дождитесь зелёной иконки\n"
                     "   и строки в логе «System», например «Apache started on port 8080».\n"
-                    "2. ОСТАНОВКА: нажмите СТОП на карточке. Бейдж станет красным.\n"
+                    "2. ОСТАНОВКА: нажмите СТОП на карточке. Иконка станет красной.\n"
                     "3. ПЕРЕЗАПУСК (оранжевая кнопка): останавливает и запускает сервис заново.\n"
                     "   Удобно после правок конфигов.\n"
                     "4. ЗАПУСТИТЬ ВСЕ / ОСТАНОВИТЬ ВСЕ — кнопки в шапке. Порядок запуска автоматический:\n"
@@ -9219,7 +9203,7 @@ class App:
                 "quickstart": "БЫСТРЫЙ СТАРТ — ВАШ ПЕРВЫЙ САЙТ ЗА 5 ШАГОВ:\n\n"
                     "Шаг 1. При первом запуске откроется мастер: отметьте нужные компоненты галочками\n"
                     "и нажмите «Установить». Архивы качаются в папку downloads/ (видны в Настройках).\n"
-                    "Шаг 2. Нажмите «ЗАПУСТИТЬ ВСЕ» в шапке. Все бейджи должны стать зелёными.\n"
+                    "Шаг 2. Нажмите «ЗАПУСТИТЬ ВСЕ» в шапке. Все иконки должны стать зелёными.\n"
                     "Шаг 3. Откройте в браузере http://127.0.0.1:8080/ — вы увидите стартовую страницу.\n"
                     "Шаг 4. Положите свой проект в папку www/ (например www/mysite/index.php) —\n"
                     "он сразу доступен по адресу http://127.0.0.1:8080/mysite/.\n"
@@ -9267,7 +9251,7 @@ class App:
                     "установить его с официального сайта https://docker.com/products/docker-desktop.\n"
                     "Шаг 3. Установите Docker Desktop, перезапустите компьютер (требуется для WSL2),\n"
                     "запустите Docker Desktop и дождитесь статуса «Running».\n"
-                    "Шаг 4. Карточка Docker в LockSer станет зелёной — Docker доступен.\n"
+                    "Шаг 4. Карточка Docker в Faraja WebServer станет зелёной — Docker доступен.\n"
                     "Шаг 5. Контейнерами управляйте через терминал: docker ps (список), docker stop <имя>,\n"
                     "docker compose up -d (запуск проекта с docker-compose.yml).",
                 "node": "NODE.JS — СЕРВЕРЫ, А НЕ ТОЛЬКО СКРИПТЫ:\n\n"
@@ -9312,7 +9296,7 @@ class App:
                     "Peak — лучший секундный RPS за сессию.\n\n"
                     "ПРОФИЛИ: Quick 10/15с, Normal 50/60с, Stress 200/180с, Spike 300/60с (резкий наплыв),\n"
                     "Soak 50/1800с (утечки на дистанции), Endurance 100/7200с, Custom — свои значения.\n"
-                    "Лимит — 10 000 пользователей, но ОС-потоков не более 2000 (предел указан в логе).\n"
+                    "Лимит — 2000 пользователей: 1 пользователь = 1 ОС-поток, без очередей.\n"
                     "В лог каждые 10 секунд пишется строка прогресса, в конце — детальная сводка.\n"
                     "Кнопка «Сохранить отчёт» пишет .txt: конфиг, сводку, глоссарий, таблицу Auto-стадий\n"
                     "и ПОЛНЫЙ посекундный таймлайн теста с пояснениями.",
@@ -9328,7 +9312,7 @@ class App:
                     "https://мойпроект.local без ручных правок (hosts требует запуска от администратора).",
             },
             "en": {
-                "overview": "LockSer — portable local development environment for Windows.\n\n"
+                "overview": "Faraja WebServer — portable local development environment for Windows.\n\n"
                     "INCLUDED:\n"
                     "• Apache — web server (HTTP, port 8080)\n"
                     "• MariaDB — MySQL-compatible database (port 3306)\n"
@@ -9341,14 +9325,14 @@ class App:
                     "• phpMyAdmin — web panel for MySQL/MariaDB\n\n"
                     "HOW IT WORKS:\n"
                     "• Everything lives in runtime/ next to the program — nothing is installed into the system.\n"
-                    "• The 'Main' tab holds service cards: green badge RUNNING, red STOPPED.\n"
-                    "• The 'Advanced' tab holds logs, files, SQL editor, sites, tasks and settings.\n"
+                    "• The 'Main' tab holds service cards: green icon = running, red = stopped.\n"
+                    "• Tabs: Logs, Databases, Projects, Monitoring, Settings — everything is organized by section.\n"
                     "• Switch UI language with the flags in the header (RU/EN/ES/DE/FR/ZH); the choice is saved.\n"
                     "• Closing the window minimizes to tray. Full exit is via the tray menu.",
                 "services": "MANAGING SERVICES — STEP BY STEP:\n\n"
-                    "1. START ONE SERVICE: press START on its card. Wait for the green RUNNING badge\n"
+                    "1. START ONE SERVICE: press START on its card. Wait for the green icon\n"
                     "   and a log line such as 'Apache started on port 8080'.\n"
-                    "2. STOP: press STOP on the card. The badge turns red.\n"
+                    "2. STOP: press STOP on the card. The icon turns red.\n"
                     "3. RESTART (orange button): stops and starts the service again.\n"
                     "   Handy after editing configs.\n"
                     "4. START ALL / STOP ALL in the header start everything in order:\n"
@@ -9366,7 +9350,7 @@ class App:
                 "quickstart": "QUICK START — YOUR FIRST SITE IN 5 STEPS:\n\n"
                     "Step 1. On first launch a wizard opens: tick the components you need\n"
                     "and press 'Install'. Archives are downloaded into downloads/ (see Settings).\n"
-                    "Step 2. Press 'START ALL' in the header. All badges should turn green.\n"
+                    "Step 2. Press 'START ALL' in the header. All icons should turn green.\n"
                     "Step 3. Open http://127.0.0.1:8080/ in your browser — the welcome page appears.\n"
                     "Step 4. Drop your project into www/ (e.g. www/mysite/index.php) —\n"
                     "it is instantly served at http://127.0.0.1:8080/mysite/.\n"
@@ -9413,7 +9397,7 @@ class App:
                     "https://docker.com/products/docker-desktop.\n"
                     "Step 3. Install Docker Desktop, reboot (required for WSL2),\n"
                     "start Docker Desktop and wait for 'Running'.\n"
-                    "Step 4. The Docker card in LockSer turns green — Docker is available.\n"
+                    "Step 4. The Docker card in Faraja WebServer turns green — Docker is available.\n"
                     "Step 5. Manage containers in a terminal: docker ps (list), docker stop <name>,\n"
                     "docker compose up -d (start a docker-compose.yml project).",
                 "node": "NODE.JS — SERVERS, NOT JUST SCRIPTS:\n\n"
@@ -9454,7 +9438,7 @@ class App:
                     "Users — active virtual users. MB/s — throughput. Peak — best 1-second RPS.\n\n"
                     "PROFILES: Quick 10/15s, Normal 50/60s, Stress 200/180s, Spike 300/60s,\n"
                     "Soak 50/1800s, Endurance 100/7200s, Custom — your values.\n"
-                    "Limit — 10,000 users, max 2,000 OS threads (stated in the log).\n"
+                    "Limit — 2,000 users: 1 user = 1 OS thread, no queueing.\n"
                     "A progress line is logged every 10 seconds, plus a detailed summary at the end.\n"
                     "'Save report' writes a .txt: setup, summary, glossary, Auto stages table\n"
                     "and the FULL per-second timeline with explanations.",
@@ -9465,12 +9449,12 @@ class App:
                     "PHP mode (Development/Safe) and directory listing are one row above: Safe turns\n"
                     "display_errors off, listing defaults to off (Options -Indexes).\n"
                     "Apache listens on 127.0.0.1 only — only Nginx (:80/:443) faces outward.\n"
-                    "Sites: php/node/static type + HTTPS. Creating a site writes the Nginx block,\n"
+                    "Sites: php/node/python/static type + HTTPS. Creating a site writes the Nginx block,\n"
                     "the Apache VirtualHost, the hosts entry and issues the domain certificate — you get\n"
                     "https://myproject.local with no manual edits (hosts needs administrator run).",
             },
             "es": {
-                "overview": "LockSer — entorno de desarrollo local portátil para Windows.\n\n"
+                "overview": "Faraja WebServer — entorno de desarrollo local portátil para Windows.\n\n"
                     "INCLUYE: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
                     "Redis (6379), Nginx (80), Node.js, Docker, SSL y phpMyAdmin.\n\n"
                     "Todo vive en runtime/ junto al programa, sin instalación en el sistema.\n"
@@ -9478,7 +9462,7 @@ class App:
                     "Pestaña «Adicional»: registros, archivos, editor SQL, sitios, tareas y ajustes.\n"
                     "El idioma se cambia con las banderas del encabezado y se guarda.",
                 "services": "GESTIÓN DE SERVICIOS:\n\n"
-                    "1. INICIAR en la tarjeta → espere el distintivo verde EN EJECUCIÓN.\n"
+                    "1. INICIAR en la tarjeta → espere el icono verde.\n"
                     "2. DETENER detiene el servicio. REINICIAR (naranja) lo reinicia.\n"
                     "3. INICIAR TODO / DETENER TODO: orden automático\n"
                     "   PHP → MariaDB → PostgreSQL → Redis → Apache → Nginx.\n"
@@ -9518,7 +9502,7 @@ class App:
                     "4. Comandos: docker ps, docker stop <nombre>, docker compose up -d.",
             },
             "de": {
-                "overview": "LockSer — portable lokale Entwicklungsumgebung für Windows.\n\n"
+                "overview": "Faraja WebServer — portable lokale Entwicklungsumgebung für Windows.\n\n"
                     "ENTHALTEN: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
                     "Redis (6379), Nginx (80), Node.js, Docker, SSL und phpMyAdmin.\n\n"
                     "Alles liegt in runtime/ neben dem Programm — keine Systeminstallation.\n"
@@ -9526,7 +9510,7 @@ class App:
                     "Reiter «Erweitert»: Logs, Dateien, SQL-Editor, Sites, Aufgaben, Einstellungen.\n"
                     "Die Sprache wird über die Flaggen in der Kopfzeile umgeschaltet und gespeichert.",
                 "services": "DIENSTE VERWALTEN:\n\n"
-                    "1. STARTEN auf der Karte → grüne Anzeige LÄUFT abwarten.\n"
+                    "1. STARTEN auf der Karte → grünes Icon abwarten.\n"
                     "2. STOPPEN hält den Dienst an. NEUSTART (orange) startet neu.\n"
                     "3. ALLE STARTEN / ALLE STOPPEN: automatische Reihenfolge\n"
                     "   PHP → MariaDB → PostgreSQL → Redis → Apache → Nginx.\n"
@@ -9567,7 +9551,7 @@ class App:
                     "4. Befehle: docker ps, docker stop <name>, docker compose up -d.",
             },
             "fr": {
-                "overview": "LockSer — environnement de développement local portable pour Windows.\n\n"
+                "overview": "Faraja WebServer — environnement de développement local portable pour Windows.\n\n"
                     "INCLUS : Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
                     "Redis (6379), Nginx (80), Node.js, Docker, SSL et phpMyAdmin.\n\n"
                     "Tout vit dans runtime/ à côté du programme, sans installation système.\n"
@@ -9575,7 +9559,7 @@ class App:
                     "Onglet « Avancé » : logs, fichiers, éditeur SQL, sites, tâches, paramètres.\n"
                     "La langue se change avec les drapeaux de l'en-tête et est mémorisée.",
                 "services": "GÉRER LES SERVICES :\n\n"
-                    "1. DÉMARRER sur la carte → attendre le badge vert EN EXÉCUTION.\n"
+                    "1. DÉMARRER sur la carte → attendre le icône verte.\n"
                     "2. ARRÊTER stoppe le service. REDÉMARRER (orange) le relance.\n"
                     "3. TOUT DÉMARRER / TOUT ARRÊTER : ordre automatique\n"
                     "   PHP → MariaDB → PostgreSQL → Redis → Apache → Nginx.\n"
@@ -9615,7 +9599,7 @@ class App:
                     "4. Commandes : docker ps, docker stop <nom>, docker compose up -d.",
             },
             "zh": {
-                "overview": "LockSer — Windows 便携式本地开发环境。\n\n"
+                "overview": "Faraja WebServer — Windows 便携式本地开发环境。\n\n"
                     "包含：Apache（8080）、MariaDB（3306）、PHP FastCGI（9074）、PostgreSQL（5432）、\n"
                     "Redis（6379）、Nginx（80）、Node.js、Docker、SSL 和 phpMyAdmin。\n\n"
                     "所有组件位于程序旁的 runtime/ 文件夹中，无需系统安装。\n"
@@ -9623,7 +9607,7 @@ class App:
                     "「高级」选项卡：日志、文件、SQL 编辑器、站点、任务和设置。\n"
                     "点击标题栏旗帜切换语言，设置会被记住。",
                 "services": "服务管理：\n\n"
-                    "1. 点击卡片上的「启动」，等待绿色「运行中」徽章。\n"
+                    "1. 点击卡片上的「启动」，等待绿色图标。\n"
                     "2. 「停止」停止服务。橙色「重启」重新启动。\n"
                     "3. 「全部启动 / 全部停止」：自动顺序\n"
                     "   PHP → MariaDB → PostgreSQL → Redis → Apache → Nginx。\n"
@@ -9633,7 +9617,7 @@ class App:
                     "PostgreSQL 5432、Redis 6379、Nginx 80（需要管理员权限）。",
                 "quickstart": "五步快速入门：\n\n"
                     "第 1 步：首次启动时勾选所需组件，点击「安装」。\n"
-                    "第 2 步：点击「全部启动」，所有徽章变绿。\n"
+                    "第 2 步：点击「全部启动」，所有图标变绿。\n"
                     "第 3 步：在浏览器中打开 http://127.0.0.1:8080/。\n"
                     "第 4 步：将项目复制到 www/（如 www/mysite/index.php）——\n"
                     "即可通过 http://127.0.0.1:8080/mysite/ 访问。\n"
@@ -9688,7 +9672,7 @@ class App:
                              relief="flat", bd=0, padx=14, pady=10,
                              selectbackground=THEME["accent"], selectforeground=THEME["white"])
             t.pack(fill="both", expand=True, padx=0, pady=0)
-            text = lang_docs.get(key, "").replace("MiniServer", APP_NAME).replace("LockSer", APP_NAME)
+            text = lang_docs.get(key, "").replace("MiniServer", APP_NAME).replace("Faraja WebServer", APP_NAME)
             if key == "overview":
                 text = lang.t("faraja_meaning") + "\n\n" + text
             t.insert("1.0", text)
