@@ -35,11 +35,6 @@
     "archive": "nodejs.zip",
     "expected": "runtime/Nodejs/node.exe"
   },
-  "phpmyadmin": {
-    "url": "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip",
-    "archive": "phpmyadmin.zip",
-    "expected": "www/phpmyadmin/index.php"
-  },
   "php_versions": {
     "8.2": {
       "url": "https://windows.php.net/downloads/releases/latest/php-8.2-nts-Win32-vs16-x64-latest.zip",

@@ -45,10 +45,10 @@ DONATE = {
 for _c in DONATE:
     DONATE[_c] = (seed(DONATE[_c][0]), DONATE[_c][1])
 del _c
-RUNTIME=APP_ROOT/"runtime"; DOWNLOADS=APP_ROOT/"downloads"; LOGS=APP_ROOT/"logs"; PMA=WWW/"phpmyadmin"
+RUNTIME=APP_ROOT/"runtime"; DOWNLOADS=APP_ROOT/"downloads"; LOGS=APP_ROOT/"logs"
 for x in (RUNTIME,DOWNLOADS,LOGS,WWW,APP_ROOT/"tmp"): x.mkdir(parents=True,exist_ok=True)
 
-DEFAULT={"apache_port":8080,"mariadb_port":3306,"php_cgi_port":9074,"postgresql_port":5432,"redis_port":6379,"nginx_port":80}
+DEFAULT={"apache_port":8080,"mariadb_port":3306,"php_cgi_port":9074,"postgresql_port":5432,"redis_port":6379,"nginx_port":80,"mydbroot_port":3001}
 try: CONFIG={**DEFAULT,**json.loads(CONFIG_FILE.read_text(encoding="utf-8"))}
 except Exception:
     CONFIG=DEFAULT.copy(); CONFIG_FILE.parent.mkdir(parents=True,exist_ok=True)
@@ -110,7 +110,7 @@ LOCALES = {
     "nginx": {"ru": "Nginx", "en": "Nginx", "es": "Nginx", "de": "Nginx", "fr": "Nginx", "zh": "Nginx"},
     "docker": {"ru": "Docker", "en": "Docker", "es": "Docker", "de": "Docker", "fr": "Docker", "zh": "Docker"},
     "open_localhost": {"ru": "Открыть Localhost", "en": "Open Localhost", "es": "Abrir Localhost", "de": "Localhost öffnen", "fr": "Ouvrir Localhost", "zh": "打开 Localhost"},
-    "phpmyadmin": {"ru": "phpMyAdmin", "en": "phpMyAdmin", "es": "phpMyAdmin", "de": "phpMyAdmin", "fr": "phpMyAdmin", "zh": "phpMyAdmin"},
+    "dbmanager": {"ru": "DB Manager Pro", "en": "DB Manager Pro", "es": "DB Manager Pro", "de": "DB Manager Pro", "fr": "DB Manager Pro", "zh": "DB Manager Pro"},
     "open_www": {"ru": "Открыть www", "en": "Open www", "es": "Abrir www", "de": "www öffnen", "fr": "Ouvrir www", "zh": "打开 www"},
     "setup_ssl": {"ru": "Настроить SSL", "en": "Setup SSL", "es": "Configurar SSL", "de": "SSL einrichten", "fr": "Configurer SSL", "zh": "设置 SSL"},
     "run_script": {"ru": "Запустить скрипт", "en": "Run Script", "es": "Ejecutar script", "de": "Skript ausführen", "fr": "Exécuter le script", "zh": "运行脚本"},
@@ -241,7 +241,7 @@ LOCALES = {
     "tip_run": {"ru": "Запустить", "en": "Run", "es": "Ejecutar", "de": "Ausführen", "fr": "Exécuter", "zh": "运行"},
     "tip_browse": {"ru": "Выбрать папку или файл", "en": "Browse for folder or file", "es": "Examinar carpeta o archivo", "de": "Ordner oder Datei wählen", "fr": "Parcourir dossier ou fichier", "zh": "浏览文件夹或文件"},
     "tip_localhost": {"ru": "Открыть сайт в браузере", "en": "Open the site in a browser", "es": "Abrir el sitio en el navegador", "de": "Seite im Browser öffnen", "fr": "Ouvrir le site dans le navigateur", "zh": "在浏览器中打开站点"},
-    "tip_pma": {"ru": "Открыть phpMyAdmin", "en": "Open phpMyAdmin", "es": "Abrir phpMyAdmin", "de": "phpMyAdmin öffnen", "fr": "Ouvrir phpMyAdmin", "zh": "打开 phpMyAdmin"},
+    "tip_dbmanager": {"ru": "Открыть DB Manager Pro", "en": "Open DB Manager Pro", "es": "Abrir DB Manager Pro", "de": "DB Manager Pro öffnen", "fr": "Ouvrir DB Manager Pro", "zh": "打开 DB Manager Pro"},
     "tip_www": {"ru": "Открыть папку www", "en": "Open the www folder", "es": "Abrir la carpeta www", "de": "www-Ordner öffnen", "fr": "Ouvrir le dossier www", "zh": "打开 www 文件夹"},
     "tip_ssl": {"ru": "Выпустить локальный SSL-сертификат", "en": "Issue a local SSL certificate", "es": "Emitir un certificado SSL local", "de": "Lokales SSL-Zertifikat ausstellen", "fr": "Émettre un certificat SSL local", "zh": "颁发本地 SSL 证书"},
     "tip_script": {"ru": "Запустить JS/TS скрипт через Node", "en": "Run a JS/TS script with Node", "es": "Ejecutar un script JS/TS con Node", "de": "JS/TS-Skript mit Node ausführen", "fr": "Exécuter un script JS/TS avec Node", "zh": "使用 Node 运行 JS/TS 脚本"},
@@ -789,7 +789,6 @@ def find_local_archive(name):
         "redis": ["redis.zip", "redis-*.zip"],
         "nginx": ["nginx.zip", "nginx-*.zip"],
         "nodejs": ["nodejs.zip", "node-*.zip"],
-        "phpmyadmin": ["phpmyadmin.zip", "phpMyAdmin-*.zip", "phpmyadmin-*.zip"],
     }
     candidates = []
     for pattern in patterns.get(name, [item["archive"]]):
@@ -801,11 +800,9 @@ def find_local_archive(name):
             n = p.name.lower()
             if name == "apache" and ("httpd" in n or "apache" in n):
                 candidates.append(p)
-            elif name == "php" and n.startswith("php-") and "phpmyadmin" not in n:
+            elif name == "php" and n.startswith("php-"):
                 candidates.append(p)
             elif name == "mariadb" and "mariadb" in n:
-                candidates.append(p)
-            elif name == "phpmyadmin" and "phpmyadmin" in n:
                 candidates.append(p)
             elif name == "postgresql" and ("postgresql" in n or "pg" in n):
                 candidates.append(p)
@@ -913,24 +910,9 @@ def install_component(name,log,progress,item=None,prearchive=None):
     else:
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
-        shutil.rmtree(PMA,ignore_errors=True)
-        shutil.move(str(source),str(PMA))
-        sample=PMA/"config.sample.inc.php"
-        cfg=PMA/"config.inc.php"
-        if sample.exists() and not cfg.exists():
-            text=sample.read_text(encoding="utf-8",errors="replace")
-            text=text.replace(
-                "$cfg['blowfish_secret'] = '';",
-                "$cfg['blowfish_secret'] = 'MiniServerV11PortableLocalSecretKey2026!';"
-            )
-            if "AllowNoPassword" not in text:
-                text=text.replace(
-                    "$cfg['Servers'][$i]['AllowNoPassword'] = false;",
-                    "$cfg['Servers'][$i]['AllowNoPassword'] = true;"
-                )
-                if "AllowNoPassword" not in text:
-                    text+="$cfg['Servers'][$i]['AllowNoPassword'] = true;\\n"
-            cfg.write_text(text,encoding="utf-8")
+        target=RUNTIME/name
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
     shutil.rmtree(tmp,ignore_errors=True)
     if not (APP_ROOT/item["expected"]).exists():
         raise RuntimeError(f"{name}: expected file missing after extracting {arc.name}")
@@ -1286,7 +1268,7 @@ class Services:
         self.log(f"SSL certificate issued: {domain}")
         return cert, ssl_dir / f"{domain}-key.pem"
     def write_configs(self):
-        a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix(); p=PMA.resolve().as_posix()
+        a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix()
         ph=self.pd.resolve().as_posix(); m=self.md.resolve().as_posix(); l=LOGS.resolve().as_posix()
         apache_modules = self._apache_modules()
         idx_opt = "+Indexes" if self.dir_listing() else "-Indexes"
@@ -1304,15 +1286,6 @@ DocumentRoot "{w}"
     AllowOverride All
     Options {idx_opt} +FollowSymLinks
     DirectoryIndex index.html index.php index.htm
-</Directory>
-
-Alias /phpmyadmin "{p}"
-
-<Directory "{p}">
-    Require all granted
-    AllowOverride None
-    Options FollowSymLinks
-    DirectoryIndex index.php
 </Directory>
 
 ScriptAlias /php-cgi-bin/ "{ph}/"
@@ -1363,12 +1336,6 @@ port={CONFIG["mariadb_port"]}
 '''
         self.md.mkdir(parents=True, exist_ok=True)
         (self.md/"my.ini").write_text(maria,encoding="utf-8")
-        pma_cfg=PMA/"config.inc.php"
-        if pma_cfg.exists():
-            txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-            txt=re.sub(r"\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\]\s*=\s*(?:true|false)\s*;", "", txt)
-            txt+="\n$cfg['Servers'][$i]['AllowNoPassword'] = true;\n"
-            pma_cfg.write_text(txt,encoding="utf-8")
     def _alive(self, proc):
         try:
             return proc is not None and proc.poll() is None
@@ -1495,35 +1462,6 @@ port={CONFIG["mariadb_port"]}
             result=subprocess.run(cmd,cwd=self.md,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
             if result.returncode==0:return
         raise RuntimeError("MariaDB initialization failed; open Process / Init and MariaDB Error logs")
-    def _setup_pma_storage(self):
-        pma_cfg=PMA/"config.inc.php"
-        if not pma_cfg.exists():return
-        txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-        if "pmadb" not in txt or "//$cfg" in txt or "// $cfg['Servers'][$i]['pmadb']" in txt:
-            sql_file=PMA/"sql/create_tables.sql"
-            if sql_file.exists():
-                mysql=self.md/"bin/mysql.exe"
-                if mysql.exists():
-                    try:
-                        sql=sql_file.read_text(encoding="utf-8",errors="replace")
-                        sql=sql.replace("`pma`@localhost","`root`@localhost")
-                        result=subprocess.run(
-                            [str(mysql),"-u","root","--port",str(CONFIG["mariadb_port"]),"-e",sql],
-                            capture_output=True,text=True,timeout=30,
-                            creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0)
-                        )
-                        if result.returncode==0:
-                            self.log("phpMyAdmin configuration storage database created")
-                        else:
-                            self.log("phpMyAdmin storage DB setup skipped: "+result.stderr.strip()[:200])
-                    except Exception as e:
-                        self.log("phpMyAdmin storage DB setup error: "+str(e)[:200])
-            txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-            txt=txt.replace("// $cfg['Servers'][$i]['controluser'] = 'pma';","$cfg['Servers'][$i]['controluser'] = 'root';")
-            txt=txt.replace("// $cfg['Servers'][$i]['controlpass'] = 'pmapass';","$cfg['Servers'][$i]['controlpass'] = '';")
-            for key in ['pmadb','bookmarktable','relation','table_info','table_coords','pdf_pages','column_info','history','table_uiprefs','tracking','userconfig','recent','favorite','users','usergroups','navigationhiding','savedsearches','central_columns','designer_settings','export_templates']:
-                txt=txt.replace(f"// $cfg['Servers'][$i]['{key}']","$cfg['Servers'][$i]['{key}']")
-            pma_cfg.write_text(txt,encoding="utf-8")
     def start_db(self):
         if self.drun():self.log("MariaDB is already running");return
         self._ensure_component("mariadb")
@@ -1535,8 +1473,6 @@ port={CONFIG["mariadb_port"]}
         if not wait_port(CONFIG["mariadb_port"],20):raise RuntimeError("MariaDB did not start; see MariaDB Error and Process / Init logs")
         self._drop_port_cache(CONFIG["mariadb_port"])
         self.log("MariaDB started")
-        try: self._setup_pma_storage()
-        except Exception: pass
     def stop_db(self):
         self._drop_port_cache(CONFIG["mariadb_port"])
         stop_proc(self.db,10)
@@ -4746,8 +4682,8 @@ class App:
         for kind, cmd, color, hover, active, tip in [
             ("globe", self.localhost, THEME["accent"], THEME["accent_hover"],
              THEME["accent_active"], lang.t("open_localhost") + " — " + lang.t("tip_localhost")),
-            ("cylinder", self.pma, "#1f6feb", "#4b9bff",
-             "#1a5fd0", "phpMyAdmin — " + lang.t("tip_pma")),
+            ("cylinder", self.dbmanager_open, "#1f6feb", "#4b9bff",
+             "#1a5fd0", lang.t("dbmanager") + " — " + lang.t("tip_dbmanager")),
             ("folder", lambda: os.startfile(str(WWW)), THEME["bg_input"], THEME["border_light"],
              THEME["border"], lang.t("open_www") + " — " + lang.t("tip_www")),
             ("lock", self.setup_ssl_cmd, THEME["warning_dim"], THEME["warning"],
@@ -8108,7 +8044,7 @@ class App:
         self._set_component_vars = {}
         cb_grid = tk.Frame(body, bg=THEME["bg_card"]); cb_grid.pack(fill="x")
         try: manifest_names = [n for n,i in comps().items() if is_component(i)]
-        except Exception: manifest_names = ["apache","php","mariadb","postgresql","redis","nginx","nodejs","phpmyadmin"]
+        except Exception: manifest_names = ["apache","php","mariadb","postgresql","redis","nginx","nodejs"]
         for idx, name in enumerate(manifest_names):
             var = tk.BooleanVar(value=False); self._set_component_vars[name] = var
             tk.Checkbutton(cb_grid, text=name.upper(), variable=var, bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"], activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).grid(row=idx//2, column=idx%2, sticky="w", padx=5, pady=3)
@@ -8886,6 +8822,7 @@ class App:
                 ("Nginx", self.svc.start_nginx),
                 ("Docker", self.svc.start_docker),
                 ("Node.js", self.svc.start_node),
+                ("DB Manager Pro", self.dbmanager_start),
             ]:
                 try:
                     fn()
@@ -8930,7 +8867,63 @@ class App:
         self.worker(run,"Restarting All")
 
     def localhost(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/')
-    def pma(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/phpmyadmin/')
+    # DB Manager Pro (mydbroot): node-backend рядом с программой
+    # (<root>/mydbroot/backend/dist/index.js), фронт отдаёт сам backend.
+    # Вход — по одноразовому SSO-билету (?ticket=), без него обычный логин.
+    def _dbm_root(self): return APP_ROOT/"mydbroot"/"backend"
+    def _dbm_env(self):
+        env = {}
+        p = self._dbm_root()/".env"
+        try:
+            for raw in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip()
+        except OSError:
+            pass
+        mirror = APP_ROOT/"config"/"dbmanager-sso.txt"
+        try:
+            if not env.get("FARAJA_SSO_SECRET") and mirror.exists():
+                env["FARAJA_SSO_SECRET"] = mirror.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            pass
+        return env
+    def dbmanager_start(self):
+        try:
+            port = int(CONFIG.get("mydbroot_port", 3001))
+        except (TypeError, ValueError):
+            raise RuntimeError("Bad DB Manager port")
+        root = self._dbm_root()
+        if not (root/"dist"/"index.js").exists():
+            raise RuntimeError("DB Manager Pro is not installed (mydbroot/backend/dist/index.js missing)")
+        self.svc.node_server_start("dbmanager", str(root), "dist/index.js", port)
+    def dbmanager_stop(self):
+        self.svc.node_server_stop("dbmanager")
+    def dbmanager_open(self):
+        try:
+            port = int(CONFIG.get("mydbroot_port", 3001))
+        except (TypeError, ValueError):
+            port = 3001
+        try:
+            if not self.svc.node_server_running("dbmanager"):
+                self.dbmanager_start()
+        except Exception as e:
+            self.log(f"DB Manager start skipped: {e}")
+        url = f'http://127.0.0.1:{port}/'
+        try:
+            env = self._dbm_env()
+            secret = env.get("FARAJA_SSO_SECRET", "")
+            username = env.get("ADMIN_USER", "admin") or "admin"
+            if secret:
+                r = requests.post(f'http://127.0.0.1:{port}/api/auth/sso',
+                                  json={"secret": secret, "username": username}, timeout=5)
+                if r.status_code == 200 and r.json().get("ticket"):
+                    url += f'?ticket={r.json()["ticket"]}'
+        except Exception as e:
+            self.log(f"DB Manager SSO skipped: {e}")
+        webbrowser.open(url)
 
     def check(self):
         missing = [n for n, i in comps().items() if is_component(i) and not (APP_ROOT / i["expected"]).exists()]
@@ -9175,7 +9168,7 @@ class App:
                     "• Nginx — обратный прокси и балансировщик (порт 80)\n"
                     "• Node.js — выполнение JavaScript/TypeScript скриптов\n"
                     "• Docker — проверка наличия и статуса контейнеров\n"
-                    "• phpMyAdmin — веб-панель управления базами MySQL/MariaDB\n\n"
+                    "• DB Manager Pro — веб-панель управления базами MySQL/MariaDB\n\n"
                     "КАК УСТРОЕНО:\n"
                     "• Все компоненты живут в папке runtime/ рядом с программой — ничего не ставится в систему.\n"
                     "• Вкладка «Основное» — карточки сервисов: зелёная иконка — работает, красная — остановлен.\n"
@@ -9233,8 +9226,8 @@ class App:
                     "Шаг 4. Примеры: SHOW DATABASES;  CREATE DATABASE mysite CHARACTER SET utf8mb4;\n"
                     "   CREATE USER 'mysite'@'localhost' IDENTIFIED BY 'secret';\n"
                     "   GRANT ALL ON mysite.* TO 'mysite'@'localhost';\n"
-                    "Шаг 5. Для визуальной работы нажмите «phpMyAdmin» — откроется веб-панель\n"
-                    "по адресу http://127.0.0.1:8080/phpmyadmin/ (root без пароля).",
+                    "Шаг 5. Для визуальной работы нажмите «DB Manager Pro» — откроется веб-панель\n"
+                    "по адресу http://127.0.0.1:3001/ (вход по билету, без пароля).",
                 "ssl": "SSL (HTTPS) — ПОШАГОВО:\n\n"
                     "Шаг 1. Убедитесь, что интернет доступен (нужно скачать mkcert ~5 МБ).\n"
                     "Шаг 2. Нажмите «Настроить SSL» на панели действий.\n"
@@ -9322,7 +9315,7 @@ class App:
                     "• Nginx — reverse proxy and load balancer (port 80)\n"
                     "• Node.js — runs JavaScript/TypeScript scripts\n"
                     "• Docker — availability and status check\n"
-                    "• phpMyAdmin — web panel for MySQL/MariaDB\n\n"
+                    "• DB Manager Pro — web panel for MySQL/MariaDB\n\n"
                     "HOW IT WORKS:\n"
                     "• Everything lives in runtime/ next to the program — nothing is installed into the system.\n"
                     "• The 'Main' tab holds service cards: green icon = running, red = stopped.\n"
@@ -9380,8 +9373,8 @@ class App:
                     "Step 4. Examples: SHOW DATABASES;  CREATE DATABASE mysite CHARACTER SET utf8mb4;\n"
                     "   CREATE USER 'mysite'@'localhost' IDENTIFIED BY 'secret';\n"
                     "   GRANT ALL ON mysite.* TO 'mysite'@'localhost';\n"
-                    "Step 5. For visual work press 'phpMyAdmin' — the panel opens at\n"
-                    "http://127.0.0.1:8080/phpmyadmin/ (root, no password).",
+                    "Step 5. For visual work press 'DB Manager Pro' — the panel opens at\n"
+                    "http://127.0.0.1:3001/ (ticket login, no password).",
                 "ssl": "SSL (HTTPS) — STEP BY STEP:\n\n"
                     "Step 1. Make sure you are online (mkcert download, ~5 MB).\n"
                     "Step 2. Press 'Setup SSL' in the action bar.\n"
@@ -9456,7 +9449,7 @@ class App:
             "es": {
                 "overview": "Faraja WebServer — entorno de desarrollo local portátil para Windows.\n\n"
                     "INCLUYE: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL y phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL y DB Manager Pro.\n\n"
                     "Todo vive en runtime/ junto al programa, sin instalación en el sistema.\n"
                     "Pestaña «Principal»: tarjetas de servicios (verde = en ejecución).\n"
                     "Pestaña «Adicional»: registros, archivos, editor SQL, sitios, tareas y ajustes.\n"
@@ -9488,7 +9481,7 @@ class App:
                     "2. «Adicional» → «SQL»: elija el motor e indique usuario/clave\n"
                     "(MariaDB: root sin clave; PostgreSQL: postgres).\n"
                     "3. Escriba la consulta y pulse «Ejecutar»; el resultado sale a la derecha.\n"
-                    "4. O pulse «phpMyAdmin»: http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. O pulse «DB Manager Pro»: http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS):\n\n"
                     "1. Pulse «Configurar SSL» (requiere internet, ~5 MB).\n"
                     "2. Se descarga mkcert, se instala el certificado raíz local\n"
@@ -9504,7 +9497,7 @@ class App:
             "de": {
                 "overview": "Faraja WebServer — portable lokale Entwicklungsumgebung für Windows.\n\n"
                     "ENTHALTEN: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL und phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL und DB Manager Pro.\n\n"
                     "Alles liegt in runtime/ neben dem Programm — keine Systeminstallation.\n"
                     "Reiter «Haupt»: Dienst-Karten (grün = läuft).\n"
                     "Reiter «Erweitert»: Logs, Dateien, SQL-Editor, Sites, Aufgaben, Einstellungen.\n"
@@ -9537,7 +9530,7 @@ class App:
                     "2. «Erweitert» → «SQL»: Engine wählen, Benutzer/Passwort eingeben\n"
                     "(MariaDB: root ohne Passwort; PostgreSQL: postgres).\n"
                     "3. Abfrage schreiben, «Ausführen» — Ergebnis erscheint rechts.\n"
-                    "4. Oder «phpMyAdmin»: http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. Oder «DB Manager Pro»: http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS):\n\n"
                     "1. «SSL einrichten» klicken (Internet nötig, ~5 MB).\n"
                     "2. mkcert wird geladen, Root-Zertifikat installiert\n"
@@ -9553,7 +9546,7 @@ class App:
             "fr": {
                 "overview": "Faraja WebServer — environnement de développement local portable pour Windows.\n\n"
                     "INCLUS : Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL et phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL et DB Manager Pro.\n\n"
                     "Tout vit dans runtime/ à côté du programme, sans installation système.\n"
                     "Onglet « Principal » : cartes des services (vert = en exécution).\n"
                     "Onglet « Avancé » : logs, fichiers, éditeur SQL, sites, tâches, paramètres.\n"
@@ -9585,7 +9578,7 @@ class App:
                     "2. « Avancé » → « SQL » : choisissez le moteur, saisissez login/mot de passe\n"
                     "(MariaDB : root sans mot de passe ; PostgreSQL : postgres).\n"
                     "3. Écrivez la requête, « Exécuter » — le résultat s'affiche à droite.\n"
-                    "4. Ou « phpMyAdmin » : http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. Ou « DB Manager Pro » : http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS) :\n\n"
                     "1. Cliquez « Configurer SSL » (internet requis, ~5 Mo).\n"
                     "2. mkcert est téléchargé, le certificat racine local est installé\n"
@@ -9601,7 +9594,7 @@ class App:
             "zh": {
                 "overview": "Faraja WebServer — Windows 便携式本地开发环境。\n\n"
                     "包含：Apache（8080）、MariaDB（3306）、PHP FastCGI（9074）、PostgreSQL（5432）、\n"
-                    "Redis（6379）、Nginx（80）、Node.js、Docker、SSL 和 phpMyAdmin。\n\n"
+                    "Redis（6379）、Nginx（80）、Node.js、Docker、SSL 和 DB Manager Pro。\n\n"
                     "所有组件位于程序旁的 runtime/ 文件夹中，无需系统安装。\n"
                     "「主要」选项卡：服务卡片（绿色 = 运行中）。\n"
                     "「高级」选项卡：日志、文件、SQL 编辑器、站点、任务和设置。\n"
@@ -9633,7 +9626,7 @@ class App:
                     "2. 「高级」→「SQL」：选择引擎，输入用户名/密码\n"
                     "（MariaDB：root 无密码；PostgreSQL：postgres）。\n"
                     "3. 在左侧输入查询，点击「执行」，结果显示在右侧。\n"
-                    "4. 或点击「phpMyAdmin」：http://127.0.0.1:8080/phpmyadmin/。",
+                    "4. 或点击「DB Manager Pro」：http://127.0.0.1:3001/。",
                 "ssl": "SSL（HTTPS）：\n\n"
                     "1. 点击「设置 SSL」（需要联网，约 5 MB）。\n"
                     "2. 下载 mkcert，安装本地根证书（Windows 会请求一次授权），颁发证书。\n"
@@ -9710,7 +9703,7 @@ class App:
                  fg=THEME["text"], font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 4))
 
         comp_vars = {}
-        comp_names = ["apache", "php", "mariadb", "postgresql", "redis", "nginx", "nodejs", "phpmyadmin"]
+        comp_names = ["apache", "php", "mariadb", "postgresql", "redis", "nginx", "nodejs"]
         for name in comp_names:
             var = tk.BooleanVar(value=True)
             cb = tk.Checkbutton(components_frame, text=name.upper(), variable=var,
