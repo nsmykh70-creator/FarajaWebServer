@@ -5095,8 +5095,27 @@ class App:
 
         def _fit(e=None):
             # Live resize fires Configure per pixel: bbox + scrollbar pack +
-            # yview resets on every step stutters. Debounce to trailing edge.
+            # yview resets on every step stutters. Small steps collapse into
+            # one trailing pass; a big jump (maximize/restore) runs at once
+            # instead of waiting out the debounce.
             try:
+                try:
+                    w_now = max(1, canvas.winfo_width())
+                except Exception:
+                    w_now = None
+                last_w = getattr(body, "_fit_w_seen", None)
+                body._fit_w_seen = w_now
+                if w_now is not None and (last_w is None or abs(w_now - last_w) > 250):
+                    try:
+                        aid = getattr(body, "_fit_after", None)
+                        if aid is not None:
+                            try:body.after_cancel(aid)
+                            except Exception:pass
+                        body._fit_after = None
+                    except Exception:
+                        pass
+                    _do_fit()
+                    return
                 aid = getattr(body, "_fit_after", None)
                 if aid is not None:
                     try:body.after_cancel(aid)
