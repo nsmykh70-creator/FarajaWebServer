@@ -8882,23 +8882,25 @@ class App:
             dbm = self.svc.dbmanager_run()
             dk = getattr(self, "_docker_ok", False)
             no = self.svc.noderun()
-            self.status_color(self.apache_status, a)
-            self.status_color(self.db_status, d)
-            self.status_color(self.php_status, p)
-            self.status_color(self.pg_status, pg)
-            self.status_color(self.redis_status, rd)
-            self.status_color(self.nginx_status, nx)
-            self.status_color(self.mysql_status, my)
-            self.status_color(self.mongo_status, mg)
-            self.status_color(self.memcached_status, mc)
-            self.status_color(self.mailpit_status, mp)
-            self.status_color(self.dbmanager_status, dbm)
-            self.status_color(self.docker_status, dk)
-            self.status_color(self.node_status, no)
-
-            for prefix, running in [("apache", a), ("db", d), ("php", p), ("pg", pg), ("redis", rd), ("nginx", nx), ("mysql", my), ("mongo", mg), ("memcached", mc), ("mailpit", mp), ("dbmanager", dbm), ("docker", dk), ("node", no)]:
+            # Redraw widgets only on state flips: reconfiguring 13 icon pairs
+            # + toggle buttons + port labels every second makes the whole UI
+            # flicker (canvas redraws), most visible while resizing.
+            states = {"apache": a, "db": d, "php": p, "pg": pg, "redis": rd,
+                      "nginx": nx, "mysql": my, "mongo": mg, "memcached": mc,
+                      "mailpit": mp, "dbmanager": dbm, "docker": dk, "node": no}
+            prev = getattr(self, "_svc_states", None)
+            if prev is None:
+                prev = {}
+            for prefix, running in states.items():
+                if prev.get(prefix) is running:
+                    continue
+                try:
+                    self.status_color(getattr(self, prefix + "_status"), running)
+                except Exception:
+                    pass
                 self._update_toggle_btn(prefix, running)
                 self._colorize_port_label(prefix, running)
+            self._svc_states = states
 
         finally:
             if not self.closing:
