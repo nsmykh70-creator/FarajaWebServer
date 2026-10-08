@@ -3549,6 +3549,7 @@ class OfficeTabs:
         self.body.pack(fill="both", expand=True)
         self._tabs = []
         self._selected = -1
+        self._lazy = {}
         self._active_size = active_size
         self._passive_size = passive_size
 
@@ -3572,10 +3573,29 @@ class OfficeTabs:
             self._draw_tab(idx)
         return frame
 
+    def add_lazy(self, frame, text, builder):
+        """Register a page whose content builds on first select (fast startup:
+        only the visible page pays construction cost up front)."""
+        self.add(frame, text)
+        self._lazy[len(self._tabs) - 1] = builder
+        return frame
+
     def select(self, idx):
         if not (0 <= idx < len(self._tabs)):
             return
         self._selected = idx
+        builder = self._lazy.pop(idx, None)
+        if builder is not None:
+            try:
+                builder()
+            except Exception as e:
+                try:
+                    tk.Label(self._tabs[idx]["frame"],
+                             text=f"Page failed to load: {e}",
+                             bg=THEME["bg"], fg=THEME["danger"],
+                             font=(THEME["font_family"], 9)).pack(padx=20, pady=20)
+                except Exception:
+                    pass
         for i, t in enumerate(self._tabs):
             if i == idx:
                 t["frame"].pack(fill="both", expand=True)
@@ -4708,6 +4728,10 @@ class App:
             except Exception:
                 pass
         self.lines=[];self.svc=Services(self.log);self.tray=None;self.closing=False
+        # Pre-created for refresh_logs(): log pages build lazily on first
+        # visit, but the 2s log cycle runs from startup.
+        self.views={};self._view_cache={};self._log_stat={}
+        self._log_level_var=tk.StringVar(value="ALL");self._log_search_var=tk.StringVar(value="")
         # Single global operation lock, created up-front: worker() used to make
         # it lazily, so two rapid clicks could build two locks and start the
         # same service twice (seen as 2 x mysqld.exe).
@@ -4916,6 +4940,11 @@ class App:
                                   ("PostgreSQL", "postgresql_port", "pg"),
                                   ("Redis", "redis_port", "redis"),
                                   ("Nginx", "nginx_port", "nginx"),
+                                  ("MySQL", "mysql_port", "mysql"),
+                                  ("MongoDB", "mongodb_port", "mongo"),
+                                  ("Memcached", "memcached_port", "memcached"),
+                                  ("Mailpit", "mailpit_port", "mailpit"),
+                                  ("DB Manager", "mydbroot_port", "dbmanager"),
                                   ("Docker", None, "docker"),
                                   ("Node.js", None, "node")):
             txt = f"{key} {CONFIG[cfgkey]}" if cfgkey else key
@@ -7565,11 +7594,11 @@ class App:
         self._service_card(services_frame, "nodejs", "🟢", "node", self.start_node_ui, self.stop_node_ui)
         self._action_bar(main_shell)
 
-        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_logs, lang.t('tab_logs')); self._log_tabs(tab_logs)
-        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_data, lang.t('tab_db')); self._data_tabs(tab_data)
-        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_projects, lang.t('tab_projects')); self._projects_tabs(tab_projects)
-        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor')); self._monitor_tabs(tab_monitor)
-        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_settings, lang.t('tab_settings')); self._build_settings(self._scrollable(tab_settings, bg=THEME["bg"]))
+        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_logs, lang.t('tab_logs'), lambda: self._log_tabs(tab_logs))
+        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_data, lang.t('tab_db'), lambda: self._data_tabs(tab_data))
+        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_projects, lang.t('tab_projects'), lambda: self._projects_tabs(tab_projects))
+        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_monitor, lang.t('tab_monitor'), lambda: self._monitor_tabs(tab_monitor))
+        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_settings, lang.t('tab_settings'), lambda: self._build_settings(self._scrollable(tab_settings, bg=THEME["bg"])))
 
         self._build_sidebar(workspace, main_nb)
         main_nb.body.pack_configure(side="right", fill="both", expand=True)
@@ -7582,6 +7611,14 @@ class App:
         self.svc.ui_progress = self._install_progress
         self._sidebar_active = 0
         self._unify_entries(self.root)
+
+    def _lazy_page(self, nb, frame, text, builder):
+        def run():
+            builder()
+            try:self._unify_entries(frame)
+            except Exception:pass
+        nb.add_lazy(frame, text, run)
+        return frame
 
     def _unify_entries(self, root):
         unify_entries(root)
