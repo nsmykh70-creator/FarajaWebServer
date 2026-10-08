@@ -5136,8 +5136,10 @@ class App:
         def _fit(e=None):
             # Live resize fires Configure per pixel: bbox + scrollbar pack +
             # yview resets on every step stutters. Small steps collapse into
-            # one trailing pass; a big jump (maximize/restore) runs at once
-            # instead of waiting out the debounce.
+            # one trailing pass; a big jump (maximize/restore) runs at once.
+            # Additionally the card grid is frozen for the storm duration:
+            # otherwise every animation frame reflows the whole card tree
+            # (progressive element redraw); one reflow at the trailing edge.
             try:
                 try:
                     w_now = max(1, canvas.winfo_width())
@@ -5145,6 +5147,11 @@ class App:
                     w_now = None
                 last_w = getattr(body, "_fit_w_seen", None)
                 body._fit_w_seen = w_now
+                try:
+                    body.grid_propagate(False)
+                    body.pack_propagate(False)
+                except Exception:
+                    pass
                 if w_now is not None and (last_w is None or abs(w_now - last_w) > 250):
                     try:
                         aid = getattr(body, "_fit_after", None)
@@ -5166,6 +5173,11 @@ class App:
 
         def _do_fit():
             try:
+                try:
+                    body.grid_propagate(True)
+                    body.pack_propagate(True)
+                except Exception:
+                    pass
                 # Width change is what forces a full inner relayout (the
                 # expensive part). Height-only steps just refresh scroll state.
                 w = max(1, canvas.winfo_width())
