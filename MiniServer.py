@@ -730,8 +730,12 @@ def emergency_kill():
             time.sleep(1)
         except Exception:
             pass
-    for port in (CONFIG.get("mariadb_port", 3306), CONFIG.get("php_cgi_port", 9074),
-                 CONFIG.get("postgresql_port", 5432), CONFIG.get("redis_port", 6379)):
+    for port in (CONFIG.get("mariadb_port", 3306), CONFIG.get("mysql_port", 3307),
+                 CONFIG.get("php_cgi_port", 9074),
+                 CONFIG.get("postgresql_port", 5432), CONFIG.get("redis_port", 6379),
+                 CONFIG.get("mongodb_port", 27017), CONFIG.get("memcached_port", 11211),
+                 CONFIG.get("mailpit_port", 8025), CONFIG.get("mailpit_smtp_port", 1025),
+                 CONFIG.get("mydbroot_port", 3001)):
         for pid in pids_on_port(port):
             try:
                 subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
@@ -3073,7 +3077,9 @@ http {{
         # cannot hold up the shutdown of every other service. Console windows are
         # suppressed by CREATE_NO_WINDOW in the individual stop commands.
         funcs = (self.stop_apache, self.stop_nginx, self.stop_php,
-                 self.stop_db, self.stop_pg, self.stop_redis)
+                 self.stop_db, self.stop_mysql, self.stop_pg, self.stop_redis,
+                 self.stop_mongo, self.stop_memcached, self.stop_mailpit,
+                 self.dbmanager_stop)
         workers = []
         for fn in funcs:
             t = threading.Thread(target=lambda f=fn: self._safe_shutdown_call(f), daemon=True)
@@ -4652,6 +4658,10 @@ class App:
             except Exception:
                 pass
         self.lines=[];self.svc=Services(self.log);self.tray=None;self.closing=False
+        # Single global operation lock, created up-front: worker() used to make
+        # it lazily, so two rapid clicks could build two locks and start the
+        # same service twice (seen as 2 x mysqld.exe).
+        self._operation_lock=threading.RLock()
         # Scrollable pages register their canvases here.  A single application-wide
         # wheel handler then routes the wheel to the currently visible page, so
         # scrolling is not dependent on the mouse being over a narrow scrollbar.
@@ -9327,14 +9337,9 @@ class App:
         if self.closing:
             return
         self.closing = True
-        try:
-            if self.tray:
-                self.tray.stop()
-        except Exception:
-            pass
-        # Hard watchdog: whatever hangs below, the process is gone in 12 s.
-        # Daemon threads never block interpreter exit, so this only fires
-        # when the normal path is stuck (e.g. a blocked destroy).
+        # Hard watchdog FIRST: pystray's stop() below is known to deadlock
+        # when called from inside its own menu callback — without this, Exit
+        # from the tray hangs the process forever and this never runs.
         def _watchdog():
             time.sleep(12)
             try:
@@ -9342,6 +9347,14 @@ class App:
             except Exception:
                 pass
         threading.Thread(target=_watchdog, daemon=True).start()
+
+        def _tray_stop():
+            try:
+                if self.tray:
+                    self.tray.stop()
+            except Exception:
+                pass
+        threading.Thread(target=_tray_stop, daemon=True).start()
 
         def finalize():
             try:
