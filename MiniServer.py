@@ -5107,8 +5107,13 @@ class App:
 
         def _do_fit():
             try:
+                # Width change is what forces a full inner relayout (the
+                # expensive part). Height-only steps just refresh scroll state.
+                w = max(1, canvas.winfo_width())
+                if getattr(canvas, "_fit_w", None) != w:
+                    canvas._fit_w = w
+                    canvas.itemconfig(wid, width=w)
                 canvas.configure(scrollregion=canvas.bbox("all"))
-                canvas.itemconfig(wid, width=max(1, canvas.winfo_width()))
                 need = body.winfo_reqheight() > canvas.winfo_height() + 2
                 if need:
                     if not vsb.winfo_ismapped():
