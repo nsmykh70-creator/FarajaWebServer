@@ -1406,9 +1406,49 @@ port={CONFIG["mariadb_port"]}
         hit = self._port_cache.get(port)
         if hit and now - hit[0] < ttl:
             return hit[1]
-        val = port_open(port)
-        self._port_cache[port] = (now, val)
-        return val
+        if not getattr(self, "_port_poller_on", False):
+            self._port_poller_on = True
+            try:
+                self._port_poll_ports = set()
+            except Exception:
+                pass
+            threading.Thread(target=self._port_poller, daemon=True).start()
+        try:
+            self._port_poll_ports.add(port)
+        except Exception:
+            pass
+        if hit is None:
+            # Never probed (startup): one synchronous probe so the first
+            # paint is correct; afterwards the poller keeps it fresh.
+            try:
+                val = port_open(port)
+            except Exception:
+                return False
+            self._port_cache[port] = (now, val)
+            return val
+        return hit[1]
+    def _port_poller(self):
+        # Loopback connects can stall for the whole socket timeout on some
+        # machines (security software hooks) — e.g. 250 ms per port, which
+        # froze the UI thread inside refresh() every second. Probe here in
+        # the background instead; the UI only ever reads the cache.
+        try:
+            known = [v for k, v in CONFIG.items()
+                     if k.endswith("_port") and isinstance(v, int)]
+        except Exception:
+            known = []
+        while True:
+            try:
+                ports = list(dict.fromkeys(
+                    list(getattr(self, "_port_poll_ports", set())) + known))
+                for p in ports:
+                    try:
+                        self._port_cache[int(p)] = (time.monotonic(), port_open(p))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            time.sleep(2)
     def _drop_port_cache(self, port):
         self._port_cache.pop(port, None)
     def arun(self):
