@@ -15,6 +15,11 @@
     "archive": "mariadb.zip",
     "expected": "runtime/MariaDB/bin/mariadbd.exe"
   },
+  "mysql": {
+    "url": "https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip",
+    "archive": "mysql.zip",
+    "expected": "runtime/MySQL/bin/mysqld.exe"
+  },
   "postgresql": {
     "url": "https://sbp.enterprisedb.com/getfile.jsp?fileid=1260488",
     "archive": "postgresql.zip",
@@ -25,6 +30,21 @@
     "archive": "redis.zip",
     "expected": "runtime/Redis/redis-server.exe"
   },
+  "mongodb": {
+    "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.4.zip",
+    "archive": "mongodb.zip",
+    "expected": "runtime/MongoDB/bin/mongod.exe"
+  },
+  "memcached": {
+    "url": "https://github.com/jefyt/memcached-windows/releases/download/1.6.8_mingw_libressl/memcached-1.6.8-win64-mingw.zip",
+    "archive": "memcached.zip",
+    "expected": "runtime/Memcached/bin/memcached.exe"
+  },
+  "mailpit": {
+    "url": "https://github.com/axllent/mailpit/releases/download/v1.20.3/mailpit-windows-amd64.zip",
+    "archive": "mailpit.zip",
+    "expected": "runtime/Mailpit/mailpit.exe"
+  },
   "nginx": {
     "url": "https://nginx.org/download/nginx-1.30.4.zip",
     "archive": "nginx.zip",
@@ -34,11 +54,6 @@
     "url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip",
     "archive": "nodejs.zip",
     "expected": "runtime/Nodejs/node.exe"
-  },
-  "phpmyadmin": {
-    "url": "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip",
-    "archive": "phpmyadmin.zip",
-    "expected": "www/phpmyadmin/index.php"
   },
   "php_versions": {
     "8.2": {
