@@ -5200,7 +5200,8 @@ class App:
                         body._fit_after = None
                     except Exception:
                         pass
-                    _do_fit()
+                    _do_fit(full=False)
+                    body._fit_after = body.after(90, _do_fit)
                     return
                 aid = getattr(body, "_fit_after", None)
                 if aid is not None:
@@ -5210,7 +5211,7 @@ class App:
             except Exception:
                 pass
 
-        def _do_fit():
+        def _do_fit(full=True):
             try:
                 try:
                     body.grid_propagate(True)
@@ -5219,10 +5220,15 @@ class App:
                     pass
                 # Width change is what forces a full inner relayout (the
                 # expensive part). Height-only steps just refresh scroll state.
+                # A light pass (big jumps) only sets the width; scrollbar
+                # pack/unpack + yview reset wait for the trailing full pass —
+                # otherwise the scrollbar flaps and reflows the tree twice.
                 w = max(1, canvas.winfo_width())
                 if getattr(canvas, "_fit_w", None) != w:
                     canvas._fit_w = w
                     canvas.itemconfig(wid, width=w)
+                if not full:
+                    return
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 need = body.winfo_reqheight() > canvas.winfo_height() + 2
                 if need:
