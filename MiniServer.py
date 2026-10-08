@@ -4666,6 +4666,10 @@ class App:
         threading.Thread(target=self._startup_site_php, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW",self.hide)
         self.root.bind("<Unmap>",self.unmap)
+        # Resize storms (maximize/restore drags) fight the 1s refresh port
+        # scan and log re-reads: pause heavy cycles briefly after each resize.
+        self._resizing_until = 0.0
+        self.root.bind("<Configure>", self._on_root_configure, add="+")
         self.root.after(500,self.refresh)
         self.root.after(1000,self.refresh_logs)
         # Ignore Unmap events during early startup: on some systems the window
@@ -5080,6 +5084,18 @@ class App:
         self._scroll_canvases.append(canvas)
 
         def _fit(e=None):
+            # Live resize fires Configure per pixel: bbox + scrollbar pack +
+            # yview resets on every step stutters. Debounce to trailing edge.
+            try:
+                aid = getattr(body, "_fit_after", None)
+                if aid is not None:
+                    try:body.after_cancel(aid)
+                    except Exception:pass
+                body._fit_after = body.after(90, _do_fit)
+            except Exception:
+                pass
+
+        def _do_fit():
             try:
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 canvas.itemconfig(wid, width=max(1, canvas.winfo_width()))
@@ -8821,8 +8837,18 @@ class App:
                     return
                 time.sleep(0.1)
 
+    def _on_root_configure(self, e=None):
+        try:
+            if e is not None and e.widget is not self.root:return
+            self._resizing_until = time.monotonic() + 0.8
+        except Exception:pass
+    def _resizing(self):
+        try:return time.monotonic() < self._resizing_until
+        except Exception:return False
     def refresh(self):
         try:
+            if self._resizing():
+                return
             try:
                 for _name, _pid, _code in self.svc.managed_process_health():
                     self.log(f"Service died unexpectedly: {_name} (PID {_pid}, exit code {_code})")
@@ -8891,6 +8917,8 @@ class App:
 
     def refresh_logs(self):
         try:
+            if self._resizing():
+                return
             lines = self.lines
             try:
                 lvl = self._log_level_var.get()
