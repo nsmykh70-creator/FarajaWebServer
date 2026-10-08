@@ -4680,6 +4680,16 @@ class App:
         self.root.minsize(1120,750)
         try:self.root.state("zoomed")
         except Exception:pass
+        try:
+            # No window open/close/maximize animation for this window: DWM
+            # repaints a complex GDI tree frame-by-frame during the animated
+            # zoom (visible progressive redraw); an instant flip feels faster.
+            import ctypes.wintypes as _wt
+            _hwnd = _wt.HWND(self.root.winfo_id())
+            _dwm = __import__("ctypes").windll.dwmapi.DwmSetWindowAttribute
+            _on = _wt.INT(1)
+            _dwm(_hwnd, 3, __import__("ctypes").byref(_on), 4)
+        except Exception:pass
         self.root.configure(bg=THEME["bg"])
         try:
             import ctypes as _ct
