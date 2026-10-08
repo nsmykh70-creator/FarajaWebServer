@@ -8936,6 +8936,20 @@ class App:
         t.insert("1.0", data)
         t.see("end")
 
+    def _tail_text(self, path, limit):
+        # Tail without reading the whole file: some logs (MariaDB error log)
+        # grow to megabytes, and full read+decode every refresh cycle churns
+        # the UI thread. Read the last bytes, then slice chars.
+        try:
+            with open(path, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - (limit + 2048)))
+                data = f.read()
+            return data.decode("mbcs", errors="replace")[-limit:]
+        except Exception:
+            return None
+
     def _read_log_cached(self, key, path, limit):
         try:
             st = path.stat()
@@ -8944,9 +8958,8 @@ class App:
             return None
         if self._log_stat.get(key) == sig:
             return None
-        try:
-            data = path.read_text(encoding="mbcs", errors="replace")[-limit:]
-        except Exception:
+        data = self._tail_text(path, limit)
+        if data is None:
             return None
         self._log_stat[key] = sig
         return data
@@ -8994,10 +9007,9 @@ class App:
                 blocks = []
                 for name in parts:
                     p = LOGS / name
-                    try:
-                        blocks.append(f"\n===== {name} =====\n" + p.read_text(encoding="mbcs", errors="replace")[-20000:])
-                    except Exception:
-                        pass
+                    data = self._tail_text(p, 20000)
+                    if data is not None:
+                        blocks.append(f"\n===== {name} =====\n" + data)
                 self.settext("proc", "".join(blocks))
         finally:
             if not self.closing:
