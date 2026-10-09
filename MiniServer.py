@@ -3167,6 +3167,24 @@ http {{
             pass
 
 
+_ROUND_BG_CACHE = {}
+
+
+def _round_bg_image(color, w, h, radius=9):
+    """Pre-rendered rounded-rectangle bitmap, shared by all buttons with the
+    same color/size. Tk re-rasterizes canvas vector arcs on EVERY repaint
+    (~0.5 ms each, hundreds per window); one cached blit is ~free."""
+    key = (color, w, h, radius)
+    img = _ROUND_BG_CACHE.get(key)
+    if img is None:
+        from PIL import Image as _PI, ImageDraw as _PD, ImageTk as _PT
+        base = _PI.new("RGBA", (max(1, w), max(1, h)), (0, 0, 0, 0))
+        _PD.Draw(base).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=color)
+        img = _PT.PhotoImage(base)
+        _ROUND_BG_CACHE[key] = img
+    return img
+
+
 class StyledButton(tk.Canvas):
     """Modern flat/rounded button used throughout the UI."""
     def __init__(self, parent, text, command=None, color="#4f8cff", hover_color="#6aa2ff",
@@ -3185,10 +3203,8 @@ class StyledButton(tk.Canvas):
     def _draw(self, bg):
         self.delete("all")
         r, w, h = 9, self._width, self._height
-        self.create_rectangle(r, 0, w-r, h, fill=bg, outline="")
-        self.create_rectangle(0, r, w, h-r, fill=bg, outline="")
-        for box, a in [((0,0,2*r,2*r),90),((w-2*r,0,w,2*r),0),((0,h-2*r,2*r,h),180),((w-2*r,h-2*r,w,h),270)]:
-            self.create_arc(*box, start=a, extent=90, fill=bg, outline="")
+        self._bg_img = _round_bg_image(bg, w, h, r)
+        self.create_image(0, 0, image=self._bg_img, anchor="nw")
         fg = THEME["white"] if self._enabled else THEME["text_muted"]
         self.create_text(w//2, h//2, text=self._text, fill=fg, font=self._font)
 
@@ -3312,12 +3328,8 @@ class IconButton(tk.Canvas):
         self.delete("all")
         w = h = self._size
         r = max(6, w // 4)
-        self.create_arc(0, 0, 2 * r, 2 * r, start=90, extent=90, fill=bg, outline="")
-        self.create_arc(w - 2 * r, 0, w, 2 * r, start=0, extent=90, fill=bg, outline="")
-        self.create_arc(0, h - 2 * r, 2 * r, h, start=180, extent=90, fill=bg, outline="")
-        self.create_arc(w - 2 * r, h - 2 * r, w, h, start=270, extent=90, fill=bg, outline="")
-        self.create_rectangle(r, 0, w - r, h, fill=bg, outline="")
-        self.create_rectangle(0, r, w, h - r, fill=bg, outline="")
+        self._bg_img = _round_bg_image(bg, w, h, r)
+        self.create_image(0, 0, image=self._bg_img, anchor="nw")
         fg = self._fg if self._enabled else THEME["text_muted"]
         if self._text:
             self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
@@ -5173,36 +5185,17 @@ class App:
         self._scroll_canvases.append(canvas)
 
         def _fit(e=None):
-            # Live resize fires Configure per pixel: bbox + scrollbar pack +
-            # yview resets on every step stutters. Small steps collapse into
-            # one trailing pass; a big jump (maximize/restore) runs at once.
-            # Additionally the card grid is frozen for the storm duration:
-            # otherwise every animation frame reflows the whole card tree
-            # (progressive element redraw); one reflow at the trailing edge.
+            # Live resize fires Configure per pixel. Every intermediate pass
+            # re-rasterizes the whole tree (~350 ms first paint), so a storm
+            # of passes is the visible jerk. Collapse everything into ONE
+            # trailing pass 90 ms after the last event; the grid stays frozen
+            # meanwhile so no partial reflow shows.
             try:
-                try:
-                    w_now = max(1, canvas.winfo_width())
-                except Exception:
-                    w_now = None
-                last_w = getattr(body, "_fit_w_seen", None)
-                body._fit_w_seen = w_now
                 try:
                     body.grid_propagate(False)
                     body.pack_propagate(False)
                 except Exception:
                     pass
-                if w_now is not None and (last_w is None or abs(w_now - last_w) > 250):
-                    try:
-                        aid = getattr(body, "_fit_after", None)
-                        if aid is not None:
-                            try:body.after_cancel(aid)
-                            except Exception:pass
-                        body._fit_after = None
-                    except Exception:
-                        pass
-                    _do_fit(full=False)
-                    body._fit_after = body.after(90, _do_fit)
-                    return
                 aid = getattr(body, "_fit_after", None)
                 if aid is not None:
                     try:body.after_cancel(aid)
@@ -5211,7 +5204,7 @@ class App:
             except Exception:
                 pass
 
-        def _do_fit(full=True):
+        def _do_fit():
             try:
                 try:
                     body.grid_propagate(True)
@@ -5220,15 +5213,10 @@ class App:
                     pass
                 # Width change is what forces a full inner relayout (the
                 # expensive part). Height-only steps just refresh scroll state.
-                # A light pass (big jumps) only sets the width; scrollbar
-                # pack/unpack + yview reset wait for the trailing full pass —
-                # otherwise the scrollbar flaps and reflows the tree twice.
                 w = max(1, canvas.winfo_width())
                 if getattr(canvas, "_fit_w", None) != w:
                     canvas._fit_w = w
                     canvas.itemconfig(wid, width=w)
-                if not full:
-                    return
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 need = body.winfo_reqheight() > canvas.winfo_height() + 2
                 if need:
