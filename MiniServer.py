@@ -4755,7 +4755,22 @@ class App:
         self._install_global_wheel()
         self._pulse = 0
         self._docker_ok = False
-        self.build()
+        # Splash first: the window stays withdrawn while the (lazy, but still
+        # heavy) main page builds, so the user gets feedback in ~100 ms
+        # instead of a dead process with no window for seconds.
+        self.root.withdraw()
+        self._splash = self._make_splash()
+        try:
+            self.build()
+        finally:
+            try:
+                if getattr(self, "_splash", None) is not None:
+                    self._splash.destroy()
+                    self._splash = None
+            except Exception:
+                pass
+            try:self.root.deiconify()
+            except Exception:pass
         if not is_admin():
             self.log(lang.t("admin_hint"))
         threading.Thread(target=self._docker_poll, daemon=True).start()
@@ -9441,6 +9456,44 @@ class App:
         self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V16", menu)
         self.tray.on_activate = lambda i: self.show()
         threading.Thread(target=self.tray.run, daemon=True).start()
+
+    def _make_splash(self):
+        """Instant branded splash shown while the main UI builds.
+
+        A static bitmap painted in ~100 ms; the live window is built behind
+        it and swapped in. Always current by construction (nothing cached).
+        Never allowed to break startup: any failure returns None.
+        """
+        try:
+            sp = tk.Toplevel(self.root)
+            sp.overrideredirect(True)
+            sp.configure(bg=THEME["bg_card"])
+            sw, sh = 400, 170
+            try:
+                x = (sp.winfo_screenwidth() - sw) // 2
+                y = (sp.winfo_screenheight() - sh) // 2
+            except Exception:
+                x, y = 200, 200
+            sp.geometry(f"{sw}x{sh}+{x}+{y}")
+            try:
+                sp.attributes("-topmost", True)
+            except Exception:
+                pass
+            tk.Label(sp, text="Faraja WebServer", bg=THEME["bg_card"],
+                     fg=THEME["text"],
+                     font=(THEME["font_family"], 16, "bold")).pack(pady=(22, 2))
+            try:
+                _loading = lang.t("status_starting", svc="Faraja")
+            except Exception:
+                _loading = "Запуск…"
+            tk.Label(sp, text=_loading, bg=THEME["bg_card"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 9)).pack(pady=(0, 10))
+            ttk.Progressbar(sp, mode="indeterminate", length=300,
+                            style="Modern.Horizontal.TProgressbar").pack()
+            sp.update()
+            return sp
+        except Exception:
+            return None
 
     def hide(self):
         self.ensure_tray()
