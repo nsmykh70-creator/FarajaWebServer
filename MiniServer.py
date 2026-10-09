@@ -10287,12 +10287,62 @@ class App:
 
 _SINGLE_MUTEX = None
 
+def _single_pid_alive(pid):
+    """True if a process with this PID exists (used for the lock file)."""
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        handle = kernel32.OpenProcess(0x1000, False, int(pid))
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        # Access denied still means "alive".
+        return kernel32.GetLastError() == 5
+    except Exception:
+        return False
+
+
+def _single_lock_path():
+    try:
+        d = APP_ROOT / "tmp"
+        d.mkdir(parents=True, exist_ok=True)
+        return d / "faraja_pro.lock"
+    except Exception:
+        return None
+
+
+def _single_claim_lock():
+    """Write our PID into the lock file; return True if we own it.
+
+    A last-writer check serializes two starters: whoever finds foreign
+    content after its own write loses.
+    """
+    p = _single_lock_path()
+    if p is None:
+        return True
+    try:
+        p.write_text(str(os.getpid()), encoding="utf-8")
+    except Exception:
+        return True
+    time.sleep(0.5)
+    try:
+        return p.read_text(encoding="utf-8").strip() == str(os.getpid())
+    except Exception:
+        return True
+
+
 def _ensure_single_instance():
     """Named-mutex guard: returns (is_first, activated).
 
     Perf-child helper processes bypass the guard.  When another instance
     is already running we try to restore its window, so a second launch
-    never leaves a stray process behind."""
+    never leaves a stray process behind.
+
+    NOTE: with onefile builds the unpack phase takes seconds, so rapid
+    double-clicks can slip past the mutex (it is created only when Python
+    starts).  _single_recheck() below closes that hole at runtime.
+    """
     global _SINGLE_MUTEX
     if "--perf-child" in sys.argv:
         return True, False
@@ -10343,5 +10393,15 @@ if __name__ == "__main__":
                         "Faraja WebServer", 0x40)
                 except Exception:
                     pass
+            sys.exit(0)
+        if not _single_claim_lock():
+            # Lost the lock race (parallel unpack): another starter owns it.
+            try:
+                import ctypes as _ct
+                _ct.windll.user32.MessageBoxW(
+                    None, "Faraja WebServer is already running.",
+                    "Faraja WebServer", 0x40)
+            except Exception:
+                pass
             sys.exit(0)
         App().run()
