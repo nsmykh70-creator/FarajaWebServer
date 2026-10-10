@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from pathlib import Path
-import json, os, shutil, socket, subprocess, sys, threading, time, webbrowser, zipfile, re, atexit, signal, hashlib, tempfile
+import json, os, shutil, socket, subprocess, sys, threading, time, webbrowser, zipfile, re, atexit, signal, hashlib, tempfile, secrets
 from urllib.parse import urljoin
 import requests, pystray
 from PIL import Image, ImageDraw, ImageTk
@@ -45,10 +45,10 @@ DONATE = {
 for _c in DONATE:
     DONATE[_c] = (seed(DONATE[_c][0]), DONATE[_c][1])
 del _c
-RUNTIME=APP_ROOT/"runtime"; DOWNLOADS=APP_ROOT/"downloads"; LOGS=APP_ROOT/"logs"; PMA=WWW/"phpmyadmin"
+RUNTIME=APP_ROOT/"runtime"; DOWNLOADS=APP_ROOT/"downloads"; LOGS=APP_ROOT/"logs"
 for x in (RUNTIME,DOWNLOADS,LOGS,WWW,APP_ROOT/"tmp"): x.mkdir(parents=True,exist_ok=True)
 
-DEFAULT={"apache_port":8080,"mariadb_port":3306,"php_cgi_port":9074,"postgresql_port":5432,"redis_port":6379,"nginx_port":80}
+DEFAULT={"apache_port":8080,"mariadb_port":3306,"mysql_port":3307,"php_cgi_port":9074,"postgresql_port":5432,"redis_port":6379,"nginx_port":80,"mongodb_port":27017,"memcached_port":11211,"mailpit_port":8025,"mailpit_smtp_port":1025,"mydbroot_port":3001}
 try: CONFIG={**DEFAULT,**json.loads(CONFIG_FILE.read_text(encoding="utf-8"))}
 except Exception:
     CONFIG=DEFAULT.copy(); CONFIG_FILE.parent.mkdir(parents=True,exist_ok=True)
@@ -109,8 +109,13 @@ LOCALES = {
     "redis": {"ru": "Redis", "en": "Redis", "es": "Redis", "de": "Redis", "fr": "Redis", "zh": "Redis"},
     "nginx": {"ru": "Nginx", "en": "Nginx", "es": "Nginx", "de": "Nginx", "fr": "Nginx", "zh": "Nginx"},
     "docker": {"ru": "Docker", "en": "Docker", "es": "Docker", "de": "Docker", "fr": "Docker", "zh": "Docker"},
+    "mysql": {"ru": "MySQL", "en": "MySQL", "es": "MySQL", "de": "MySQL", "fr": "MySQL", "zh": "MySQL"},
+    "mongodb": {"ru": "MongoDB", "en": "MongoDB", "es": "MongoDB", "de": "MongoDB", "fr": "MongoDB", "zh": "MongoDB"},
+    "memcached": {"ru": "Memcached", "en": "Memcached", "es": "Memcached", "de": "Memcached", "fr": "Memcached", "zh": "Memcached"},
+    "mailpit": {"ru": "Mailpit", "en": "Mailpit", "es": "Mailpit", "de": "Mailpit", "fr": "Mailpit", "zh": "Mailpit"},
+    "dbmanager": {"ru": "DB Manager Pro", "en": "DB Manager Pro", "es": "DB Manager Pro", "de": "DB Manager Pro", "fr": "DB Manager Pro", "zh": "DB Manager Pro"},
     "open_localhost": {"ru": "Открыть Localhost", "en": "Open Localhost", "es": "Abrir Localhost", "de": "Localhost öffnen", "fr": "Ouvrir Localhost", "zh": "打开 Localhost"},
-    "phpmyadmin": {"ru": "phpMyAdmin", "en": "phpMyAdmin", "es": "phpMyAdmin", "de": "phpMyAdmin", "fr": "phpMyAdmin", "zh": "phpMyAdmin"},
+    "dbmanager": {"ru": "DB Manager Pro", "en": "DB Manager Pro", "es": "DB Manager Pro", "de": "DB Manager Pro", "fr": "DB Manager Pro", "zh": "DB Manager Pro"},
     "open_www": {"ru": "Открыть www", "en": "Open www", "es": "Abrir www", "de": "www öffnen", "fr": "Ouvrir www", "zh": "打开 www"},
     "setup_ssl": {"ru": "Настроить SSL", "en": "Setup SSL", "es": "Configurar SSL", "de": "SSL einrichten", "fr": "Configurer SSL", "zh": "设置 SSL"},
     "run_script": {"ru": "Запустить скрипт", "en": "Run Script", "es": "Ejecutar script", "de": "Skript ausführen", "fr": "Exécuter le script", "zh": "运行脚本"},
@@ -222,6 +227,11 @@ LOCALES = {
     "svc_desc_nginx": {"ru": "Реверс-прокси на порту 80", "en": "Reverse proxy on port 80", "es": "Proxy inverso en el puerto 80", "de": "Reverse-Proxy auf Port 80", "fr": "Proxy inverse sur le port 80", "zh": "80 端口反向代理"},
     "svc_desc_docker": {"ru": "Контейнеры Docker Desktop", "en": "Docker Desktop containers", "es": "Contenedores de Docker Desktop", "de": "Docker-Desktop-Container", "fr": "Conteneurs Docker Desktop", "zh": "Docker Desktop 容器"},
     "svc_desc_node": {"ru": "Серверы приложений Node.js", "en": "Node.js application servers", "es": "Servidores de aplicaciones Node.js", "de": "Node.js-Anwendungsserver", "fr": "Serveurs d'applications Node.js", "zh": "Node.js 应用服务器"},
+    "svc_desc_mysql": {"ru": "База данных MySQL", "en": "MySQL database", "es": "Base de datos MySQL", "de": "MySQL Datenbank", "fr": "Base de données MySQL", "zh": "MySQL 数据库"},
+    "svc_desc_mongo": {"ru": "Документная NoSQL база", "en": "Document NoSQL database", "es": "Base de datos documental NoSQL", "de": "Dokumenten-NoSQL-Datenbank", "fr": "Base de données documentaire NoSQL", "zh": "文档 NoSQL 数据库"},
+    "svc_desc_memcached": {"ru": "Кэш в памяти для CMS", "en": "In-memory cache for CMS", "es": "Caché en memoria para CMS", "de": "Cache im Speicher für CMS", "fr": "Cache en mémoire pour CMS", "zh": "CMS 内存缓存"},
+    "svc_desc_mailpit": {"ru": "Локальная почта: SMTP + веб", "en": "Local mail: SMTP + web UI", "es": "Correo local: SMTP + web", "de": "Lokale Mail: SMTP + Web", "fr": "Mail local : SMTP + web", "zh": "本地邮件：SMTP + 网页"},
+    "svc_desc_dbmanager": {"ru": "Веб-панель всех БД — замена phpMyAdmin", "en": "Web panel for all DBs — replaces phpMyAdmin", "es": "Panel web para todas las BD", "de": "Web-Panel für alle DBs", "fr": "Panneau web pour toutes les BD", "zh": "所有数据库的网页面板"},
     "btn_ok": {"ru": "ОК", "en": "OK", "es": "Aceptar", "de": "OK", "fr": "OK", "zh": "确定"},
     "btn_cancel": {"ru": "Отмена", "en": "Cancel", "es": "Cancelar", "de": "Abbrechen", "fr": "Annuler", "zh": "取消"},
     "btn_yes": {"ru": "Да", "en": "Yes", "es": "Sí", "de": "Ja", "fr": "Oui", "zh": "是"},
@@ -241,7 +251,7 @@ LOCALES = {
     "tip_run": {"ru": "Запустить", "en": "Run", "es": "Ejecutar", "de": "Ausführen", "fr": "Exécuter", "zh": "运行"},
     "tip_browse": {"ru": "Выбрать папку или файл", "en": "Browse for folder or file", "es": "Examinar carpeta o archivo", "de": "Ordner oder Datei wählen", "fr": "Parcourir dossier ou fichier", "zh": "浏览文件夹或文件"},
     "tip_localhost": {"ru": "Открыть сайт в браузере", "en": "Open the site in a browser", "es": "Abrir el sitio en el navegador", "de": "Seite im Browser öffnen", "fr": "Ouvrir le site dans le navigateur", "zh": "在浏览器中打开站点"},
-    "tip_pma": {"ru": "Открыть phpMyAdmin", "en": "Open phpMyAdmin", "es": "Abrir phpMyAdmin", "de": "phpMyAdmin öffnen", "fr": "Ouvrir phpMyAdmin", "zh": "打开 phpMyAdmin"},
+    "tip_dbmanager": {"ru": "Открыть DB Manager Pro", "en": "Open DB Manager Pro", "es": "Abrir DB Manager Pro", "de": "DB Manager Pro öffnen", "fr": "Ouvrir DB Manager Pro", "zh": "打开 DB Manager Pro"},
     "tip_www": {"ru": "Открыть папку www", "en": "Open the www folder", "es": "Abrir la carpeta www", "de": "www-Ordner öffnen", "fr": "Ouvrir le dossier www", "zh": "打开 www 文件夹"},
     "tip_ssl": {"ru": "Выпустить локальный SSL-сертификат", "en": "Issue a local SSL certificate", "es": "Emitir un certificado SSL local", "de": "Lokales SSL-Zertifikat ausstellen", "fr": "Émettre un certificat SSL local", "zh": "颁发本地 SSL 证书"},
     "tip_script": {"ru": "Запустить JS/TS скрипт через Node", "en": "Run a JS/TS script with Node", "es": "Ejecutar un script JS/TS con Node", "de": "JS/TS-Skript mit Node ausführen", "fr": "Exécuter un script JS/TS avec Node", "zh": "使用 Node 运行 JS/TS 脚本"},
@@ -720,8 +730,12 @@ def emergency_kill():
             time.sleep(1)
         except Exception:
             pass
-    for port in (CONFIG.get("mariadb_port", 3306), CONFIG.get("php_cgi_port", 9074),
-                 CONFIG.get("postgresql_port", 5432), CONFIG.get("redis_port", 6379)):
+    for port in (CONFIG.get("mariadb_port", 3306), CONFIG.get("mysql_port", 3307),
+                 CONFIG.get("php_cgi_port", 9074),
+                 CONFIG.get("postgresql_port", 5432), CONFIG.get("redis_port", 6379),
+                 CONFIG.get("mongodb_port", 27017), CONFIG.get("memcached_port", 11211),
+                 CONFIG.get("mailpit_port", 8025), CONFIG.get("mailpit_smtp_port", 1025),
+                 CONFIG.get("mydbroot_port", 3001)):
         for pid in pids_on_port(port):
             try:
                 subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
@@ -789,7 +803,10 @@ def find_local_archive(name):
         "redis": ["redis.zip", "redis-*.zip"],
         "nginx": ["nginx.zip", "nginx-*.zip"],
         "nodejs": ["nodejs.zip", "node-*.zip"],
-        "phpmyadmin": ["phpmyadmin.zip", "phpMyAdmin-*.zip", "phpmyadmin-*.zip"],
+        "mysql": ["mysql.zip", "mysql-*.zip"],
+        "mongodb": ["mongodb.zip", "mongodb-*.zip", "mongo-*.zip"],
+        "memcached": ["memcached.zip", "memcached-*.zip"],
+        "mailpit": ["mailpit.zip", "mailpit-*.zip"],
     }
     candidates = []
     for pattern in patterns.get(name, [item["archive"]]):
@@ -801,11 +818,11 @@ def find_local_archive(name):
             n = p.name.lower()
             if name == "apache" and ("httpd" in n or "apache" in n):
                 candidates.append(p)
-            elif name == "php" and n.startswith("php-") and "phpmyadmin" not in n:
+            elif name == "php" and n.startswith("php-"):
                 candidates.append(p)
             elif name == "mariadb" and "mariadb" in n:
                 candidates.append(p)
-            elif name == "phpmyadmin" and "phpmyadmin" in n:
+            elif name == "mysql" and "mysql" in n and "mariadb" not in n:
                 candidates.append(p)
             elif name == "postgresql" and ("postgresql" in n or "pg" in n):
                 candidates.append(p)
@@ -814,6 +831,12 @@ def find_local_archive(name):
             elif name == "nginx" and "nginx" in n:
                 candidates.append(p)
             elif name == "nodejs" and ("node" in n and "node_modules" not in n):
+                candidates.append(p)
+            elif name == "mongodb" and ("mongodb" in n or "mongo" in n):
+                candidates.append(p)
+            elif name == "memcached" and "memcached" in n:
+                candidates.append(p)
+            elif name == "mailpit" and "mailpit" in n:
                 candidates.append(p)
     seen = set()
     valid = []
@@ -874,6 +897,12 @@ def install_component(name,log,progress,item=None,prearchive=None):
         target=RUNTIME/"MariaDB"
         shutil.rmtree(target,ignore_errors=True)
         shutil.move(str(source),str(target))
+    elif name=="mysql":
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/"MySQL"
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
     elif name=="postgresql":
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
@@ -884,6 +913,24 @@ def install_component(name,log,progress,item=None,prearchive=None):
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
         target=RUNTIME/"Redis"
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
+    elif name=="mongodb":
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/"MongoDB"
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
+    elif name=="memcached":
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/"Memcached"
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
+    elif name=="mailpit":
+        ds=[p for p in tmp.iterdir() if p.is_dir()]
+        source=ds[0] if len(ds)==1 else tmp
+        target=RUNTIME/"Mailpit"
         shutil.rmtree(target,ignore_errors=True)
         shutil.move(str(source),str(target))
     elif name=="nginx":
@@ -913,37 +960,24 @@ def install_component(name,log,progress,item=None,prearchive=None):
     else:
         ds=[p for p in tmp.iterdir() if p.is_dir()]
         source=ds[0] if len(ds)==1 else tmp
-        shutil.rmtree(PMA,ignore_errors=True)
-        shutil.move(str(source),str(PMA))
-        sample=PMA/"config.sample.inc.php"
-        cfg=PMA/"config.inc.php"
-        if sample.exists() and not cfg.exists():
-            text=sample.read_text(encoding="utf-8",errors="replace")
-            text=text.replace(
-                "$cfg['blowfish_secret'] = '';",
-                "$cfg['blowfish_secret'] = 'MiniServerV11PortableLocalSecretKey2026!';"
-            )
-            if "AllowNoPassword" not in text:
-                text=text.replace(
-                    "$cfg['Servers'][$i]['AllowNoPassword'] = false;",
-                    "$cfg['Servers'][$i]['AllowNoPassword'] = true;"
-                )
-                if "AllowNoPassword" not in text:
-                    text+="$cfg['Servers'][$i]['AllowNoPassword'] = true;\\n"
-            cfg.write_text(text,encoding="utf-8")
+        target=RUNTIME/name
+        shutil.rmtree(target,ignore_errors=True)
+        shutil.move(str(source),str(target))
     shutil.rmtree(tmp,ignore_errors=True)
     if not (APP_ROOT/item["expected"]).exists():
         raise RuntimeError(f"{name}: expected file missing after extracting {arc.name}")
     log(f"{name}: installed successfully from local archive")
 
 class Services:
-    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={};self.php_extra={};self._death_reported=set()
+    def __init__(self,log):self.log=log;self.apache=None;self.db=None;self.php=None;self.pg=None;self.redis_proc=None;self.nginx=None;self.mysql_proc=None;self.mongo_proc=None;self.memcached_proc=None;self.mailpit_proc=None;self.handles=[];self.ui_progress=None;self._port_cache={};self.node_servers={};self.node_routes={};self.node_processes={};self.sites_cache=[];self.py_servers={};self.py_routes={};self.php_extra={};self._death_reported=set()
 
     def managed_process_health(self):
         """Managed subprocesses that exited since the last check
         (adapted from the V15 PRO hardening package)."""
         watched = (("Apache", self.apache), ("MariaDB", self.db), ("PHP CGI", self.php),
-                   ("PostgreSQL", self.pg), ("Redis", self.redis_proc), ("Nginx", self.nginx))
+                   ("PostgreSQL", self.pg), ("Redis", self.redis_proc), ("Nginx", self.nginx),
+                   ("MySQL", self.mysql_proc), ("MongoDB", self.mongo_proc),
+                   ("Memcached", self.memcached_proc), ("Mailpit", self.mailpit_proc))
         dead = []
         for name, proc in watched:
             try:
@@ -965,6 +999,14 @@ class Services:
     def rdd(self):return RUNTIME/"Redis"
     @property
     def nd(self):return RUNTIME/"nginx"
+    @property
+    def myd(self):return RUNTIME/"MySQL"
+    @property
+    def mgd(self):return RUNTIME/"MongoDB"
+    @property
+    def mcd(self):return RUNTIME/"Memcached"
+    @property
+    def mpd(self):return RUNTIME/"Mailpit"
     @property
     def node_dir(self):
         bundled=RUNTIME/"Nodejs"
@@ -1286,7 +1328,7 @@ class Services:
         self.log(f"SSL certificate issued: {domain}")
         return cert, ssl_dir / f"{domain}-key.pem"
     def write_configs(self):
-        a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix(); p=PMA.resolve().as_posix()
+        a=self.ad.resolve().as_posix(); w=WWW.resolve().as_posix()
         ph=self.pd.resolve().as_posix(); m=self.md.resolve().as_posix(); l=LOGS.resolve().as_posix()
         apache_modules = self._apache_modules()
         idx_opt = "+Indexes" if self.dir_listing() else "-Indexes"
@@ -1304,15 +1346,6 @@ DocumentRoot "{w}"
     AllowOverride All
     Options {idx_opt} +FollowSymLinks
     DirectoryIndex index.html index.php index.htm
-</Directory>
-
-Alias /phpmyadmin "{p}"
-
-<Directory "{p}">
-    Require all granted
-    AllowOverride None
-    Options FollowSymLinks
-    DirectoryIndex index.php
 </Directory>
 
 ScriptAlias /php-cgi-bin/ "{ph}/"
@@ -1363,12 +1396,6 @@ port={CONFIG["mariadb_port"]}
 '''
         self.md.mkdir(parents=True, exist_ok=True)
         (self.md/"my.ini").write_text(maria,encoding="utf-8")
-        pma_cfg=PMA/"config.inc.php"
-        if pma_cfg.exists():
-            txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-            txt=re.sub(r"\$cfg\['Servers'\]\[\$i\]\['AllowNoPassword'\]\s*=\s*(?:true|false)\s*;", "", txt)
-            txt+="\n$cfg['Servers'][$i]['AllowNoPassword'] = true;\n"
-            pma_cfg.write_text(txt,encoding="utf-8")
     def _alive(self, proc):
         try:
             return proc is not None and proc.poll() is None
@@ -1379,9 +1406,49 @@ port={CONFIG["mariadb_port"]}
         hit = self._port_cache.get(port)
         if hit and now - hit[0] < ttl:
             return hit[1]
-        val = port_open(port)
-        self._port_cache[port] = (now, val)
-        return val
+        if not getattr(self, "_port_poller_on", False):
+            self._port_poller_on = True
+            try:
+                self._port_poll_ports = set()
+            except Exception:
+                pass
+            threading.Thread(target=self._port_poller, daemon=True).start()
+        try:
+            self._port_poll_ports.add(port)
+        except Exception:
+            pass
+        if hit is None:
+            # Never probed (startup): one synchronous probe so the first
+            # paint is correct; afterwards the poller keeps it fresh.
+            try:
+                val = port_open(port)
+            except Exception:
+                return False
+            self._port_cache[port] = (now, val)
+            return val
+        return hit[1]
+    def _port_poller(self):
+        # Loopback connects can stall for the whole socket timeout on some
+        # machines (security software hooks) — e.g. 250 ms per port, which
+        # froze the UI thread inside refresh() every second. Probe here in
+        # the background instead; the UI only ever reads the cache.
+        try:
+            known = [v for k, v in CONFIG.items()
+                     if k.endswith("_port") and isinstance(v, int)]
+        except Exception:
+            known = []
+        while True:
+            try:
+                ports = list(dict.fromkeys(
+                    list(getattr(self, "_port_poll_ports", set())) + known))
+                for p in ports:
+                    try:
+                        self._port_cache[int(p)] = (time.monotonic(), port_open(p))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            time.sleep(2)
     def _drop_port_cache(self, port):
         self._port_cache.pop(port, None)
     def arun(self):
@@ -1495,35 +1562,6 @@ port={CONFIG["mariadb_port"]}
             result=subprocess.run(cmd,cwd=self.md,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
             if result.returncode==0:return
         raise RuntimeError("MariaDB initialization failed; open Process / Init and MariaDB Error logs")
-    def _setup_pma_storage(self):
-        pma_cfg=PMA/"config.inc.php"
-        if not pma_cfg.exists():return
-        txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-        if "pmadb" not in txt or "//$cfg" in txt or "// $cfg['Servers'][$i]['pmadb']" in txt:
-            sql_file=PMA/"sql/create_tables.sql"
-            if sql_file.exists():
-                mysql=self.md/"bin/mysql.exe"
-                if mysql.exists():
-                    try:
-                        sql=sql_file.read_text(encoding="utf-8",errors="replace")
-                        sql=sql.replace("`pma`@localhost","`root`@localhost")
-                        result=subprocess.run(
-                            [str(mysql),"-u","root","--port",str(CONFIG["mariadb_port"]),"-e",sql],
-                            capture_output=True,text=True,timeout=30,
-                            creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0)
-                        )
-                        if result.returncode==0:
-                            self.log("phpMyAdmin configuration storage database created")
-                        else:
-                            self.log("phpMyAdmin storage DB setup skipped: "+result.stderr.strip()[:200])
-                    except Exception as e:
-                        self.log("phpMyAdmin storage DB setup error: "+str(e)[:200])
-            txt=pma_cfg.read_text(encoding="utf-8",errors="replace")
-            txt=txt.replace("// $cfg['Servers'][$i]['controluser'] = 'pma';","$cfg['Servers'][$i]['controluser'] = 'root';")
-            txt=txt.replace("// $cfg['Servers'][$i]['controlpass'] = 'pmapass';","$cfg['Servers'][$i]['controlpass'] = '';")
-            for key in ['pmadb','bookmarktable','relation','table_info','table_coords','pdf_pages','column_info','history','table_uiprefs','tracking','userconfig','recent','favorite','users','usergroups','navigationhiding','savedsearches','central_columns','designer_settings','export_templates']:
-                txt=txt.replace(f"// $cfg['Servers'][$i]['{key}']","$cfg['Servers'][$i]['{key}']")
-            pma_cfg.write_text(txt,encoding="utf-8")
     def start_db(self):
         if self.drun():self.log("MariaDB is already running");return
         self._ensure_component("mariadb")
@@ -1535,8 +1573,6 @@ port={CONFIG["mariadb_port"]}
         if not wait_port(CONFIG["mariadb_port"],20):raise RuntimeError("MariaDB did not start; see MariaDB Error and Process / Init logs")
         self._drop_port_cache(CONFIG["mariadb_port"])
         self.log("MariaDB started")
-        try: self._setup_pma_storage()
-        except Exception: pass
     def stop_db(self):
         self._drop_port_cache(CONFIG["mariadb_port"])
         stop_proc(self.db,10)
@@ -1609,6 +1645,23 @@ port={CONFIG["mariadb_port"]}
     def redisrun(self):
         if self._alive(self.redis_proc):return True
         return self._port_cached(CONFIG["redis_port"], 15)
+    def mysqlrun(self):
+        if self._alive(self.mysql_proc):return True
+        return self._port_cached(CONFIG["mysql_port"], 15)
+    def mongorun(self):
+        if self._alive(self.mongo_proc):return True
+        return self._port_cached(CONFIG["mongodb_port"], 15)
+    def memcachedrun(self):
+        if self._alive(self.memcached_proc):return True
+        return self._port_cached(CONFIG["memcached_port"], 15)
+    def mailpitrun(self):
+        if self._alive(self.mailpit_proc):return True
+        return self._port_cached(CONFIG["mailpit_port"], 15)
+    def dbmanager_run(self):
+        try:
+            return self.node_server_running("dbmanager")
+        except Exception:
+            return False
     def redis_conf(self):
         try:
             d = json.loads((APP_ROOT/"config"/"redis.json").read_text(encoding="utf-8"))
@@ -1646,6 +1699,199 @@ port={CONFIG["mariadb_port"]}
         if not wait_port_closed(CONFIG["redis_port"], 8):
             raise RuntimeError("Redis could not be stopped on port %s" % CONFIG["redis_port"])
         self.log("Redis stopped")
+    def start_mysql(self):
+        if self.mysqlrun():self.log("MySQL is already running");return
+        self._ensure_component("mysql")
+        self.write_mysql_conf();exe=self.myd/"bin/mysqld.exe"
+        if not exe.exists():raise RuntimeError("MySQL is not installed")
+        if not (self.myd/"data/mysql").exists():self.initialize_mysql()
+        f=self.logfile("mysql-process.log")
+        self.mysql_proc=subprocess.Popen([str(exe),f'--defaults-file={self.myd/"my.ini"}'],cwd=self.myd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        if not wait_port(CONFIG["mysql_port"],20):raise RuntimeError("MySQL did not start; see MySQL Error and Process / Init logs")
+        self._drop_port_cache(CONFIG["mysql_port"])
+        self.log("MySQL started")
+    def initialize_mysql(self):
+        exe=self.myd/"bin/mysqld.exe";data=self.myd/"data"
+        data.mkdir(parents=True,exist_ok=True)
+        initlog=self.logfile("mysql-init.log");self.log("Initializing MySQL...")
+        r=subprocess.run([str(exe),"--initialize-insecure",f"--datadir={data.resolve()}"],
+            cwd=self.myd,stdout=initlog,stderr=initlog,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        if r.returncode!=0:raise RuntimeError("MySQL initialization failed; open Process / Init and MySQL Error logs")
+    def write_mysql_conf(self):
+        m=self.myd.resolve().as_posix();l=LOGS.resolve().as_posix()
+        cfg=f'''[mysqld]
+basedir={m}
+datadir={m}/data
+port={CONFIG["mysql_port"]}
+bind-address=127.0.0.1
+character-set-server=utf8mb4
+log_error={l}/mysql-error.log
+
+[client]
+port={CONFIG["mysql_port"]}
+'''
+        self.myd.mkdir(parents=True,exist_ok=True)
+        (self.myd/"my.ini").write_text(cfg,encoding="utf-8")
+    def stop_mysql(self):
+        self._drop_port_cache(CONFIG["mysql_port"])
+        stop_proc(self.mysql_proc,10)
+        self.mysql_proc=None
+        stopped, foreign = stop_named_processes_on_port(
+            CONFIG["mysql_port"], {"mysqld.exe", "mysql.exe"}
+        )
+        if stopped:
+            self.log("Stopped MySQL listener(s): " + ", ".join(f"{n} PID {pid}" for pid, n in stopped))
+        if foreign:
+            detail = ", ".join(f"{name or 'unknown'} (PID {pid})" for pid, name in foreign)
+            self.log(
+                f"Port {CONFIG['mysql_port']} is occupied by another program: {detail}. "
+                "It was not terminated."
+            )
+        if not wait_port_closed(CONFIG["mysql_port"], 12):
+            raise RuntimeError("MySQL could not be stopped on port %s" % CONFIG["mysql_port"])
+        self.log("MySQL stopped")
+    def start_mongo(self):
+        if self.mongorun():self.log("MongoDB is already running");return
+        self._ensure_component("mongodb")
+        exe=self.mgd/"bin/mongod.exe"
+        if not exe.exists():raise RuntimeError("MongoDB is not installed")
+        data=self.mgd/"data";data.mkdir(parents=True,exist_ok=True)
+        f=self.logfile("mongo-process.log")
+        self.mongo_proc=subprocess.Popen([str(exe),"--dbpath",str(data.resolve()),
+            "--port",str(CONFIG["mongodb_port"]),"--bind_ip","127.0.0.1"],
+            cwd=self.mgd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        if not wait_port(CONFIG["mongodb_port"],15):raise RuntimeError("MongoDB did not start; see Process / Init log")
+        self._drop_port_cache(CONFIG["mongodb_port"])
+        self.log("MongoDB started")
+    def stop_mongo(self):
+        self._drop_port_cache(CONFIG["mongodb_port"])
+        stop_proc(self.mongo_proc,10)
+        self.mongo_proc=None
+        stopped, foreign = stop_named_processes_on_port(
+            CONFIG["mongodb_port"], {"mongod.exe", "mongo.exe", "mongosh.exe"}
+        )
+        if stopped:
+            self.log("Stopped MongoDB listener(s): " + ", ".join(f"{n} PID {pid}" for pid, n in stopped))
+        if foreign:
+            detail = ", ".join(f"{name or 'unknown'} (PID {pid})" for pid, name in foreign)
+            self.log(
+                f"Port {CONFIG['mongodb_port']} is occupied by another program: {detail}. "
+                "It was not terminated."
+            )
+        if not wait_port_closed(CONFIG["mongodb_port"], 12):
+            raise RuntimeError("MongoDB could not be stopped on port %s" % CONFIG["mongodb_port"])
+        self.log("MongoDB stopped")
+    def start_memcached(self):
+        if self.memcachedrun():self.log("Memcached is already running");return
+        self._ensure_component("memcached")
+        exe=self.mcd/"bin/memcached.exe"
+        if not exe.exists():exe=self.mcd/"memcached.exe"
+        if not exe.exists():raise RuntimeError("Memcached is not installed")
+        f=self.logfile("memcached-process.log")
+        self.memcached_proc=subprocess.Popen([str(exe),"-p",str(CONFIG["memcached_port"]),
+            "-l","127.0.0.1"],
+            cwd=self.mcd,stdout=f,stderr=f,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        if not wait_port(CONFIG["memcached_port"],8):raise RuntimeError("Memcached did not start; see Process / Init log")
+        self._drop_port_cache(CONFIG["memcached_port"])
+        self.log("Memcached started")
+    def stop_memcached(self):
+        self._drop_port_cache(CONFIG["memcached_port"])
+        stop_proc(self.memcached_proc,5)
+        self.memcached_proc=None
+        stopped, foreign = stop_named_processes_on_port(
+            CONFIG["memcached_port"], {"memcached.exe"}
+        )
+        if stopped:
+            self.log("Stopped Memcached listener(s): " + ", ".join(f"{n} PID {pid}" for pid, n in stopped))
+        if not wait_port_closed(CONFIG["memcached_port"], 8):
+            raise RuntimeError("Memcached could not be stopped on port %s" % CONFIG["memcached_port"])
+        self.log("Memcached stopped")
+    def start_mailpit(self):
+        if self.mailpitrun():self.log("Mailpit is already running");return
+        self._ensure_component("mailpit")
+        exe=self.mpd/"mailpit.exe"
+        if not exe.exists():raise RuntimeError("Mailpit is not installed")
+        f=self.logfile("mailpit-process.log")
+        env=os.environ.copy()
+        env["MP_SMTP_BIND_ADDR"]=f"127.0.0.1:{CONFIG['mailpit_smtp_port']}"
+        env["MP_HTTP_BIND_ADDR"]=f"127.0.0.1:{CONFIG['mailpit_port']}"
+        self.mailpit_proc=subprocess.Popen([str(exe)],
+            cwd=self.mpd,stdout=f,stderr=f,env=env,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+        if not wait_port(CONFIG["mailpit_port"],10):raise RuntimeError("Mailpit did not start; see Process / Init log")
+        self._drop_port_cache(CONFIG["mailpit_port"])
+        self.log("Mailpit started")
+    def stop_mailpit(self):
+        self._drop_port_cache(CONFIG["mailpit_port"])
+        stop_proc(self.mailpit_proc,5)
+        self.mailpit_proc=None
+        stopped, foreign = stop_named_processes_on_port(
+            CONFIG["mailpit_port"], {"mailpit.exe"}
+        )
+        if stopped:
+            self.log("Stopped Mailpit listener(s): " + ", ".join(f"{n} PID {pid}" for pid, n in stopped))
+        if not wait_port_closed(CONFIG["mailpit_port"], 8):
+            raise RuntimeError("Mailpit could not be stopped on port %s" % CONFIG["mailpit_port"])
+        self.log("Mailpit stopped")
+    def _dbm_root(self):return APP_ROOT/"mydbroot"/"backend"
+    def _dbm_env(self):
+        env={}
+        p=self._dbm_root()/".env"
+        try:
+            for raw in p.read_text(encoding="utf-8",errors="replace").splitlines():
+                line=raw.strip()
+                if not line or line.startswith("#") or "=" not in line:continue
+                k,v=line.split("=",1);env[k.strip()]=v.strip()
+        except OSError:pass
+        return env
+    def _dbm_ensure_env(self):
+        root=self._dbm_root();p=root/".env"
+        env=self._dbm_env()
+        changed=False
+        if not env.get("ENCRYPTION_KEY"):
+            env["ENCRYPTION_KEY"]=secrets.token_hex(32);changed=True
+        if not env.get("JWT_SECRET"):
+            env["JWT_SECRET"]=secrets.token_hex(32);changed=True
+        if not env.get("FARAJA_SSO_SECRET"):
+            env["FARAJA_SSO_SECRET"]=secrets.token_hex(32);changed=True
+        env.setdefault("PORT",str(CONFIG.get("mydbroot_port",3001)))
+        env.setdefault("HOST","127.0.0.1")
+        env.setdefault("META_PATH",str((root/"data"/"meta.db").resolve()))
+        env.setdefault("SQLITE_DIR",str((APP_ROOT/"www"/"sqlite").resolve()))
+        env.setdefault("ADMIN_USER","admin")
+        env.setdefault("REQUIRE_AUTH","1")
+        if changed or not p.exists():
+            lines=[f"PORT={env['PORT']}",f"HOST={env['HOST']}",
+                f"ENCRYPTION_KEY={env['ENCRYPTION_KEY']}",f"JWT_SECRET={env['JWT_SECRET']}",
+                f"META_PATH={env['META_PATH']}",f"SQLITE_DIR={env['SQLITE_DIR']}",
+                f"ADMIN_USER={env['ADMIN_USER']}",f"REQUIRE_AUTH={env['REQUIRE_AUTH']}",
+                f"FARAJA_SSO_SECRET={env['FARAJA_SSO_SECRET']}", ""]
+            root.mkdir(parents=True,exist_ok=True)
+            try:(root/"data").mkdir(parents=True,exist_ok=True)
+            except OSError:pass
+            try:(APP_ROOT/"www"/"sqlite").mkdir(parents=True,exist_ok=True)
+            except OSError:pass
+            p.write_text("\n".join(lines),encoding="utf-8")
+            self.log("DB Manager Pro: backend .env prepared")
+        return env
+    def dbmanager_start(self):
+        try:port=int(CONFIG.get("mydbroot_port",3001))
+        except (TypeError,ValueError):raise RuntimeError("Bad DB Manager port")
+        root=self._dbm_root()
+        if not (root/"package.json").exists():
+            raise RuntimeError("DB Manager Pro is not installed (mydbroot/ folder is missing next to the program)")
+        env=self._dbm_ensure_env()
+        if not (root/"dist"/"index.js").exists():
+            self.log("DB Manager Pro: building backend (tsc)...")
+            npm=(RUNTIME/"Nodejs"/"npm.cmd") if (RUNTIME/"Nodejs"/"npm.cmd").exists() else "npm"
+            r=subprocess.run(_cmd_list(npm,"run","build","-w","backend"),cwd=str(root/".."),
+                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=180,
+                creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+            if r.returncode!=0 or not (root/"dist"/"index.js").exists():
+                raise RuntimeError("DB Manager Pro build failed (npm run build -w backend)")
+            self.log("DB Manager Pro: backend built")
+        self.node_server_start("dbmanager",str(root),"dist/index.js",port)
+    def dbmanager_stop(self):
+        self.node_server_stop("dbmanager")
     def nginxrun(self):
         if self._alive(self.nginx):return True
         return self._port_cached(CONFIG["nginx_port"])
@@ -2871,7 +3117,9 @@ http {{
         # cannot hold up the shutdown of every other service. Console windows are
         # suppressed by CREATE_NO_WINDOW in the individual stop commands.
         funcs = (self.stop_apache, self.stop_nginx, self.stop_php,
-                 self.stop_db, self.stop_pg, self.stop_redis)
+                 self.stop_db, self.stop_mysql, self.stop_pg, self.stop_redis,
+                 self.stop_mongo, self.stop_memcached, self.stop_mailpit,
+                 self.dbmanager_stop)
         workers = []
         for fn in funcs:
             t = threading.Thread(target=lambda f=fn: self._safe_shutdown_call(f), daemon=True)
@@ -2919,6 +3167,24 @@ http {{
             pass
 
 
+_ROUND_BG_CACHE = {}
+
+
+def _round_bg_image(color, w, h, radius=9):
+    """Pre-rendered rounded-rectangle bitmap, shared by all buttons with the
+    same color/size. Tk re-rasterizes canvas vector arcs on EVERY repaint
+    (~0.5 ms each, hundreds per window); one cached blit is ~free."""
+    key = (color, w, h, radius)
+    img = _ROUND_BG_CACHE.get(key)
+    if img is None:
+        from PIL import Image as _PI, ImageDraw as _PD, ImageTk as _PT
+        base = _PI.new("RGBA", (max(1, w), max(1, h)), (0, 0, 0, 0))
+        _PD.Draw(base).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=color)
+        img = _PT.PhotoImage(base)
+        _ROUND_BG_CACHE[key] = img
+    return img
+
+
 class StyledButton(tk.Canvas):
     """Modern flat/rounded button used throughout the UI."""
     def __init__(self, parent, text, command=None, color="#4f8cff", hover_color="#6aa2ff",
@@ -2937,10 +3203,8 @@ class StyledButton(tk.Canvas):
     def _draw(self, bg):
         self.delete("all")
         r, w, h = 9, self._width, self._height
-        self.create_rectangle(r, 0, w-r, h, fill=bg, outline="")
-        self.create_rectangle(0, r, w, h-r, fill=bg, outline="")
-        for box, a in [((0,0,2*r,2*r),90),((w-2*r,0,w,2*r),0),((0,h-2*r,2*r,h),180),((w-2*r,h-2*r,w,h),270)]:
-            self.create_arc(*box, start=a, extent=90, fill=bg, outline="")
+        self._bg_img = _round_bg_image(bg, w, h, r)
+        self.create_image(0, 0, image=self._bg_img, anchor="nw")
         fg = THEME["white"] if self._enabled else THEME["text_muted"]
         self.create_text(w//2, h//2, text=self._text, fill=fg, font=self._font)
 
@@ -3064,12 +3328,8 @@ class IconButton(tk.Canvas):
         self.delete("all")
         w = h = self._size
         r = max(6, w // 4)
-        self.create_arc(0, 0, 2 * r, 2 * r, start=90, extent=90, fill=bg, outline="")
-        self.create_arc(w - 2 * r, 0, w, 2 * r, start=0, extent=90, fill=bg, outline="")
-        self.create_arc(0, h - 2 * r, 2 * r, h, start=180, extent=90, fill=bg, outline="")
-        self.create_arc(w - 2 * r, h - 2 * r, w, h, start=270, extent=90, fill=bg, outline="")
-        self.create_rectangle(r, 0, w - r, h, fill=bg, outline="")
-        self.create_rectangle(0, r, w, h - r, fill=bg, outline="")
+        self._bg_img = _round_bg_image(bg, w, h, r)
+        self.create_image(0, 0, image=self._bg_img, anchor="nw")
         fg = self._fg if self._enabled else THEME["text_muted"]
         if self._text:
             self._icon(self._kind, w / 2.0, h / 2.0, w / 34.0, fg)
@@ -3301,6 +3561,7 @@ class OfficeTabs:
         self.body.pack(fill="both", expand=True)
         self._tabs = []
         self._selected = -1
+        self._lazy = {}
         self._active_size = active_size
         self._passive_size = passive_size
 
@@ -3324,10 +3585,29 @@ class OfficeTabs:
             self._draw_tab(idx)
         return frame
 
+    def add_lazy(self, frame, text, builder):
+        """Register a page whose content builds on first select (fast startup:
+        only the visible page pays construction cost up front)."""
+        self.add(frame, text)
+        self._lazy[len(self._tabs) - 1] = builder
+        return frame
+
     def select(self, idx):
         if not (0 <= idx < len(self._tabs)):
             return
         self._selected = idx
+        builder = self._lazy.pop(idx, None)
+        if builder is not None:
+            try:
+                builder()
+            except Exception as e:
+                try:
+                    tk.Label(self._tabs[idx]["frame"],
+                             text=f"Page failed to load: {e}",
+                             bg=THEME["bg"], fg=THEME["danger"],
+                             font=(THEME["font_family"], 9)).pack(padx=20, pady=20)
+                except Exception:
+                    pass
         for i, t in enumerate(self._tabs):
             if i == idx:
                 t["frame"].pack(fill="both", expand=True)
@@ -4430,6 +4710,18 @@ class App:
         self.root.title(f"{APP_NAME} V16")
         self.root.geometry("1280x860")
         self.root.minsize(1120,750)
+        try:self.root.state("zoomed")
+        except Exception:pass
+        try:
+            # No window open/close/maximize animation for this window: DWM
+            # repaints a complex GDI tree frame-by-frame during the animated
+            # zoom (visible progressive redraw); an instant flip feels faster.
+            import ctypes.wintypes as _wt
+            _hwnd = _wt.HWND(self.root.winfo_id())
+            _dwm = __import__("ctypes").windll.dwmapi.DwmSetWindowAttribute
+            _on = _wt.INT(1)
+            _dwm(_hwnd, 3, __import__("ctypes").byref(_on), 4)
+        except Exception:pass
         self.root.configure(bg=THEME["bg"])
         try:
             import ctypes as _ct
@@ -4448,6 +4740,14 @@ class App:
             except Exception:
                 pass
         self.lines=[];self.svc=Services(self.log);self.tray=None;self.closing=False
+        # Pre-created for refresh_logs(): log pages build lazily on first
+        # visit, but the 2s log cycle runs from startup.
+        self.views={};self._view_cache={};self._log_stat={}
+        self._log_level_var=tk.StringVar(value="ALL");self._log_search_var=tk.StringVar(value="")
+        # Single global operation lock, created up-front: worker() used to make
+        # it lazily, so two rapid clicks could build two locks and start the
+        # same service twice (seen as 2 x mysqld.exe).
+        self._operation_lock=threading.RLock()
         # Scrollable pages register their canvases here.  A single application-wide
         # wheel handler then routes the wheel to the currently visible page, so
         # scrolling is not dependent on the mouse being over a narrow scrollbar.
@@ -4455,13 +4755,32 @@ class App:
         self._install_global_wheel()
         self._pulse = 0
         self._docker_ok = False
-        self.build()
+        # Splash first: the window stays withdrawn while the (lazy, but still
+        # heavy) main page builds, so the user gets feedback in ~100 ms
+        # instead of a dead process with no window for seconds.
+        self.root.withdraw()
+        self._splash = self._make_splash()
+        try:
+            self.build()
+        finally:
+            try:
+                if getattr(self, "_splash", None) is not None:
+                    self._splash.destroy()
+                    self._splash = None
+            except Exception:
+                pass
+            try:self.root.deiconify()
+            except Exception:pass
         if not is_admin():
             self.log(lang.t("admin_hint"))
         threading.Thread(target=self._docker_poll, daemon=True).start()
         threading.Thread(target=self._startup_site_php, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW",self.hide)
         self.root.bind("<Unmap>",self.unmap)
+        # Resize storms (maximize/restore drags) fight the 1s refresh port
+        # scan and log re-reads: pause heavy cycles briefly after each resize.
+        self._resizing_until = 0.0
+        self.root.bind("<Configure>", self._on_root_configure, add="+")
         self.root.after(500,self.refresh)
         self.root.after(1000,self.refresh_logs)
         # Ignore Unmap events during early startup: on some systems the window
@@ -4648,6 +4967,11 @@ class App:
                                   ("PostgreSQL", "postgresql_port", "pg"),
                                   ("Redis", "redis_port", "redis"),
                                   ("Nginx", "nginx_port", "nginx"),
+                                  ("MySQL", "mysql_port", "mysql"),
+                                  ("MongoDB", "mongodb_port", "mongo"),
+                                  ("Memcached", "memcached_port", "memcached"),
+                                  ("Mailpit", "mailpit_port", "mailpit"),
+                                  ("DB Manager", "mydbroot_port", "dbmanager"),
                                   ("Docker", None, "docker"),
                                   ("Node.js", None, "node")):
             txt = f"{key} {CONFIG[cfgkey]}" if cfgkey else key
@@ -4703,7 +5027,9 @@ class App:
         tk.Label(title_row, text=lang.t(name_key), bg=THEME["bg_card"], fg=THEME["text"],
                  font=(THEME["font_family"], 10, "bold")).pack(side="left")
         port_map = {"apache":"apache_port","db":"mariadb_port","php":"php_cgi_port",
-                    "pg":"postgresql_port","redis":"redis_port","nginx":"nginx_port"}
+                    "pg":"postgresql_port","redis":"redis_port","nginx":"nginx_port",
+                    "mysql":"mysql_port","mongo":"mongodb_port","memcached":"memcached_port",
+                    "mailpit":"mailpit_port","dbmanager":"mydbroot_port"}
         if attr not in port_map:
             tk.Label(title_row, text="LOCAL SERVICE", bg=THEME["info"], fg=THEME["white"],
                      font=(THEME["font_family"], 7, "bold"), padx=7, pady=2).pack(side="left", padx=(8, 0))
@@ -4746,8 +5072,8 @@ class App:
         for kind, cmd, color, hover, active, tip in [
             ("globe", self.localhost, THEME["accent"], THEME["accent_hover"],
              THEME["accent_active"], lang.t("open_localhost") + " — " + lang.t("tip_localhost")),
-            ("cylinder", self.pma, "#1f6feb", "#4b9bff",
-             "#1a5fd0", "phpMyAdmin — " + lang.t("tip_pma")),
+            ("cylinder", self.dbmanager_open, "#1f6feb", "#4b9bff",
+             "#1a5fd0", lang.t("dbmanager") + " — " + lang.t("tip_dbmanager")),
             ("folder", lambda: os.startfile(str(WWW)), THEME["bg_input"], THEME["border_light"],
              THEME["border"], lang.t("open_www") + " — " + lang.t("tip_www")),
             ("lock", self.setup_ssl_cmd, THEME["warning_dim"], THEME["warning"],
@@ -4874,9 +5200,39 @@ class App:
         self._scroll_canvases.append(canvas)
 
         def _fit(e=None):
+            # Live resize fires Configure per pixel. Every intermediate pass
+            # re-rasterizes the whole tree (~350 ms first paint), so a storm
+            # of passes is the visible jerk. Collapse everything into ONE
+            # trailing pass 90 ms after the last event; the grid stays frozen
+            # meanwhile so no partial reflow shows.
             try:
+                try:
+                    body.grid_propagate(False)
+                    body.pack_propagate(False)
+                except Exception:
+                    pass
+                aid = getattr(body, "_fit_after", None)
+                if aid is not None:
+                    try:body.after_cancel(aid)
+                    except Exception:pass
+                body._fit_after = body.after(90, _do_fit)
+            except Exception:
+                pass
+
+        def _do_fit():
+            try:
+                try:
+                    body.grid_propagate(True)
+                    body.pack_propagate(True)
+                except Exception:
+                    pass
+                # Width change is what forces a full inner relayout (the
+                # expensive part). Height-only steps just refresh scroll state.
+                w = max(1, canvas.winfo_width())
+                if getattr(canvas, "_fit_w", None) != w:
+                    canvas._fit_w = w
+                    canvas.itemconfig(wid, width=w)
                 canvas.configure(scrollregion=canvas.bbox("all"))
-                canvas.itemconfig(wid, width=max(1, canvas.winfo_width()))
                 need = body.winfo_reqheight() > canvas.winfo_height() + 2
                 if need:
                     if not vsb.winfo_ismapped():
@@ -7238,15 +7594,20 @@ class App:
         self._service_card(services_frame, "postgresql", "🐘", "pg", self.start_pg_ui, self.stop_pg_ui, self.restart_pg)
         self._service_card(services_frame, "redis", "⚡", "redis", self.start_redis_ui, self.stop_redis_ui, self.restart_redis)
         self._service_card(services_frame, "nginx", "🔀", "nginx", self.start_nginx_ui, self.stop_nginx_ui, self.restart_nginx)
+        self._service_card(services_frame, "mysql", "🐬", "mysql", self.start_mysql_ui, self.stop_mysql_ui, self.restart_mysql)
+        self._service_card(services_frame, "mongodb", "🍃", "mongo", self.start_mongo_ui, self.stop_mongo_ui, self.restart_mongo)
+        self._service_card(services_frame, "memcached", "📦", "memcached", self.start_memcached_ui, self.stop_memcached_ui, self.restart_memcached)
+        self._service_card(services_frame, "mailpit", "✉️", "mailpit", self.start_mailpit_ui, self.stop_mailpit_ui, self.restart_mailpit)
+        self._service_card(services_frame, "dbmanager", "🗄️", "dbmanager", self.start_dbmanager_ui, self.stop_dbmanager_ui, self.restart_dbmanager)
         self._service_card(services_frame, "docker", "🐳", "docker", self.start_docker_ui, self.stop_docker_ui)
         self._service_card(services_frame, "nodejs", "🟢", "node", self.start_node_ui, self.stop_node_ui)
         self._action_bar(main_shell)
 
-        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_logs, lang.t('tab_logs')); self._log_tabs(tab_logs)
-        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_data, lang.t('tab_db')); self._data_tabs(tab_data)
-        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_projects, lang.t('tab_projects')); self._projects_tabs(tab_projects)
-        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_monitor, lang.t('tab_monitor')); self._monitor_tabs(tab_monitor)
-        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg"]); main_nb.add(tab_settings, lang.t('tab_settings')); self._build_settings(self._scrollable(tab_settings, bg=THEME["bg"]))
+        tab_logs = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_logs, lang.t('tab_logs'), lambda: self._log_tabs(tab_logs))
+        tab_data = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_data, lang.t('tab_db'), lambda: self._data_tabs(tab_data))
+        tab_projects = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_projects, lang.t('tab_projects'), lambda: self._projects_tabs(tab_projects))
+        tab_monitor = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_monitor, lang.t('tab_monitor'), lambda: self._monitor_tabs(tab_monitor))
+        tab_settings = tk.Frame(main_nb.body, bg=THEME["bg"]); self._lazy_page(main_nb, tab_settings, lang.t('tab_settings'), lambda: self._build_settings(self._scrollable(tab_settings, bg=THEME["bg"])))
 
         self._build_sidebar(workspace, main_nb)
         main_nb.body.pack_configure(side="right", fill="both", expand=True)
@@ -7259,6 +7620,14 @@ class App:
         self.svc.ui_progress = self._install_progress
         self._sidebar_active = 0
         self._unify_entries(self.root)
+
+    def _lazy_page(self, nb, frame, text, builder):
+        def run():
+            builder()
+            try:self._unify_entries(frame)
+            except Exception:pass
+        nb.add_lazy(frame, text, run)
+        return frame
 
     def _unify_entries(self, root):
         unify_entries(root)
@@ -8108,7 +8477,7 @@ class App:
         self._set_component_vars = {}
         cb_grid = tk.Frame(body, bg=THEME["bg_card"]); cb_grid.pack(fill="x")
         try: manifest_names = [n for n,i in comps().items() if is_component(i)]
-        except Exception: manifest_names = ["apache","php","mariadb","postgresql","redis","nginx","nodejs","phpmyadmin"]
+        except Exception: manifest_names = ["apache","php","mariadb","mysql","postgresql","redis","nginx","nodejs","mongodb","memcached","mailpit"]
         for idx, name in enumerate(manifest_names):
             var = tk.BooleanVar(value=False); self._set_component_vars[name] = var
             tk.Checkbutton(cb_grid, text=name.upper(), variable=var, bg=THEME["bg_card"], fg=THEME["text"], selectcolor=THEME["bg_input"], activebackground=THEME["bg_card"], activeforeground=THEME["text"], font=(THEME["font_family"],8), highlightthickness=0, bd=0).grid(row=idx//2, column=idx%2, sticky="w", padx=5, pady=3)
@@ -8570,6 +8939,11 @@ class App:
             "pg":     (self.svc.pgrun, self.start_pg_ui, self.stop_pg_ui),
             "redis":  (self.svc.redisrun, self.start_redis_ui, self.stop_redis_ui),
             "nginx":  (self.svc.nginxrun, self.start_nginx_ui, self.stop_nginx_ui),
+            "mysql":  (self.svc.mysqlrun, self.start_mysql_ui, self.stop_mysql_ui),
+            "mongo":  (self.svc.mongorun, self.start_mongo_ui, self.stop_mongo_ui),
+            "memcached": (self.svc.memcachedrun, self.start_memcached_ui, self.stop_memcached_ui),
+            "mailpit": (self.svc.mailpitrun, self.start_mailpit_ui, self.stop_mailpit_ui),
+            "dbmanager": (self.svc.dbmanager_run, self.start_dbmanager_ui, self.stop_dbmanager_ui),
             "docker": (self.svc.dockerun, self.start_docker_ui, self.stop_docker_ui),
             "node":   (self.svc.noderun, self.start_node_ui, self.stop_node_ui),
         }
@@ -8605,8 +8979,18 @@ class App:
                     return
                 time.sleep(0.1)
 
+    def _on_root_configure(self, e=None):
+        try:
+            if e is not None and e.widget is not self.root:return
+            self._resizing_until = time.monotonic() + 0.8
+        except Exception:pass
+    def _resizing(self):
+        try:return time.monotonic() < self._resizing_until
+        except Exception:return False
     def refresh(self):
         try:
+            if self._resizing():
+                return
             try:
                 for _name, _pid, _code in self.svc.managed_process_health():
                     self.log(f"Service died unexpectedly: {_name} (PID {_pid}, exit code {_code})")
@@ -8618,20 +9002,32 @@ class App:
             pg = self.svc.pgrun()
             rd = self.svc.redisrun()
             nx = self.svc.nginxrun()
+            my = self.svc.mysqlrun()
+            mg = self.svc.mongorun()
+            mc = self.svc.memcachedrun()
+            mp = self.svc.mailpitrun()
+            dbm = self.svc.dbmanager_run()
             dk = getattr(self, "_docker_ok", False)
             no = self.svc.noderun()
-            self.status_color(self.apache_status, a)
-            self.status_color(self.db_status, d)
-            self.status_color(self.php_status, p)
-            self.status_color(self.pg_status, pg)
-            self.status_color(self.redis_status, rd)
-            self.status_color(self.nginx_status, nx)
-            self.status_color(self.docker_status, dk)
-            self.status_color(self.node_status, no)
-
-            for prefix, running in [("apache", a), ("db", d), ("php", p), ("pg", pg), ("redis", rd), ("nginx", nx), ("docker", dk), ("node", no)]:
+            # Redraw widgets only on state flips: reconfiguring 13 icon pairs
+            # + toggle buttons + port labels every second makes the whole UI
+            # flicker (canvas redraws), most visible while resizing.
+            states = {"apache": a, "db": d, "php": p, "pg": pg, "redis": rd,
+                      "nginx": nx, "mysql": my, "mongo": mg, "memcached": mc,
+                      "mailpit": mp, "dbmanager": dbm, "docker": dk, "node": no}
+            prev = getattr(self, "_svc_states", None)
+            if prev is None:
+                prev = {}
+            for prefix, running in states.items():
+                if prev.get(prefix) is running:
+                    continue
+                try:
+                    self.status_color(getattr(self, prefix + "_status"), running)
+                except Exception:
+                    pass
                 self._update_toggle_btn(prefix, running)
                 self._colorize_port_label(prefix, running)
+            self._svc_states = states
 
         finally:
             if not self.closing:
@@ -8648,6 +9044,20 @@ class App:
         t.insert("1.0", data)
         t.see("end")
 
+    def _tail_text(self, path, limit):
+        # Tail without reading the whole file: some logs (MariaDB error log)
+        # grow to megabytes, and full read+decode every refresh cycle churns
+        # the UI thread. Read the last bytes, then slice chars.
+        try:
+            with open(path, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - (limit + 2048)))
+                data = f.read()
+            return data.decode("mbcs", errors="replace")[-limit:]
+        except Exception:
+            return None
+
     def _read_log_cached(self, key, path, limit):
         try:
             st = path.stat()
@@ -8656,15 +9066,16 @@ class App:
             return None
         if self._log_stat.get(key) == sig:
             return None
-        try:
-            data = path.read_text(encoding="mbcs", errors="replace")[-limit:]
-        except Exception:
+        data = self._tail_text(path, limit)
+        if data is None:
             return None
         self._log_stat[key] = sig
         return data
 
     def refresh_logs(self):
         try:
+            if self._resizing():
+                return
             lines = self.lines
             try:
                 lvl = self._log_level_var.get()
@@ -8704,10 +9115,9 @@ class App:
                 blocks = []
                 for name in parts:
                     p = LOGS / name
-                    try:
-                        blocks.append(f"\n===== {name} =====\n" + p.read_text(encoding="mbcs", errors="replace")[-20000:])
-                    except Exception:
-                        pass
+                    data = self._tail_text(p, 20000)
+                    if data is not None:
+                        blocks.append(f"\n===== {name} =====\n" + data)
                 self.settext("proc", "".join(blocks))
         finally:
             if not self.closing:
@@ -8784,6 +9194,21 @@ class App:
     def start_nginx_ui(self): self._start_guarded(CONFIG["nginx_port"], self.svc.start_nginx, "Starting Nginx")
     def stop_nginx_ui(self): self.worker(self.svc.stop_nginx, "Stopping Nginx")
     def restart_nginx(self): self.worker(lambda: (self.svc.stop_nginx(), self.svc.start_nginx()), "Restarting Nginx")
+    def start_mysql_ui(self): self._start_guarded(CONFIG["mysql_port"], self.svc.start_mysql, "Starting MySQL")
+    def stop_mysql_ui(self): self.worker(self.svc.stop_mysql, "Stopping MySQL")
+    def restart_mysql(self): self.worker(lambda: (self.svc.stop_mysql(), self.svc.start_mysql()), "Restarting MySQL")
+    def start_mongo_ui(self): self._start_guarded(CONFIG["mongodb_port"], self.svc.start_mongo, "Starting MongoDB")
+    def stop_mongo_ui(self): self.worker(self.svc.stop_mongo, "Stopping MongoDB")
+    def restart_mongo(self): self.worker(lambda: (self.svc.stop_mongo(), self.svc.start_mongo()), "Restarting MongoDB")
+    def start_memcached_ui(self): self._start_guarded(CONFIG["memcached_port"], self.svc.start_memcached, "Starting Memcached")
+    def stop_memcached_ui(self): self.worker(self.svc.stop_memcached, "Stopping Memcached")
+    def restart_memcached(self): self.worker(lambda: (self.svc.stop_memcached(), self.svc.start_memcached()), "Restarting Memcached")
+    def start_mailpit_ui(self): self._start_guarded(CONFIG["mailpit_port"], self.svc.start_mailpit, "Starting Mailpit")
+    def stop_mailpit_ui(self): self.worker(self.svc.stop_mailpit, "Stopping Mailpit")
+    def restart_mailpit(self): self.worker(lambda: (self.svc.stop_mailpit(), self.svc.start_mailpit()), "Restarting Mailpit")
+    def start_dbmanager_ui(self): self._start_guarded(CONFIG.get("mydbroot_port",3001), self.svc.dbmanager_start, "Starting DB Manager Pro")
+    def stop_dbmanager_ui(self): self.worker(self.svc.dbmanager_stop, "Stopping DB Manager Pro")
+    def restart_dbmanager(self): self.worker(lambda: (self.svc.dbmanager_stop(), self.svc.dbmanager_start()), "Restarting DB Manager Pro")
     def setup_ssl_cmd(self): self.worker(self.svc.setup_ssl, "Setting up SSL")
 
     def start_node_ui(self): self.worker(self.svc.start_node, "Starting Node.js")
@@ -8880,10 +9305,15 @@ class App:
             for label, fn in [
                 ("PHP", self.svc.start_php),
                 ("MariaDB", self.svc.start_db),
+                ("MySQL", self.svc.start_mysql),
                 ("PostgreSQL", self.svc.start_pg),
                 ("Redis", self.svc.start_redis),
+                ("MongoDB", self.svc.start_mongo),
+                ("Memcached", self.svc.start_memcached),
+                ("Mailpit", self.svc.start_mailpit),
                 ("Apache", self.svc.start_apache),
                 ("Nginx", self.svc.start_nginx),
+                ("DB Manager Pro", self.svc.dbmanager_start),
                 ("Docker", self.svc.start_docker),
                 ("Node.js", self.svc.start_node),
             ]:
@@ -8902,8 +9332,13 @@ class App:
                 ("Apache", self.svc.stop_apache),
                 ("PHP", self.svc.stop_php),
                 ("MariaDB", self.svc.stop_db),
+                ("MySQL", self.svc.stop_mysql),
                 ("PostgreSQL", self.svc.stop_pg),
                 ("Redis", self.svc.stop_redis),
+                ("MongoDB", self.svc.stop_mongo),
+                ("Memcached", self.svc.stop_memcached),
+                ("Mailpit", self.svc.stop_mailpit),
+                ("DB Manager Pro", self.svc.dbmanager_stop),
                 ("Node.js", self.svc.stop_node),
                 ("Docker", self.svc.stop_docker),
             ]:
@@ -8918,19 +9353,41 @@ class App:
             for label, fn in [
                 ("Nginx", self.svc.stop_nginx), ("Apache", self.svc.stop_apache),
                 ("PHP", self.svc.stop_php), ("MariaDB", self.svc.stop_db),
-                ("PostgreSQL", self.svc.stop_pg), ("Redis", self.svc.stop_redis)]:
+                ("MySQL", self.svc.stop_mysql), ("PostgreSQL", self.svc.stop_pg),
+                ("Redis", self.svc.stop_redis), ("MongoDB", self.svc.stop_mongo),
+                ("Memcached", self.svc.stop_memcached), ("Mailpit", self.svc.stop_mailpit)]:
                 try: fn()
                 except Exception as e: self.log(f"{label} stop warning: {e}")
             for label, fn in [
                 ("PHP", self.svc.start_php), ("MariaDB", self.svc.start_db),
-                ("PostgreSQL", self.svc.start_pg), ("Redis", self.svc.start_redis),
+                ("MySQL", self.svc.start_mysql), ("PostgreSQL", self.svc.start_pg),
+                ("Redis", self.svc.start_redis), ("MongoDB", self.svc.start_mongo),
+                ("Memcached", self.svc.start_memcached), ("Mailpit", self.svc.start_mailpit),
                 ("Apache", self.svc.start_apache), ("Nginx", self.svc.start_nginx)]:
                 try: fn()
                 except Exception as e: self.log(f"{label} start skipped: {e}")
         self.worker(run,"Restarting All")
 
     def localhost(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/')
-    def pma(self): webbrowser.open(f'http://127.0.0.1:{CONFIG["apache_port"]}/phpmyadmin/')
+    def dbmanager_open(self):
+        try:port=int(CONFIG.get("mydbroot_port",3001))
+        except (TypeError,ValueError):port=3001
+        try:
+            if not self.svc.dbmanager_run():
+                self.svc.dbmanager_start()
+        except Exception as e:self.log(f"DB Manager start skipped: {e}")
+        url=f'http://127.0.0.1:{port}/'
+        try:
+            env=self.svc._dbm_ensure_env()
+            secret=env.get("FARAJA_SSO_SECRET","")
+            username=env.get("ADMIN_USER","admin") or "admin"
+            if secret:
+                r=requests.post(f'http://127.0.0.1:{port}/api/auth/sso',
+                    json={"secret":secret,"username":username},timeout=5)
+                if r.status_code==200 and r.json().get("ticket"):
+                    url+=f'?ticket={r.json()["ticket"]}'
+        except Exception as e:self.log(f"DB Manager SSO skipped: {e}")
+        webbrowser.open(url)
 
     def check(self):
         missing = [n for n, i in comps().items() if is_component(i) and not (APP_ROOT / i["expected"]).exists()]
@@ -9000,6 +9457,44 @@ class App:
         self.tray.on_activate = lambda i: self.show()
         threading.Thread(target=self.tray.run, daemon=True).start()
 
+    def _make_splash(self):
+        """Instant branded splash shown while the main UI builds.
+
+        A static bitmap painted in ~100 ms; the live window is built behind
+        it and swapped in. Always current by construction (nothing cached).
+        Never allowed to break startup: any failure returns None.
+        """
+        try:
+            sp = tk.Toplevel(self.root)
+            sp.overrideredirect(True)
+            sp.configure(bg=THEME["bg_card"])
+            sw, sh = 400, 170
+            try:
+                x = (sp.winfo_screenwidth() - sw) // 2
+                y = (sp.winfo_screenheight() - sh) // 2
+            except Exception:
+                x, y = 200, 200
+            sp.geometry(f"{sw}x{sh}+{x}+{y}")
+            try:
+                sp.attributes("-topmost", True)
+            except Exception:
+                pass
+            tk.Label(sp, text="Faraja WebServer", bg=THEME["bg_card"],
+                     fg=THEME["text"],
+                     font=(THEME["font_family"], 16, "bold")).pack(pady=(22, 2))
+            try:
+                _loading = lang.t("status_starting", svc="Faraja")
+            except Exception:
+                _loading = "Запуск…"
+            tk.Label(sp, text=_loading, bg=THEME["bg_card"], fg=THEME["text_dim"],
+                     font=(THEME["font_family"], 9)).pack(pady=(0, 10))
+            ttk.Progressbar(sp, mode="indeterminate", length=300,
+                            style="Modern.Horizontal.TProgressbar").pack()
+            sp.update()
+            return sp
+        except Exception:
+            return None
+
     def hide(self):
         self.ensure_tray()
         self.root.withdraw()
@@ -9026,14 +9521,9 @@ class App:
         if self.closing:
             return
         self.closing = True
-        try:
-            if self.tray:
-                self.tray.stop()
-        except Exception:
-            pass
-        # Hard watchdog: whatever hangs below, the process is gone in 12 s.
-        # Daemon threads never block interpreter exit, so this only fires
-        # when the normal path is stuck (e.g. a blocked destroy).
+        # Hard watchdog FIRST: pystray's stop() below is known to deadlock
+        # when called from inside its own menu callback — without this, Exit
+        # from the tray hangs the process forever and this never runs.
         def _watchdog():
             time.sleep(12)
             try:
@@ -9041,6 +9531,14 @@ class App:
             except Exception:
                 pass
         threading.Thread(target=_watchdog, daemon=True).start()
+
+        def _tray_stop():
+            try:
+                if self.tray:
+                    self.tray.stop()
+            except Exception:
+                pass
+        threading.Thread(target=_tray_stop, daemon=True).start()
 
         def finalize():
             try:
@@ -9175,7 +9673,7 @@ class App:
                     "• Nginx — обратный прокси и балансировщик (порт 80)\n"
                     "• Node.js — выполнение JavaScript/TypeScript скриптов\n"
                     "• Docker — проверка наличия и статуса контейнеров\n"
-                    "• phpMyAdmin — веб-панель управления базами MySQL/MariaDB\n\n"
+                    "• DB Manager Pro — веб-панель управления базами MySQL/MariaDB\n\n"
                     "КАК УСТРОЕНО:\n"
                     "• Все компоненты живут в папке runtime/ рядом с программой — ничего не ставится в систему.\n"
                     "• Вкладка «Основное» — карточки сервисов: зелёная иконка — работает, красная — остановлен.\n"
@@ -9233,8 +9731,8 @@ class App:
                     "Шаг 4. Примеры: SHOW DATABASES;  CREATE DATABASE mysite CHARACTER SET utf8mb4;\n"
                     "   CREATE USER 'mysite'@'localhost' IDENTIFIED BY 'secret';\n"
                     "   GRANT ALL ON mysite.* TO 'mysite'@'localhost';\n"
-                    "Шаг 5. Для визуальной работы нажмите «phpMyAdmin» — откроется веб-панель\n"
-                    "по адресу http://127.0.0.1:8080/phpmyadmin/ (root без пароля).",
+                    "Шаг 5. Для визуальной работы нажмите «DB Manager Pro» — откроется веб-панель\n"
+                    "по адресу http://127.0.0.1:3001/ (вход по билету, без пароля).",
                 "ssl": "SSL (HTTPS) — ПОШАГОВО:\n\n"
                     "Шаг 1. Убедитесь, что интернет доступен (нужно скачать mkcert ~5 МБ).\n"
                     "Шаг 2. Нажмите «Настроить SSL» на панели действий.\n"
@@ -9322,7 +9820,7 @@ class App:
                     "• Nginx — reverse proxy and load balancer (port 80)\n"
                     "• Node.js — runs JavaScript/TypeScript scripts\n"
                     "• Docker — availability and status check\n"
-                    "• phpMyAdmin — web panel for MySQL/MariaDB\n\n"
+                    "• DB Manager Pro — web panel for MySQL/MariaDB\n\n"
                     "HOW IT WORKS:\n"
                     "• Everything lives in runtime/ next to the program — nothing is installed into the system.\n"
                     "• The 'Main' tab holds service cards: green icon = running, red = stopped.\n"
@@ -9380,8 +9878,8 @@ class App:
                     "Step 4. Examples: SHOW DATABASES;  CREATE DATABASE mysite CHARACTER SET utf8mb4;\n"
                     "   CREATE USER 'mysite'@'localhost' IDENTIFIED BY 'secret';\n"
                     "   GRANT ALL ON mysite.* TO 'mysite'@'localhost';\n"
-                    "Step 5. For visual work press 'phpMyAdmin' — the panel opens at\n"
-                    "http://127.0.0.1:8080/phpmyadmin/ (root, no password).",
+                    "Step 5. For visual work press 'DB Manager Pro' — the panel opens at\n"
+                    "http://127.0.0.1:3001/ (ticket login, no password).",
                 "ssl": "SSL (HTTPS) — STEP BY STEP:\n\n"
                     "Step 1. Make sure you are online (mkcert download, ~5 MB).\n"
                     "Step 2. Press 'Setup SSL' in the action bar.\n"
@@ -9456,7 +9954,7 @@ class App:
             "es": {
                 "overview": "Faraja WebServer — entorno de desarrollo local portátil para Windows.\n\n"
                     "INCLUYE: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL y phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL y DB Manager Pro.\n\n"
                     "Todo vive en runtime/ junto al programa, sin instalación en el sistema.\n"
                     "Pestaña «Principal»: tarjetas de servicios (verde = en ejecución).\n"
                     "Pestaña «Adicional»: registros, archivos, editor SQL, sitios, tareas y ajustes.\n"
@@ -9488,7 +9986,7 @@ class App:
                     "2. «Adicional» → «SQL»: elija el motor e indique usuario/clave\n"
                     "(MariaDB: root sin clave; PostgreSQL: postgres).\n"
                     "3. Escriba la consulta y pulse «Ejecutar»; el resultado sale a la derecha.\n"
-                    "4. O pulse «phpMyAdmin»: http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. O pulse «DB Manager Pro»: http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS):\n\n"
                     "1. Pulse «Configurar SSL» (requiere internet, ~5 MB).\n"
                     "2. Se descarga mkcert, se instala el certificado raíz local\n"
@@ -9504,7 +10002,7 @@ class App:
             "de": {
                 "overview": "Faraja WebServer — portable lokale Entwicklungsumgebung für Windows.\n\n"
                     "ENTHALTEN: Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL und phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL und DB Manager Pro.\n\n"
                     "Alles liegt in runtime/ neben dem Programm — keine Systeminstallation.\n"
                     "Reiter «Haupt»: Dienst-Karten (grün = läuft).\n"
                     "Reiter «Erweitert»: Logs, Dateien, SQL-Editor, Sites, Aufgaben, Einstellungen.\n"
@@ -9537,7 +10035,7 @@ class App:
                     "2. «Erweitert» → «SQL»: Engine wählen, Benutzer/Passwort eingeben\n"
                     "(MariaDB: root ohne Passwort; PostgreSQL: postgres).\n"
                     "3. Abfrage schreiben, «Ausführen» — Ergebnis erscheint rechts.\n"
-                    "4. Oder «phpMyAdmin»: http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. Oder «DB Manager Pro»: http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS):\n\n"
                     "1. «SSL einrichten» klicken (Internet nötig, ~5 MB).\n"
                     "2. mkcert wird geladen, Root-Zertifikat installiert\n"
@@ -9553,7 +10051,7 @@ class App:
             "fr": {
                 "overview": "Faraja WebServer — environnement de développement local portable pour Windows.\n\n"
                     "INCLUS : Apache (8080), MariaDB (3306), PHP FastCGI (9074), PostgreSQL (5432),\n"
-                    "Redis (6379), Nginx (80), Node.js, Docker, SSL et phpMyAdmin.\n\n"
+                    "Redis (6379), Nginx (80), Node.js, Docker, SSL et DB Manager Pro.\n\n"
                     "Tout vit dans runtime/ à côté du programme, sans installation système.\n"
                     "Onglet « Principal » : cartes des services (vert = en exécution).\n"
                     "Onglet « Avancé » : logs, fichiers, éditeur SQL, sites, tâches, paramètres.\n"
@@ -9585,7 +10083,7 @@ class App:
                     "2. « Avancé » → « SQL » : choisissez le moteur, saisissez login/mot de passe\n"
                     "(MariaDB : root sans mot de passe ; PostgreSQL : postgres).\n"
                     "3. Écrivez la requête, « Exécuter » — le résultat s'affiche à droite.\n"
-                    "4. Ou « phpMyAdmin » : http://127.0.0.1:8080/phpmyadmin/.",
+                    "4. Ou « DB Manager Pro » : http://127.0.0.1:3001/.",
                 "ssl": "SSL (HTTPS) :\n\n"
                     "1. Cliquez « Configurer SSL » (internet requis, ~5 Mo).\n"
                     "2. mkcert est téléchargé, le certificat racine local est installé\n"
@@ -9601,7 +10099,7 @@ class App:
             "zh": {
                 "overview": "Faraja WebServer — Windows 便携式本地开发环境。\n\n"
                     "包含：Apache（8080）、MariaDB（3306）、PHP FastCGI（9074）、PostgreSQL（5432）、\n"
-                    "Redis（6379）、Nginx（80）、Node.js、Docker、SSL 和 phpMyAdmin。\n\n"
+                    "Redis（6379）、Nginx（80）、Node.js、Docker、SSL 和 DB Manager Pro。\n\n"
                     "所有组件位于程序旁的 runtime/ 文件夹中，无需系统安装。\n"
                     "「主要」选项卡：服务卡片（绿色 = 运行中）。\n"
                     "「高级」选项卡：日志、文件、SQL 编辑器、站点、任务和设置。\n"
@@ -9633,7 +10131,7 @@ class App:
                     "2. 「高级」→「SQL」：选择引擎，输入用户名/密码\n"
                     "（MariaDB：root 无密码；PostgreSQL：postgres）。\n"
                     "3. 在左侧输入查询，点击「执行」，结果显示在右侧。\n"
-                    "4. 或点击「phpMyAdmin」：http://127.0.0.1:8080/phpmyadmin/。",
+                    "4. 或点击「DB Manager Pro」：http://127.0.0.1:3001/。",
                 "ssl": "SSL（HTTPS）：\n\n"
                     "1. 点击「设置 SSL」（需要联网，约 5 MB）。\n"
                     "2. 下载 mkcert，安装本地根证书（Windows 会请求一次授权），颁发证书。\n"
@@ -9710,7 +10208,7 @@ class App:
                  fg=THEME["text"], font=(THEME["font_family"], 10, "bold")).pack(anchor="w", padx=10, pady=(8, 4))
 
         comp_vars = {}
-        comp_names = ["apache", "php", "mariadb", "postgresql", "redis", "nginx", "nodejs", "phpmyadmin"]
+        comp_names = ["apache", "php", "mariadb", "mysql", "postgresql", "redis", "nginx", "nodejs", "mongodb", "memcached", "mailpit"]
         for name in comp_names:
             var = tk.BooleanVar(value=True)
             cb = tk.Checkbutton(components_frame, text=name.upper(), variable=var,
@@ -9789,12 +10287,62 @@ class App:
 
 _SINGLE_MUTEX = None
 
+def _single_pid_alive(pid):
+    """True if a process with this PID exists (used for the lock file)."""
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        handle = kernel32.OpenProcess(0x1000, False, int(pid))
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        # Access denied still means "alive".
+        return kernel32.GetLastError() == 5
+    except Exception:
+        return False
+
+
+def _single_lock_path():
+    try:
+        d = APP_ROOT / "tmp"
+        d.mkdir(parents=True, exist_ok=True)
+        return d / "faraja_pro.lock"
+    except Exception:
+        return None
+
+
+def _single_claim_lock():
+    """Write our PID into the lock file; return True if we own it.
+
+    A last-writer check serializes two starters: whoever finds foreign
+    content after its own write loses.
+    """
+    p = _single_lock_path()
+    if p is None:
+        return True
+    try:
+        p.write_text(str(os.getpid()), encoding="utf-8")
+    except Exception:
+        return True
+    time.sleep(0.5)
+    try:
+        return p.read_text(encoding="utf-8").strip() == str(os.getpid())
+    except Exception:
+        return True
+
+
 def _ensure_single_instance():
     """Named-mutex guard: returns (is_first, activated).
 
     Perf-child helper processes bypass the guard.  When another instance
     is already running we try to restore its window, so a second launch
-    never leaves a stray process behind."""
+    never leaves a stray process behind.
+
+    NOTE: with onefile builds the unpack phase takes seconds, so rapid
+    double-clicks can slip past the mutex (it is created only when Python
+    starts).  _single_recheck() below closes that hole at runtime.
+    """
     global _SINGLE_MUTEX
     if "--perf-child" in sys.argv:
         return True, False
@@ -9845,5 +10393,15 @@ if __name__ == "__main__":
                         "Faraja WebServer", 0x40)
                 except Exception:
                     pass
+            sys.exit(0)
+        if not _single_claim_lock():
+            # Lost the lock race (parallel unpack): another starter owns it.
+            try:
+                import ctypes as _ct
+                _ct.windll.user32.MessageBoxW(
+                    None, "Faraja WebServer is already running.",
+                    "Faraja WebServer", 0x40)
+            except Exception:
+                pass
             sys.exit(0)
         App().run()
