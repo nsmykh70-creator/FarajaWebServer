@@ -426,7 +426,7 @@ class LangManager:
 lang = LangManager()
 
 APP_NAME = "Faraja WebServer"
-APP_VERSION = "16.0"
+APP_VERSION = "17.0"
 for _entry in LOCALES.values():
     for _code, _text in _entry.items():
         if "MiniServer" in _text:
@@ -4707,7 +4707,7 @@ def run_perf_child(cfg_path):
 class App:
     def __init__(self):
         self.root=tk.Tk()
-        self.root.title(f"{APP_NAME} V16")
+        self.root.title(f"{APP_NAME} V17")
         self.root.geometry("1280x860")
         self.root.minsize(1120,750)
         try:self.root.state("zoomed")
@@ -9453,7 +9453,7 @@ class App:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Exit", lambda i, x: self.exit())
         )
-        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V16", menu)
+        self.tray = pystray.Icon(APP_NAME, Image.open(tray_image()), f"{APP_NAME} V17", menu)
         self.tray.on_activate = lambda i: self.show()
         threading.Thread(target=self.tray.run, daemon=True).start()
 
@@ -10358,7 +10358,10 @@ def _ensure_single_instance():
                 # The first instance may still be unpacking/booting, so retry
                 # the window lookup instead of popping a dialog at once.
                 for _ in range(5):
-                    hwnd = user32.FindWindowW(None, f"{APP_NAME} V16")
+                    hwnd = user32.FindWindowW(None, f"{APP_NAME} V17")
+                    if not hwnd:
+                        # Older running copy (V16 window title).
+                        hwnd = user32.FindWindowW(None, f"{APP_NAME} V16")
                     if hwnd:
                         try:
                             user32.ShowWindow(hwnd, 9)  # SW_RESTORE
